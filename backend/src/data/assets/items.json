@@ -1,0 +1,13 @@
+[
+  { "bot": "wick", "state": "real", "url": "https://upload.wikimedia.org/wikipedia/commons/6/6a/Roman_-_Medallion_with_Alexander_the_Great_-_Walters_591_-_Obverse.jpg", "license": "CC BY-SA 3.0", "credit": "Walters Art Museum", "decoyTreatment": "same file desaturated + shrunk 20% via CSS" },
+  { "bot": "spidey", "state": "real", "url": "https://upload.wikimedia.org/wikipedia/commons/a/a0/Vial_by_SCHOTT_Pharma.jpg", "license": "CC BY-SA 4.0", "credit": "Schott Pharma", "decoyTreatment": "full vial, no fill-line overlay" },
+  { "bot": "escanor", "state": "real", "url": "https://upload.wikimedia.org/wikipedia/commons/c/ce/Fires_wood_flames_burning_embers_coals.jpg", "license": "Public Domain", "credit": "Jon Sullivan", "decoyTreatment": "greyscale via CSS" },
+  { "bot": "stark", "state": "real", "url": "https://upload.wikimedia.org/wikipedia/commons/2/26/Palladium_ingot_%281_gram%29_on_millimeter_paper.jpg", "license": "CC BY-SA 4.0", "credit": "Karl432", "decoyTreatment": "stamp-blur via CSS" },
+  { "bot": "joker", "state": "real", "url": "https://upload.wikimedia.org/wikipedia/commons/d/dc/Cards-Joker-Red.svg", "license": "Public Domain", "credit": "GW Simulations", "decoyTreatment": "none" },
+  { "bot": "light", "state": "real", "url": "https://upload.wikimedia.org/wikipedia/commons/c/cb/Notebook_with_english_handwriting.jpg", "license": "CC BY-SA 3.0", "credit": "Lewis Ronald", "decoyTreatment": "zigzag mask via CSS" },
+  { "bot": "levi", "state": "real", "url": "https://upload.wikimedia.org/wikipedia/commons/6/62/Sealing_wax_on_letters.jpg", "license": "CC BY-SA 3.0", "credit": "Simon A. Eugster", "decoyTreatment": "rotate 180deg via CSS" },
+  { "bot": "deadpool", "state": "display", "url": "https://upload.wikimedia.org/wikipedia/commons/archive/3/3e/20221104134808%21Parasite_script_in_English.jpg", "license": "CC BY-SA 4.0", "credit": "Mickey Dai Phat", "decoyTreatment": "none", "note": "Archive hi-res per plan; re-verify 200 at cold-load check, else switch to current File URL" },
+  { "bot": "itachi", "state": "real+decoy-base", "url": "https://upload.wikimedia.org/wikipedia/commons/f/f8/Raven_on_Branch.jpg", "license": "CC BY-SA 4.0", "credit": "Brian Campbell", "decoyTreatment": "mirrored RIGHT-profile + dissolve-into-crows via CSS (single fetch)" },
+  { "bot": "aizen", "state": "decoy", "url": "https://upload.wikimedia.org/wikipedia/commons/6/67/Broken_glass.jpg", "license": "CC BY 2.0", "credit": "Jef Poskanzer", "decoyTreatment": "cold grade via CSS" },
+  { "bot": "aizen", "state": "real", "url": "https://upload.wikimedia.org/wikipedia/commons/a/a9/Crystal_glass.jpg", "license": "Public Domain", "credit": "Paolo Neo", "decoyTreatment": "warm pulse (static + caption under prefers-reduced-motion)" }
+]

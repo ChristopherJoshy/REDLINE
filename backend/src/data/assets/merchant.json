@@ -1,0 +1,35 @@
+[
+  {
+    "bot": "merchant",
+    "slot": "open-welcome",
+    "page": "https://www.myinstants.com/en/instant/n-merchant-welcome-12965/",
+    "audio": "https://www.myinstants.com/media/sounds/n-merchant-welcome.mp3",
+    "trigger": "OPEN",
+    "uploader": "g-r-b-herb",
+    "views": "304",
+    "bytes": 17901,
+    "localPath": "//sounds/merchant/open-welcome.mp3"
+  },
+  {
+    "bot": "merchant",
+    "slot": "success-thank-you",
+    "page": "https://www.myinstants.com/en/instant/re4-merchant-hehe-thank-you/",
+    "audio": "https://www.myinstants.com/media/sounds/resident-evil-4-merchant-thank-you.mp3",
+    "trigger": "SUCCESS",
+    "uploader": "see page",
+    "views": "19,873",
+    "bytes": 35064,
+    "localPath": "//sounds/merchant/success-thank-you.mp3"
+  },
+  {
+    "bot": "merchant",
+    "slot": "troll-not-enough-cash",
+    "page": "https://www.myinstants.com/en/instant/n-merchant-not-enough-cash-66612/",
+    "audio": "https://www.myinstants.com/media/sounds/n-merchant-not-enough-cash.mp3",
+    "trigger": "TROLL",
+    "uploader": "g-r-b-herb",
+    "views": "247",
+    "bytes": 37033,
+    "localPath": "//sounds/merchant/troll-not-enough-cash.mp3"
+  }
+]

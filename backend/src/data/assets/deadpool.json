@@ -1,0 +1,68 @@
+[
+  {
+    "bot": "deadpool",
+    "slot": "entry-oh-hello",
+    "page": "https://www.myinstants.com/en/instant/deadpool-oh-hello-99586/",
+    "audio": "https://www.myinstants.com/media/sounds/y2mate_zDcMnH1.mp3",
+    "trigger": "ENTRY",
+    "uploader": "william05",
+    "views": "4,986",
+    "bytes": 26233,
+    "localPath": "//sounds/deadpool/entry-oh-hello.mp3"
+  },
+  {
+    "bot": "deadpool",
+    "slot": "taunt-laughing",
+    "page": "https://www.myinstants.com/en/instant/deadpool-laughing-65400/",
+    "audio": "https://www.myinstants.com/media/sounds/deadpool-laughing.mp3",
+    "trigger": "TAUNT",
+    "uploader": "minerobart",
+    "views": "1,215",
+    "bytes": 241418,
+    "localPath": "//sounds/deadpool/taunt-laughing.mp3"
+  },
+  {
+    "bot": "deadpool",
+    "slot": "address-hey-you-guys",
+    "page": "https://www.myinstants.com/en/instant/deadpool-hey-you-guys-16932/",
+    "audio": "https://www.myinstants.com/media/sounds/hey-you-guys_Wz4vMCh.mp3",
+    "trigger": "ADDRESS",
+    "uploader": "Marconox",
+    "views": "1,008",
+    "bytes": 31809,
+    "localPath": "//sounds/deadpool/address-hey-you-guys.mp3"
+  },
+  {
+    "bot": "deadpool",
+    "slot": "entry-welcome-party",
+    "page": "https://www.myinstants.com/en/instant/deadpool-welcome-to-the-party-/",
+    "audio": "https://www.myinstants.com/media/sounds/deadpool-host-alert-audiotrimmer.mp3",
+    "trigger": "ENTRY-sting",
+    "uploader": "GIGSHOT",
+    "views": "1,044",
+    "bytes": 154897,
+    "localPath": "//sounds/deadpool/entry-welcome-party.mp3"
+  },
+  {
+    "bot": "deadpool",
+    "slot": "gag-chimichanga-stand",
+    "page": "https://www.myinstants.com/en/instant/thats-my-chimichanga-stand-22867/",
+    "audio": "https://www.myinstants.com/media/sounds/thats-my-chimichanga-stand.mp3",
+    "trigger": "GAG primary",
+    "uploader": "emil135",
+    "views": "370",
+    "bytes": 158903,
+    "localPath": "//sounds/deadpool/gag-chimichanga-stand.mp3"
+  },
+  {
+    "bot": "deadpool",
+    "slot": "taunt-wrong-button",
+    "page": "https://www.myinstants.com/en/instant/deadpool-you-pressed-the-wrong-button-6008/",
+    "audio": "https://www.myinstants.com/media/sounds/dp_nYcqCQq.mp3",
+    "trigger": "TAUNT",
+    "uploader": "tsukiyomaru",
+    "views": "2,300",
+    "bytes": 39038,
+    "localPath": "//sounds/deadpool/taunt-wrong-button.mp3"
+  }
+]

@@ -1,0 +1,57 @@
+[
+  {
+    "bot": "joker",
+    "slot": "jumpscare-evil-laugh",
+    "page": "https://www.myinstants.com/en/instant/evil-laugh-joker/",
+    "audio": "https://www.myinstants.com/media/sounds/joker-laughing.mp3",
+    "trigger": "JUMPSCARE",
+    "uploader": "",
+    "views": "29,687",
+    "bytes": 175451,
+    "localPath": "//sounds/joker/jumpscare-evil-laugh.mp3"
+  },
+  {
+    "bot": "joker",
+    "slot": "taunt-joker-laugh",
+    "page": "https://www.myinstants.com/en/instant/joker-laugh/",
+    "audio": "https://www.myinstants.com/media/sounds/joker-laugh.mp3",
+    "trigger": "TAUNT",
+    "uploader": "",
+    "views": "24,664",
+    "bytes": 61292,
+    "localPath": "//sounds/joker/taunt-joker-laugh.mp3"
+  },
+  {
+    "bot": "joker",
+    "slot": "taunt-why-so-serious",
+    "page": "https://www.myinstants.com/en/instant/why-so-serious-joker/",
+    "audio": "https://www.myinstants.com/media/sounds/joker_whysoserious.mp3",
+    "trigger": "TAUNT",
+    "uploader": "comicjunkies",
+    "views": "21,236",
+    "bytes": 52497,
+    "localPath": "//sounds/joker/taunt-why-so-serious.mp3"
+  },
+  {
+    "bot": "joker",
+    "slot": "handover-tdk-smile",
+    "page": "https://www.myinstants.com/en/instant/joker-tdk-laugh/",
+    "audio": "https://www.myinstants.com/media/sounds/joker-lets-put-a-smile-on-that-face_2.mp3",
+    "trigger": "HANDOVER",
+    "uploader": "TFBAna",
+    "views": "2,502",
+    "bytes": 135748,
+    "localPath": "//sounds/joker/handover-tdk-smile.mp3"
+  },
+  {
+    "bot": "joker",
+    "slot": "jumpscare-2019-laugh",
+    "page": "https://www.myinstants.com/en/instant/joker-2019-laugh-53875/",
+    "audio": "https://www.myinstants.com/media/sounds/joker-2019-laugh.mp3",
+    "trigger": "JUMPSCARE-alt",
+    "uploader": "ThePolishJoker",
+    "views": "955",
+    "bytes": 142223,
+    "localPath": "//sounds/joker/jumpscare-2019-laugh.mp3"
+  }
+]

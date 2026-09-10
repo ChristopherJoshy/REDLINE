@@ -1,0 +1,68 @@
+[
+  {
+    "bot": "aizen",
+    "slot": "entry-yokoso-full",
+    "page": "https://www.myinstants.com/en/instant/aizen-yokoso-full-55496/",
+    "audio": "https://www.myinstants.com/media/sounds/aizen-yokoso-full.mp3",
+    "trigger": "ENTRY",
+    "uploader": "migamind",
+    "views": "50,298",
+    "bytes": 46825,
+    "localPath": "//sounds/aizen/entry-yokoso-full.mp3"
+  },
+  {
+    "bot": "aizen",
+    "slot": "entry-yokoso-short",
+    "page": "https://www.myinstants.com/en/instant/aizen-yokoso-27069/",
+    "audio": "https://www.myinstants.com/media/sounds/bbs-aizen-tybw-quotes-online-audio-converter.mp3",
+    "trigger": "ENTRY-short",
+    "uploader": "carl_justine",
+    "views": "11,945",
+    "bytes": 21671,
+    "localPath": "//sounds/aizen/entry-yokoso-short.mp3"
+  },
+  {
+    "bot": "aizen",
+    "slot": "attack-hado-99",
+    "page": "https://www.myinstants.com/en/instant/aizen-hado-99-4378/",
+    "audio": "https://www.myinstants.com/media/sounds/aizen-hado-99.mp3",
+    "trigger": "ATTACK",
+    "uploader": "migamind",
+    "views": "10,308",
+    "bytes": 58903,
+    "localPath": "//sounds/aizen/attack-hado-99.mp3"
+  },
+  {
+    "bot": "aizen",
+    "slot": "pressure-reiatsu",
+    "page": "https://www.myinstants.com/en/instant/aizen-reiatsu-de-11972/",
+    "audio": "https://www.myinstants.com/media/sounds/aizen-reiatsu-de.mp3",
+    "trigger": "PRESSURE",
+    "uploader": "migamind",
+    "views": "2,936",
+    "bytes": 101358,
+    "localPath": "//sounds/aizen/pressure-reiatsu.mp3"
+  },
+  {
+    "bot": "aizen",
+    "slot": "shatter",
+    "page": "https://www.myinstants.com/en/instant/aizen-shatter-878/",
+    "audio": "https://www.myinstants.com/media/sounds/aizen-shatter.mp3",
+    "trigger": "SHATTER",
+    "uploader": "Funjimmywantstodie",
+    "views": "341",
+    "bytes": 28956,
+    "localPath": "//sounds/aizen/shatter.mp3"
+  },
+  {
+    "bot": "aizen",
+    "slot": "entry-yokoso-2",
+    "page": "https://www.myinstants.com/en/instant/aizen-sosuke-yokoso-2-76877/",
+    "audio": "https://www.myinstants.com/media/sounds/aizen-sosuke-yokoso-2.mp3",
+    "trigger": "ENTRY-alt",
+    "uploader": "dzakir",
+    "views": "1,386",
+    "bytes": 178814,
+    "localPath": "//sounds/aizen/entry-yokoso-2.mp3"
+  }
+]

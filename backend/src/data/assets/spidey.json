@@ -1,0 +1,57 @@
+[
+  {
+    "bot": "spidey",
+    "slot": "entry",
+    "page": "https://www.myinstants.com/en/instant/spiderman-meme-song-37638/",
+    "audio": "https://www.myinstants.com/media/sounds/spiderman-meme-song.mp3",
+    "trigger": "ENTRY/TROLL",
+    "uploader": "see page",
+    "views": "1.7M",
+    "bytes": 199294,
+    "localPath": "//sounds/spidey/entry.mp3"
+  },
+  {
+    "bot": "spidey",
+    "slot": "handover",
+    "page": "https://www.myinstants.com/en/instant/spiderman-2099-theme-20934/",
+    "audio": "https://www.myinstants.com/media/sounds/spiderman-2099-theme.mp3",
+    "trigger": "ENTRY/HANDOVER",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 127017,
+    "localPath": "//sounds/spidey/handover.mp3"
+  },
+  {
+    "bot": "spidey",
+    "slot": "taunt",
+    "page": "https://www.myinstants.com/en/instant/bully-maguire-theme-93566/",
+    "audio": "https://www.myinstants.com/media/sounds/bully-maguire-theme.mp3",
+    "trigger": "TAUNT",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 239469,
+    "localPath": "//sounds/spidey/taunt.mp3"
+  },
+  {
+    "bot": "spidey",
+    "slot": "quiz-pass",
+    "page": "https://www.myinstants.com/en/instant/peterparker-pizza-time-58819/",
+    "audio": "https://www.myinstants.com/media/sounds/mp3_e9ca8310-8d3f-11e9-9016-8b78caf46556.mp3",
+    "trigger": "QUIZ-PASS",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 12525,
+    "localPath": "//sounds/spidey/quiz-pass.mp3"
+  },
+  {
+    "bot": "spidey",
+    "slot": "thwip",
+    "page": "https://www.myinstants.com/en/instant/web-thwip-63170/",
+    "audio": "https://www.myinstants.com/media/sounds/web-thwip.mp3",
+    "trigger": "HANDOVER under voice",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 21661,
+    "localPath": "//sounds/spidey/thwip.mp3"
+  }
+]

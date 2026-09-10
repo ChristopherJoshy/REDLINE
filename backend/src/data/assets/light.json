@@ -1,0 +1,68 @@
+[
+  {
+    "bot": "light",
+    "slot": "unhinged-laugh",
+    "page": "https://www.myinstants.com/en/instant/light-yagamis-laugh-7090/",
+    "audio": "https://www.myinstants.com/media/sounds/psycho_Bj24m2M.mp3",
+    "trigger": "UNHINGED",
+    "uploader": "beatsbyapplebees",
+    "views": "52,988",
+    "bytes": 185083,
+    "localPath": "//sounds/light/unhinged-laugh.mp3"
+  },
+  {
+    "bot": "light",
+    "slot": "reveal-im-kira",
+    "page": "https://www.myinstants.com/en/instant/thats-right-im-kira-light-yagami-death-note-50773/",
+    "audio": "https://www.myinstants.com/media/sounds/thats-right-im-kira-light-yagami-death-note.mp3",
+    "trigger": "REVEAL",
+    "uploader": "mason1790",
+    "views": "3,363",
+    "bytes": 253820,
+    "localPath": "//sounds/light/reveal-im-kira.mp3"
+  },
+  {
+    "bot": "light",
+    "slot": "chip-potato-chip",
+    "page": "https://www.myinstants.com/en/instant/death-note-potato-chip-66312/",
+    "audio": "https://www.myinstants.com/media/sounds/death-note-potato-chip_kz7cfSd.mp3",
+    "trigger": "CHIP-BAG",
+    "uploader": "jeremiah099",
+    "views": "40",
+    "bytes": 304650,
+    "localPath": "//sounds/light/chip-potato-chip.mp3"
+  },
+  {
+    "bot": "light",
+    "slot": "lecture-i-am-justice",
+    "page": "https://www.myinstants.com/en/instant/death-note-i-am-justice-89107/",
+    "audio": "https://www.myinstants.com/media/sounds/death-note-i-am-justice.mp3",
+    "trigger": "LECTURE",
+    "uploader": "jeremiah099",
+    "views": "30",
+    "bytes": 283530,
+    "localPath": "//sounds/light/lecture-i-am-justice.mp3"
+  },
+  {
+    "bot": "light",
+    "slot": "laugh-kira-laugh",
+    "page": "https://www.myinstants.com/en/instant/kira-laugh/",
+    "audio": "https://www.myinstants.com/media/sounds/kira_s-laugh-death-note-ringtone-by-death-note_light-kira.mp3",
+    "trigger": "LAUGH-alt",
+    "uploader": "lalalale",
+    "views": "74,645",
+    "bytes": 258992,
+    "localPath": "//sounds/light/laugh-kira-laugh.mp3"
+  },
+  {
+    "bot": "light",
+    "slot": "laugh-kiras-laugh-alt2",
+    "page": "https://www.myinstants.com/en/instant/death-note-kiras-laugh-26964/",
+    "audio": "https://www.myinstants.com/media/sounds/death-note-kiras-laugh-original_2.mp3",
+    "trigger": "LAUGH-alt2",
+    "uploader": "",
+    "views": "10,188",
+    "bytes": 296010,
+    "localPath": "//sounds/light/laugh-kiras-laugh-alt2.mp3"
+  }
+]

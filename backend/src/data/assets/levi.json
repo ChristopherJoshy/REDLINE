@@ -1,0 +1,57 @@
+[
+  {
+    "bot": "levi",
+    "slot": "bark-levi-ackerman",
+    "page": "https://www.myinstants.com/en/instant/levi-ackerman-26688/",
+    "audio": "https://www.myinstants.com/media/sounds/trim6c5ff351-d78b-46bb-be38-73e2.mp3",
+    "trigger": "BARK",
+    "uploader": "the763",
+    "views": "12,743",
+    "bytes": 39269,
+    "localPath": "//sounds/levi/bark-levi-ackerman.mp3"
+  },
+  {
+    "bot": "levi",
+    "slot": "rage-kenny-scream",
+    "page": "https://www.myinstants.com/en/instant/levi-scream-kenny-51396/",
+    "audio": "https://www.myinstants.com/media/sounds/kenny-and-levi-meet-again-kenny-kills-levis-squad-attack-on-titan-episode-38-mp3cut.mp3",
+    "trigger": "RAGE",
+    "uploader": "Vengador1",
+    "views": "15,132",
+    "bytes": 48411,
+    "localPath": "//sounds/levi/rage-kenny-scream.mp3"
+  },
+  {
+    "bot": "levi",
+    "slot": "bark-oi-short",
+    "page": "https://www.myinstants.com/en/instant/levi-oi-9433/",
+    "audio": "https://www.myinstants.com/media/sounds/tmpqjqyf_4z.mp3",
+    "trigger": "BARK-short",
+    "uploader": "myinstantstelegrambot",
+    "views": "753",
+    "bytes": 74406,
+    "localPath": "//sounds/levi/bark-oi-short.mp3"
+  },
+  {
+    "bot": "levi",
+    "slot": "briefing-survey-corps",
+    "page": "https://www.myinstants.com/en/instant/survey-corps-60509/",
+    "audio": "https://www.myinstants.com/media/sounds/tmpgmvk1hgp.mp3",
+    "trigger": "BRIEFING",
+    "uploader": "myinstantsbot",
+    "views": "96",
+    "bytes": 157916,
+    "localPath": "//sounds/levi/briefing-survey-corps.mp3"
+  },
+  {
+    "bot": "levi",
+    "slot": "sting-aot-alarm",
+    "page": "https://www.myinstants.com/en/instant/levi-aot-alarm-59125/",
+    "audio": "https://www.myinstants.com/media/sounds/levi_aot_alarm.mp3",
+    "trigger": "STING",
+    "uploader": "guido_mista",
+    "views": "601",
+    "bytes": 139536,
+    "localPath": "//sounds/levi/sting-aot-alarm.mp3"
+  }
+]

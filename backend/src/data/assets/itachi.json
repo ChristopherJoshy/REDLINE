@@ -1,0 +1,68 @@
+[
+  {
+    "bot": "itachi",
+    "slot": "sfx-sharingan",
+    "page": "https://www.myinstants.com/en/instant/itachi-sharingan-naruto-43808/",
+    "audio": "https://www.myinstants.com/media/sounds/itachi-mangekyou-sharingan-sound-effect.mp3",
+    "trigger": "SFX",
+    "uploader": "angel65",
+    "views": "27,980",
+    "bytes": 66383,
+    "localPath": "//sounds/itachi/sfx-sharingan.mp3"
+  },
+  {
+    "bot": "itachi",
+    "slot": "sfx-sharingan-alt",
+    "page": "https://www.myinstants.com/en/instant/itachi-sharingan-68074/",
+    "audio": "https://www.myinstants.com/media/sounds/mangekyo-sharingan-sound-effect-with-download-link_pWHYt57.mp3",
+    "trigger": "SFX-alt",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 85957,
+    "localPath": "//sounds/itachi/sfx-sharingan-alt.mp3"
+  },
+  {
+    "bot": "itachi",
+    "slot": "speech-best-of",
+    "page": "https://www.myinstants.com/en/instant/itachi-mangekyo-sharingan-2974/",
+    "audio": "https://www.myinstants.com/media/sounds/best-of-itachi-speech.mp3",
+    "trigger": "SPEECH",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 65179,
+    "localPath": "//sounds/itachi/speech-best-of.mp3"
+  },
+  {
+    "bot": "itachi",
+    "slot": "genjutsu-voice-en",
+    "page": "https://www.myinstants.com/en/instant/itachi-genjutsu-28835/",
+    "audio": "https://www.myinstants.com/media/sounds/itachi-genjutsu.mp3",
+    "trigger": "GENJUTSU-voice EN",
+    "uploader": "peter2118",
+    "views": "445",
+    "bytes": 48795,
+    "localPath": "//sounds/itachi/genjutsu-voice-en.mp3"
+  },
+  {
+    "bot": "itachi",
+    "slot": "sting-mangekyo",
+    "page": "https://www.myinstants.com/en/instant/mangekyo-sharingan/",
+    "audio": "https://www.myinstants.com/media/sounds/mangekyoshi-sharingan.mp3",
+    "trigger": "STING",
+    "uploader": "Windslasher",
+    "views": "216,770",
+    "bytes": 12365,
+    "localPath": "//sounds/itachi/sting-mangekyo.mp3"
+  },
+  {
+    "bot": "itachi",
+    "slot": "crow-caw",
+    "page": "https://www.myinstants.com/en/instant/crow-sound-caw-13526/",
+    "audio": "https://www.myinstants.com/media/sounds/raven-caw-caw.mp3",
+    "trigger": "CROW",
+    "uploader": "jobvenom",
+    "views": "88,727",
+    "bytes": 6571,
+    "localPath": "//sounds/itachi/crow-caw.mp3"
+  }
+]

@@ -1,0 +1,51 @@
+export interface JoinResult {
+  teamId: string;
+  teamName: string;
+  members: string[];
+}
+
+export interface IdentifyResult {
+  teamId: string;
+  displayName: string;
+}
+
+async function post<T>(path: string, body: unknown, adminCode?: string): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (adminCode !== undefined) {
+    headers["x-admin-code"] = adminCode;
+  }
+  const res = await fetch(path, { method: "POST", headers, body: JSON.stringify(body) });
+  const data = (await res.json()) as T & { error?: string };
+  if (!res.ok) {
+    throw new Error(data.error ?? "request failed");
+  }
+  return data;
+}
+
+export function joinTeam(code: string): Promise<JoinResult> {
+  return post<JoinResult>("/api/join", { code });
+}
+
+export function identify(teamId: string, displayName: string): Promise<IdentifyResult> {
+  return post<IdentifyResult>("/api/identify", { teamId, displayName });
+}
+
+export async function me(): Promise<IdentifyResult> {
+  const res = await fetch("/api/me");
+  const data = (await res.json()) as IdentifyResult & { error?: string };
+  if (!res.ok) {
+    throw new Error(data.error ?? "no session");
+  }
+  return data;
+}
+
+export interface CreateTeamResult {
+  id: string;
+  name: string;
+  code: string;
+  hint: string;
+}
+
+export function createTeam(adminCode: string, name: string, members: string[]): Promise<CreateTeamResult> {
+  return post<CreateTeamResult>("/api/admin/teams", { name, members }, adminCode);
+}

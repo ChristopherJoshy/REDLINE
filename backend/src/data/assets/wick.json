@@ -1,0 +1,46 @@
+[
+  {
+    "bot": "wick",
+    "slot": "handover",
+    "page": "https://www.myinstants.com/en/instant/get-this-man-a-gun-14881/",
+    "audio": "https://www.myinstants.com/media/sounds/somebody-plllzzzzzzz.mp3",
+    "trigger": "HANDOVER",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 108532,
+    "localPath": "//sounds/wick/handover.mp3"
+  },
+  {
+    "bot": "wick",
+    "slot": "entry",
+    "page": "https://www.myinstants.com/en/instant/give-me-a-gun-4129/",
+    "audio": "https://www.myinstants.com/media/sounds/give-me-a-gun.mp3",
+    "trigger": "ENTRY",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 22014,
+    "localPath": "//sounds/wick/entry.mp3"
+  },
+  {
+    "bot": "wick",
+    "slot": "quiz-pass",
+    "page": "https://www.myinstants.com/en/instant/le-castle-vania-john-wick-6674/",
+    "audio": "https://www.myinstants.com/media/sounds/le-castle-vania-red-circle-led-spirals-shots-firedv1.mp3",
+    "trigger": "QUIZ-PASS",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 162966,
+    "localPath": "//sounds/wick/quiz-pass.mp3"
+  },
+  {
+    "bot": "wick",
+    "slot": "entry-alt",
+    "page": "https://www.myinstants.com/en/instant/im-thinkin-im-back-john-wick-65844/",
+    "audio": "https://www.myinstants.com/media/sounds/im-thinkin-im-back-john-wick.mp3",
+    "trigger": "ENTRY-alt",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 219565,
+    "localPath": "//sounds/wick/entry-alt.mp3"
+  }
+]

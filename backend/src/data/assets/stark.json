@@ -1,0 +1,57 @@
+[
+  {
+    "bot": "stark",
+    "slot": "entry",
+    "page": "https://www.myinstants.com/en/instant/endgame-avengers-assemble-56256/",
+    "audio": "https://www.myinstants.com/media/sounds/avengers-assemble.mp3",
+    "trigger": "ENTRY/HANDOVER",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 122424,
+    "localPath": "//sounds/stark/entry.mp3"
+  },
+  {
+    "bot": "stark",
+    "slot": "boot",
+    "page": "https://www.myinstants.com/en/instant/jarvis-welcome-home-sir-14019/",
+    "audio": "https://www.myinstants.com/media/sounds/welcome_home_sir.mp3",
+    "trigger": "ENTRY boot line",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 121005,
+    "localPath": "//sounds/stark/boot.mp3"
+  },
+  {
+    "bot": "stark",
+    "slot": "handover",
+    "page": "https://www.myinstants.com/en/instant/suit-up-for-iron-man-46000/",
+    "audio": "https://www.myinstants.com/media/sounds/suit-up-noise.mp3",
+    "trigger": "HANDOVER",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 46321,
+    "localPath": "//sounds/stark/handover.mp3"
+  },
+  {
+    "bot": "stark",
+    "slot": "quiz-pass",
+    "page": "https://www.myinstants.com/en/instant/i-am-iron-man-23526/",
+    "audio": "https://www.myinstants.com/media/sounds/ironman_Qaec4ow.mp3",
+    "trigger": "QUIZ-PASS",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 120906,
+    "localPath": "//sounds/stark/quiz-pass.mp3"
+  },
+  {
+    "bot": "stark",
+    "slot": "troll",
+    "page": "https://www.myinstants.com/en/instant/i-love-you-3000-88214/",
+    "audio": "https://www.myinstants.com/media/sounds/avengers-endgame-i-love-you-3000-scene-mp3cut.mp3",
+    "trigger": "TROLL",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 32946,
+    "localPath": "//sounds/stark/troll.mp3"
+  }
+]

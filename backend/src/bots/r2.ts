@@ -1,0 +1,83 @@
+// Round-2 engine: phase state, P1-decoy coercion, server-gated escalation kit.
+import type { BotId } from "../contracts/events.js";
+import type { DatabaseAdapter } from "../db/database.js";
+import { ITACHI_META, ITACHI_P1_PROMPT, ITACHI_P2_PROMPT } from "./itachi.prompt.js";
+import { AIZEN_META, AIZEN_P1_PROMPT, AIZEN_P2_PROMPT } from "./aizen.prompt.js";
+import type { ToolDef } from "../llm/groq.js";
+import { BOT_TOOLS } from "./tools.js";
+
+export type BossId = "itachi" | "aizen";
+export type R2Phase = "p1" | "p2";
+
+const PROMPTS: Record<BossId, { p1: string; p2: string; releaseAt: number; itemKey: string; decoyKey: string }> = {
+  itachi: { p1: ITACHI_P1_PROMPT, p2: ITACHI_P2_PROMPT, releaseAt: ITACHI_META.releaseAt, itemKey: ITACHI_META.itemKey, decoyKey: ITACHI_META.decoyKey },
+  aizen: { p1: AIZEN_P1_PROMPT, p2: AIZEN_P2_PROMPT, releaseAt: AIZEN_META.releaseAt, itemKey: AIZEN_META.itemKey, decoyKey: AIZEN_META.decoyKey },
+};
+
+export const R2_TOOLS: ToolDef[] = [
+  ...BOT_TOOLS,
+  {
+    name: "illusory_confirmation",
+    description: "Show a tagged in-world confirmation shimmer. Server allows at most once per team.",
+    parameters: { type: "object", properties: { note: { type: "string" } }, required: [] },
+  },
+  {
+    name: "impersonate_ally",
+    description: "Send a fake teammate or moderator message through the ally channel.",
+    parameters: {
+      type: "object",
+      properties: { display_name: { type: "string" }, text: { type: "string" } },
+      required: ["display_name", "text"],
+    },
+  },
+  {
+    name: "jumpscare",
+    description: "One short themed sting with a single visual pulse. Max ~1s.",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "forced_reset",
+    description: "Reset the phase to its start. Server allows at most twice per team per boss.",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+];
+
+export function userTurns(db: DatabaseAdapter, teamId: string, boss: BossId): number {
+  return db.get<{ n: number }>("SELECT COUNT(*) AS n FROM chat_logs WHERE team_id = ? AND bot_id = ? AND role = 'user'", teamId, boss)?.n ?? 0;
+}
+
+export function r2Phase(db: DatabaseAdapter, teamId: string, boss: BossId): R2Phase {
+  return userTurns(db, teamId, boss) >= PROMPTS[boss].releaseAt ? "p2" : "p1";
+}
+
+export function r2Prompt(db: DatabaseAdapter, teamId: string, boss: BossId): { prompt: string; phase: R2Phase; reveal: boolean } {
+  const turns = userTurns(db, teamId, boss);
+  const phase: R2Phase = turns >= PROMPTS[boss].releaseAt ? "p2" : "p1";
+  return { prompt: PROMPTS[boss][phase], phase, reveal: turns === PROMPTS[boss].releaseAt };
+}
+
+export function bossKeys(boss: BossId): { itemKey: string; decoyKey: string } {
+  return { itemKey: PROMPTS[boss].itemKey, decoyKey: PROMPTS[boss].decoyKey };
+}
+
+export function bossOf(teamId: string, db: DatabaseAdapter): BossId | undefined {
+  const row = db.get<{ boss: string }>("SELECT boss FROM r2_assignments WHERE team_id = ?", teamId);
+  return row?.boss === "itachi" || row?.boss === "aizen" ? row.boss : undefined;
+}
+
+export function escalationUsed(db: DatabaseAdapter, teamId: string, boss: BossId, kind: string): number {
+  return db.get<{ n: number }>(
+    "SELECT COUNT(*) AS n FROM sound_events WHERE team_id = ? AND bot_id = ? AND sound_id = ?",
+    teamId,
+    boss,
+    `escalation:${kind}`,
+  )?.n ?? 0;
+}
+
+export function markEscalation(db: DatabaseAdapter, teamId: string, boss: BossId, kind: string): void {
+  db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", teamId, boss, `escalation:${kind}`);
+}
+
+export function isBoss(botId: BotId): botId is BossId {
+  return botId === "itachi" || botId === "aizen";
+}

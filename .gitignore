@@ -1,0 +1,29 @@
+# Deps & build output
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Runtime SQLite — live event data (sessions, scores). Schema re-seeds from backend/src/db/schema.sql
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+/data/
+backend/data/
+backend/backups/
+
+# Secrets — never committed (.env.example documents the shape)
+.env
+.env.*
+!.env.example
+*.local
+
+# Hosting / logs / coverage
+.vercel/
+*.log
+logs/
+coverage/
+
+# OS noise
+.DS_Store
+Thumbs.db

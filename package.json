@@ -1,0 +1,20 @@
+{
+  "name": "redline-arena",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["frontend", "backend"],
+  "scripts": {
+    "dev": "node scripts/check-env.js && npm run dev --workspace backend",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "dev:backend": "npm run dev --workspace backend",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "typecheck": "tsc --noEmit --project frontend && tsc --noEmit --project backend"
+  },
+  "devDependencies": {
+    "typescript": "5.6.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

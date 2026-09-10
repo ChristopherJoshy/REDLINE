@@ -1,0 +1,32 @@
+{
+  "name": "@redline/frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "node --test src/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "1.1.2",
+    "@react-three/drei": "10.0.0",
+    "@react-three/fiber": "9.0.0",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "gsap": "3.12.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tailwind-merge": "2.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0",
+    "@vitejs/plugin-react": "5.0.0",
+    "typescript": "5.6.3",
+    "vite": "7.3.6"
+  }
+}

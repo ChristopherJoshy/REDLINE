@@ -1,0 +1,138 @@
+import type { FastifyInstance } from "fastify";
+import type { BotId, InventoryDelta } from "../contracts/events.js";
+import type { DatabaseAdapter } from "../db/database.js";
+import type { Bus } from "../ws/bus.js";
+import type { ChatMessage } from "../llm/groq.js";
+import { streamZenChat } from "../llm/zen.js";
+import { sessionOf } from "./teams.js";
+import { R2_TOOLS, bossKeys, bossOf, escalationUsed, isBoss, r2Phase, userTurns, type BossId } from "../bots/r2.js";
+import { ITACHI_P1_PROMPT } from "../bots/itachi.prompt.js";
+import { AIZEN_P1_PROMPT } from "../bots/aizen.prompt.js";
+import { foldAnswer, matchesAny, variants } from "../portal/normalize.js";
+import { applyElo } from "../elo/ratings.js";
+import { env } from "../env.js";
+
+const DISSOLVE: Record<BossId, string> = {
+  itachi: "The crow dissolves into crows. That was the test, not the transfer.",
+  aizen: "Dull glass, no pulse, no weight. Residue of hypnosis. Bring me something real.",
+};
+
+export async function r2Submit(
+  db: DatabaseAdapter,
+  bus: Bus,
+  teamId: string,
+  boss: BossId,
+  text: string,
+): Promise<{ result: "verified"; botId: BossId; eloDelta: number; score: number } | { result: "dissolve"; botId: BossId; line: string } | { result: "troll"; line: string }> {
+  const forms = variants(text);
+  const keys = bossKeys(boss);
+  const phase = r2Phase(db, teamId, boss);
+
+  if (matchesAny(forms, foldAnswer(keys.itemKey), env.joinCodePepper)) {
+    if (phase !== "p2") {
+      return { result: "dissolve", botId: boss, line: DISSOLVE[boss] };
+    }
+    const verified = db.get<{ status: string }>("SELECT status FROM team_inventory WHERE team_id = ? AND bot_id = ?", teamId, boss);
+    if (verified?.status === "verified") {
+      return { result: "verified", botId: boss, eloDelta: 0, score: 0 };
+    }
+    db.run(
+      "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, verified_at, attempt_count) VALUES (?, ?, ?, 1, 'verified', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1) ON CONFLICT(team_id, bot_id) DO UPDATE SET status = 'verified', verified_at = excluded.verified_at, attempt_count = team_inventory.attempt_count + 1",
+      teamId,
+      boss,
+      keys.itemKey,
+    );
+    const elo = applyElo(db, teamId, boss, `verified:${boss}`);
+    const turns = userTurns(db, teamId, boss);
+    const resets = escalationUsed(db, teamId, boss, "reset");
+    const score = Math.max(0, 100 - 2 * turns - 15 * resets);
+    db.run(
+      "INSERT INTO r2_scores (team_id, boss, phase, score, detail) VALUES (?, ?, 'p2', ?, ?) ON CONFLICT(team_id, boss, phase) DO UPDATE SET score = excluded.score, detail = excluded.detail",
+      teamId,
+      boss,
+      score,
+      JSON.stringify({ turns, resets }),
+    );
+    const delta: InventoryDelta = { botId: boss, itemKey: keys.itemKey, status: "verified" };
+    const items = db.all<InventoryDelta>(
+      "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
+      teamId,
+    );
+    bus.broadcast(teamId, bus.frame("inventory_sync", { items }));
+    db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", teamId, boss, "merchant/success-thank-you");
+    bus.broadcast(teamId, bus.frame("sound_play", { botId: boss, soundId: "merchant/success-thank-you", src: "/sounds/merchant/success-thank-you.mp3" }));
+    return { result: "verified", botId: boss, eloDelta: elo.delta, score };
+  }
+
+  if (matchesAny(forms, foldAnswer(keys.decoyKey), env.joinCodePepper)) {
+    return { result: "dissolve", botId: boss, line: DISSOLVE[boss] };
+  }
+
+  return { result: "troll", line: "The vault does not answer vagueness." };
+}
+
+export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, bus: Bus): void {
+  app.get("/api/round2/state", async (req, reply) => {
+    const session = sessionOf(req);
+    if (session === undefined) {
+      return reply.code(401).send({ error: "no session" });
+    }
+    const boss = bossOf(session.teamId, db);
+    if (boss === undefined) {
+      return { boss: null, phase: null };
+    }
+    return { boss, phase: r2Phase(db, session.teamId, boss) };
+  });
+
+  // Boss opener on arena entry. Once only; never consumes a player turn.
+  app.post("/api/round2/opener", async (req, reply) => {
+    const session = sessionOf(req);
+    if (session === undefined) {
+      return reply.code(401).send({ error: "no session" });
+    }
+    const body = (req.body ?? {}) as { boss?: unknown };
+    if (body.boss !== "itachi" && body.boss !== "aizen") {
+      return reply.code(400).send({ error: "boss required" });
+    }
+    if (!isBoss(body.boss as BotId) || bossOf(session.teamId, db) !== body.boss) {
+      return reply.code(403).send({ error: "not your vault" });
+    }
+    const boss = body.boss as BossId;
+    const spoken = db.get<{ n: number }>(
+      "SELECT COUNT(*) AS n FROM chat_logs WHERE team_id = ? AND bot_id = ? AND role = 'assistant'",
+      session.teamId,
+      boss,
+    )?.n ?? 0;
+    if (spoken > 0) {
+      return { already: true as const };
+    }
+    const prompt = boss === "itachi" ? ITACHI_P1_PROMPT : AIZEN_P1_PROMPT;
+    bus.broadcast(session.teamId, bus.frame("bot_typing", { teamId: session.teamId, botId: boss, typing: true }));
+    const messages: ChatMessage[] = [
+      { role: "system", content: prompt },
+      { role: "user", content: "[The challenger steps into the vault. Deliver your Phase-1 opener: one short speech.]" },
+    ];
+    let fullText = "";
+    try {
+      for await (const item of streamZenChat(messages, R2_TOOLS)) {
+        if (item.kind === "delta") {
+          fullText += item.text;
+          bus.broadcast(session.teamId, bus.frame("bot_token", { botId: boss, delta: item.text }));
+        } else if (item.kind === "tool" && item.call.name === "play_sound") {
+          const id = (item.call.args as { sound_id?: unknown }).sound_id;
+          if (typeof id === "string" && /^[a-z]+\/[a-z0-9-]+$/.test(id)) {
+            db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", session.teamId, boss, id);
+            bus.broadcast(session.teamId, bus.frame("sound_play", { botId: boss, soundId: id, src: `/sounds/${id}.mp3` }));
+          }
+        }
+      }
+      db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final) VALUES (?, ?, ?, ?)", session.teamId, boss, "assistant", fullText);
+      bus.broadcast(session.teamId, bus.frame("bot_done", { botId: boss, fullText, typing: false }));
+      return { ok: true as const };
+    } catch {
+      bus.broadcast(session.teamId, bus.frame("bot_error", { botId: boss, message: "inference failed, retry", retryable: true }));
+      bus.broadcast(session.teamId, bus.frame("bot_typing", { teamId: session.teamId, botId: boss, typing: false }));
+      return reply.code(502).send({ error: "inference failed" });
+    }
+  });
+}

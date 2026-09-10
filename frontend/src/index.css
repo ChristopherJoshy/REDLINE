@@ -1,0 +1,82 @@
+@import "./fonts.css";
+@import "tailwindcss";
+
+/* DESIGN.md tokens. Zero ad-hoc hexes anywhere else. */
+@theme inline {
+  --color-bg-0: #09090b;
+  --color-bg-1: #121214;
+  --color-surface-1: #1a1a1e;
+  --color-surface-2: #232329;
+  --color-surface-3: #2c2c33;
+  --color-border: #2e2e36;
+  --color-border-strong: #3f3f48;
+  --color-text-1: #f5f5f4;
+  --color-text-2: #d4d4d8;
+  --color-text-3: #a1a1aa;
+  --color-text-faint: #71717a;
+  --color-redline: #ff1f3d;
+  --color-redline-soft: #ff8a97;
+  --color-redline-dim: rgba(255, 31, 61, 0.14);
+  --color-portal-950: #3b0764;
+  --color-portal-700: #6a0dad;
+  --color-portal-400: #a855f7;
+  --color-vault-p2: #150a1c;
+
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-code: "JetBrains Mono", ui-monospace, monospace;
+  --font-vault: "Cinzel", serif;
+
+  --dur-micro: 120ms;
+  --dur-ui: 180ms;
+  --dur-panel: 280ms;
+  --dur-page: 350ms;
+  --dur-portal: 3000ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --space: clamp(0.75rem, 2vw, 1.5rem);
+}
+
+body {
+  background: var(--color-bg-0);
+  color: var(--color-text-1);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+@keyframes troll-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.animate-troll {
+  animation: troll-shake var(--dur-ui) var(--ease-out) 2;
+  border-color: var(--color-warn);
+}
+
+.portal-fallback {
+  background: conic-gradient(from 0deg, #3B0764, #6A0DAD, #A855F7, #3B0764);
+  animation: portal-spin 3s linear infinite;
+}
+
+@keyframes portal-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-fallback {
+    animation: none;
+  }
+}
+
+.flash-pulse {
+  animation: flash-once 200ms ease-out 1;
+  opacity: 0;
+}
+
+@keyframes flash-once {
+  0% { opacity: 0.55; }
+  100% { opacity: 0; }
+}

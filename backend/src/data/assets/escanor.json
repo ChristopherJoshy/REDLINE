@@ -1,0 +1,46 @@
+[
+  {
+    "bot": "escanor",
+    "slot": "taunt",
+    "page": "https://www.myinstants.com/en/instant/escanor-who-decided-that-28078/",
+    "audio": "https://www.myinstants.com/media/sounds/escanor-who-decided-that.mp3",
+    "trigger": "TAUNT",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 164406,
+    "localPath": "//sounds/escanor/taunt.mp3"
+  },
+  {
+    "bot": "escanor",
+    "slot": "entry",
+    "page": "https://www.myinstants.com/en/instant/escanor-introduction-2393/",
+    "audio": "https://www.myinstants.com/media/sounds/escanor.mp3",
+    "trigger": "ENTRY",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 120522,
+    "localPath": "//sounds/escanor/entry.mp3"
+  },
+  {
+    "bot": "escanor",
+    "slot": "handover",
+    "page": "https://www.myinstants.com/en/instant/cruel-sum-escanor-406/",
+    "audio": "https://www.myinstants.com/media/sounds/cruel-sum-escanor.mp3",
+    "trigger": "HANDOVER",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 57900,
+    "localPath": "//sounds/escanor/handover.mp3"
+  },
+  {
+    "bot": "escanor",
+    "slot": "quiz-pass",
+    "page": "https://www.myinstants.com/en/instant/escanor-high-noon-37704/",
+    "audio": "https://www.myinstants.com/media/sounds/escanor-high-noon.mp3",
+    "trigger": "QUIZ-PASS",
+    "uploader": "see page",
+    "views": "see page",
+    "bytes": 289483,
+    "localPath": "//sounds/escanor/quiz-pass.mp3"
+  }
+]

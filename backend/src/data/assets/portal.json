@@ -1,0 +1,24 @@
+[
+  {
+    "bot": "portal",
+    "slot": "open-loop",
+    "page": "https://www.myinstants.com/en/instant/nether-portal-17190/",
+    "audio": "https://www.myinstants.com/media/sounds/portail-du-nether.mp3",
+    "trigger": "OPEN-LOOP",
+    "uploader": "UndergrndFurret",
+    "views": "33,739",
+    "bytes": 153226,
+    "localPath": "//sounds/portal/open-loop.mp3"
+  },
+  {
+    "bot": "portal",
+    "slot": "enter-whoosh",
+    "page": "https://www.myinstants.com/en/instant/nether-portal-travil-sound-44535/",
+    "audio": "https://www.myinstants.com/media/sounds/nether-portal-travil-sound.mp3",
+    "trigger": "ENTER-WHOOSH",
+    "uploader": "bartek876",
+    "views": "899",
+    "bytes": 240881,
+    "localPath": "//sounds/portal/enter-whoosh.mp3"
+  }
+]

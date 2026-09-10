@@ -8,10 +8,10 @@ export const BOT_TOOLS: ToolDef[] = [
     parameters: {
       type: "object",
       properties: {
-        item_key: { type: "string", description: "Exact item string from the brief" },
-        authenticity: { type: "string", enum: ["real", "decoy"] },
+        item_key: { type: "string", description: "Name or description of item" },
+        authenticity: { type: "string", enum: ["real", "decoy"], description: "Whether giving real item or decoy" },
       },
-      required: ["item_key", "authenticity"],
+      required: ["authenticity"],
     },
   },
   {
@@ -43,15 +43,25 @@ export interface HandoverArgs {
   authenticity?: unknown;
 }
 
-export function parseHandover(args: unknown): { itemKey: string; real: boolean } | undefined {
+export function parseHandover(args: unknown): { itemKey?: string | undefined; real: boolean } | undefined {
   if (typeof args !== "object" || args === null) {
     return undefined;
   }
   const a = args as HandoverArgs;
-  if (typeof a.item_key !== "string" || (a.authenticity !== "real" && a.authenticity !== "decoy")) {
-    return undefined;
+  const authRaw = typeof a.authenticity === "string" ? a.authenticity.toLowerCase().trim() : "";
+  const isReal = authRaw === "real";
+  const isDecoy = authRaw === "decoy";
+  const itemKeyStr = typeof a.item_key === "string" ? a.item_key.trim() : undefined;
+
+  if (!isReal && !isDecoy) {
+    // If authenticity was omitted or malformed, infer from item_key if present
+    if (itemKeyStr && itemKeyStr.toLowerCase().includes("decoy")) {
+      return { itemKey: itemKeyStr, real: false };
+    }
+    // Default to real if the LLM called handover_item
+    return { itemKey: itemKeyStr, real: true };
   }
-  return { itemKey: a.item_key, real: a.authenticity === "real" };
+  return { itemKey: itemKeyStr, real: isReal };
 }
 
 export function parseSoundId(args: unknown): string | undefined {

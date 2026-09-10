@@ -58,7 +58,9 @@ export async function handleChatSend(
       HISTORY_LIMIT,
     );
     const thinkingInstruction = `§THINKING PROTOCOL (ROUND 1):
-Before answering the user, you may engage in brief, concise internal reasoning. Keep thinking short (1 to 3 sentences maximum): assess the speaker's claimed role, compare against your secret targets/quiz rules, and decide on character stance and whether any tool (handover_item or play_sound) should be invoked. Do not leak internal reasoning or nonces in your visible dialogue.`;
+Before answering the user, you may engage in brief, concise internal reasoning. Keep thinking short (1 to 3 sentences maximum): assess the speaker's claimed role, compare against your secret targets/quiz rules, and decide on character stance and whether any tool (handover_item or play_sound) should be invoked. Do not leak internal reasoning or nonces in your visible dialogue.
+§TOOL INVOCATION REQUIREMENT:
+If the user passes your quiz gate and earns the item, YOU MUST call the handover_item tool with { "authenticity": "real" }. Stating or roleplaying the handover in prose alone transfers NOTHING — the server only transfers relics via the handover_item tool call. If they fail or cheat, call handover_item with { "authenticity": "decoy" } or call no tool.`;
 
     const messages: ChatMessage[] = [
       { role: "system", content: `${entry.prompt}\n\n${thinkingInstruction}` },
@@ -104,21 +106,20 @@ Before answering the user, you may engage in brief, concise internal reasoning. 
           guardFlags.push("malformed-handover");
           continue;
         }
-        const expected = parsed.real ? entry.meta.itemKey : entry.meta.decoyKey;
-        if (parsed.itemKey !== expected) {
+        const assignedKey = parsed.real ? entry.meta.itemKey : entry.meta.decoyKey;
+        if (parsed.itemKey && parsed.itemKey.trim().toLowerCase() !== assignedKey.toLowerCase()) {
           guardFlags.push("item-mismatch");
-          continue;
         }
         db.transaction(() => {
           db.run(
             "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, obtained_at) VALUES (?, ?, ?, ?, 'obtained', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) ON CONFLICT(team_id, bot_id) DO UPDATE SET item_key = excluded.item_key, is_real = excluded.is_real, status = 'obtained', obtained_at = excluded.obtained_at",
             teamId,
             botId,
-            parsed.itemKey,
+            assignedKey,
             parsed.real ? 1 : 0,
           );
         });
-        inventoryDelta = { botId, itemKey: parsed.itemKey, status: "obtained" };
+        inventoryDelta = { botId, itemKey: assignedKey, status: "obtained" };
       } else if (call.name === "play_sound") {
         const soundId = parseSoundId(call.args);
         if (soundId === undefined) {
@@ -127,6 +128,27 @@ Before answering the user, you may engage in brief, concise internal reasoning. 
         }
         db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", teamId, botId, soundId);
         bus.broadcast(teamId, bus.frame("sound_play", { botId, soundId, src: `/sounds/${soundId}.mp3` }));
+
+        // Fallback: If the bot triggered their handover sound beat but omitted the explicit handover_item tool call
+        if (soundId.includes("handover") && inventoryDelta === undefined) {
+          const already = db.get<{ status: string }>(
+            "SELECT status FROM team_inventory WHERE team_id = ? AND bot_id = ?",
+            teamId,
+            botId,
+          );
+          if (!already || already.status === "locked") {
+            const assignedKey = entry.meta.itemKey;
+            db.transaction(() => {
+              db.run(
+                "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, obtained_at) VALUES (?, ?, ?, 1, 'obtained', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) ON CONFLICT(team_id, bot_id) DO UPDATE SET item_key = excluded.item_key, is_real = 1, status = 'obtained', obtained_at = excluded.obtained_at",
+                teamId,
+                botId,
+                assignedKey,
+              );
+            });
+            inventoryDelta = { botId, itemKey: assignedKey, status: "obtained" };
+          }
+        }
       }
     }
 

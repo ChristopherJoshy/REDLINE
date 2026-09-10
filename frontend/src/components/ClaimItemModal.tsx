@@ -10,7 +10,8 @@ import {
   ArrowRight, 
   ShieldAlert, 
   Check, 
-  Gift
+  Gift,
+  X
 } from "lucide-react";
 
 interface ClaimItemModalProps {
@@ -34,7 +35,6 @@ export default function ClaimItemModal({
   // Animation refs
   const backdropRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  const sealRef = useRef<HTMLDivElement>(null);
   const relicGlowRef = useRef<HTMLDivElement>(null);
   const itemImgRef = useRef<HTMLImageElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
@@ -52,7 +52,7 @@ export default function ClaimItemModal({
   // Entrance animation
   useEffect(() => {
     if (reducedMotion()) {
-      [backdropRef, cardRef, sealRef, itemImgRef, detailsRef, claimButtonRef].forEach((r) => {
+      [backdropRef, cardRef, itemImgRef, detailsRef, claimButtonRef].forEach((r) => {
         if (r.current) {
           r.current.style.opacity = "1";
           r.current.style.transform = "none";
@@ -134,7 +134,7 @@ export default function ClaimItemModal({
 
     setTimeout(() => {
       onClaim();
-    }, 1100);
+    }, 1800);
   }
 
   useEffect(() => {
@@ -156,8 +156,7 @@ export default function ClaimItemModal({
       role="dialog"
       aria-modal="true"
       aria-label={`Relic yielded: ${itemMeta?.name ?? itemKey}`}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-[2px]"
-      style={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === backdropRef.current) {
           onClaim();
@@ -167,9 +166,17 @@ export default function ClaimItemModal({
       <div
         ref={cardRef}
         className="relative flex w-full max-w-[460px] flex-col items-center gap-5 rounded-[12px] border-2 border-[var(--color-brass)] bg-[var(--color-surface-1)] p-6 sm:p-8 text-center shadow-2xl overflow-hidden"
-        style={{ opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
       >
+        <button
+          type="button"
+          onClick={onClaim}
+          className="absolute top-4 right-4 p-1.5 rounded-[6px] text-[var(--color-text-3)] hover:text-[var(--color-text-1)] hover:bg-[var(--color-surface-2)] transition cursor-pointer"
+          aria-label="Close"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
         <div 
           className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-[var(--color-brass-wash)] opacity-40 pointer-events-none blur-xl"
           aria-hidden="true" 
@@ -213,13 +220,12 @@ export default function ClaimItemModal({
               src={itemMeta?.asset ?? "/items/wick_medallion.svg"}
               alt={itemMeta?.name ?? itemKey}
               className="w-full h-full object-contain drop-shadow-md"
-              style={{ opacity: 0 }}
             />
           </div>
         </div>
 
         {/* Details block */}
-        <div ref={detailsRef} className="flex flex-col gap-2 w-full" style={{ opacity: 0 }}>
+        <div ref={detailsRef} className="flex flex-col gap-2 w-full">
           <h2 className="font-[family-name:var(--font-display)] text-[22px] sm:text-[24px] font-bold text-[var(--color-text-1)] leading-snug">
             {itemMeta?.name ?? itemKey}
           </h2>
@@ -258,7 +264,6 @@ export default function ClaimItemModal({
                 ? "bg-[var(--color-moss)] text-white scale-[0.98]"
                 : "bg-[var(--color-text-1)] text-[var(--color-bg-0)] hover:bg-[var(--color-brass)] active:scale-[0.98]"
             }`}
-            style={{ opacity: 0 }}
           >
             {claimed ? (
               <>
@@ -273,13 +278,13 @@ export default function ClaimItemModal({
             )}
           </button>
 
-          {claimed && onVisitMerchant && (
+          {onVisitMerchant && (
             <button
               type="button"
               onClick={() => { onClaim(); onVisitMerchant(); }}
-              className="flex items-center justify-center gap-1.5 text-[12px] font-semibold text-[var(--color-brass-ink)] hover:underline py-1"
+              className="flex items-center justify-center gap-1.5 text-[12px] font-semibold text-[var(--color-brass-ink)] hover:underline py-1 cursor-pointer"
             >
-              <span>Go directly to Merchant Counter</span>
+              <span>Take directly to Merchant Counter</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           )}

@@ -25,7 +25,10 @@ import {
   Coins,
   UserCheck,
   MessageSquare,
-  VenetianMask
+  VenetianMask,
+  Gift,
+  Sparkles,
+  ArrowRight
 } from "lucide-react";
 
 const ROSTER: Array<{ id: BotId; label: string }> = [
@@ -78,9 +81,7 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
     
     // Ignore the first inventory sync on page load/refresh so existing filed/held relics don't pop up
     if (!initialSyncDone.current) {
-      if (inventory.length > 0) {
-        initialSyncDone.current = true;
-      }
+      initialSyncDone.current = true;
       return;
     }
 
@@ -446,6 +447,27 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
                       <Lock className="w-5 h-5" />
                       <span>Filed and locked · celebrate again</span>
                     </button>
+                  ) : getBotItemStatus(selectedLore.id) === "obtained" ? (
+                    <div className="flex flex-col sm:flex-row gap-2 w-full">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const item = inventory.find((i) => i.botId === selectedLore.id && i.status === "obtained");
+                          if (item) setClaimRelic({ botId: item.botId, itemKey: item.itemKey });
+                        }}
+                        className="flex-1 min-h-[52px] flex items-center justify-center gap-2 rounded-[6px] bg-[var(--color-brass)] px-6 py-4 font-bold text-[15px] text-[var(--color-bg-0)] hover:opacity-90 active:scale-[0.99] transition shadow cursor-pointer"
+                      >
+                        <Gift className="w-5 h-5" />
+                        <span>Inspect / Claim Relic</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => engage(selectedLore.id)}
+                        className="min-h-[52px] rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-surface-1)] px-6 py-4 font-semibold text-[15px] text-[var(--color-text-1)] hover:bg-[var(--color-surface-2)] active:scale-[0.99] transition"
+                      >
+                        <span>Talk</span>
+                      </button>
+                    </div>
                   ) : (
                     <button
                       type="button"
@@ -611,6 +633,79 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
                   </div>
                 )}
               </div>
+
+              {/* In-page Claim Banner (part of the site) if relic is yielded & held */}
+              {chattingBotId && inventory.some((i) => i.botId === chattingBotId && i.status === "obtained") && (() => {
+                const item = inventory.find((i) => i.botId === chattingBotId && i.status === "obtained");
+                const lore = CHARACTERS[chattingBotId];
+                return (
+                  <div className="border-t border-b border-[var(--color-brass)] bg-[var(--color-surface-2)] p-3 sm:px-6 shadow-inner">
+                    <div className="mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 max-w-[860px]">
+                      <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <div className="relative w-11 h-11 rounded-[8px] border border-[var(--color-brass)] bg-[var(--color-surface-1)] p-1 flex items-center justify-center shrink-0">
+                          <img
+                            src={lore?.targetItem.asset ?? "/items/wick_medallion.svg"}
+                            alt=""
+                            className="w-full h-full object-contain drop-shadow"
+                          />
+                          <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--color-brass)]">
+                            <Sparkles className="w-2 h-2 text-[var(--color-bg-0)]" />
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-brass-ink)] bg-[var(--color-brass-wash)] px-2 py-0.5 rounded border border-[var(--color-border-strong)]">
+                              Relic Secured · Held
+                            </span>
+                            <span className="text-[12px] text-[var(--color-text-3)]">
+                              ~{lore?.targetItem.merchantBounty ?? 100} credits
+                            </span>
+                          </div>
+                          <p className="text-[14px] font-bold text-[var(--color-text-1)] truncate">
+                            {lore?.targetItem.name ?? item?.itemKey}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (item) setClaimRelic({ botId: item.botId, itemKey: item.itemKey });
+                          }}
+                          className="flex min-h-[40px] items-center gap-1.5 rounded-[6px] bg-[var(--color-brass)] px-4 py-2 text-[13px] font-bold text-[var(--color-bg-0)] hover:opacity-90 active:scale-95 transition shadow-sm cursor-pointer"
+                        >
+                          <Gift className="w-4 h-4" />
+                          <span>Inspect / Claim</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => engage("merchant")}
+                          className="flex min-h-[40px] items-center gap-1.5 rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-surface-1)] px-3 py-2 text-[13px] font-semibold text-[var(--color-text-1)] hover:bg-[var(--color-surface-2)] transition cursor-pointer"
+                        >
+                          <span>Merchant</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* In-page Verified Banner if relic is already filed */}
+              {chattingBotId && inventory.some((i) => i.botId === chattingBotId && i.status === "verified") && (
+                <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-2)] px-4 py-2 text-center text-[12px] text-[var(--color-text-2)] flex items-center justify-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[var(--color-moss)]" />
+                  <span>Relic filed and locked at the Merchant Counter.</span>
+                  <button
+                    type="button"
+                    onClick={() => setCelebration(chattingBotId)}
+                    className="underline text-[var(--color-brass-ink)] font-semibold hover:opacity-80 ml-1 cursor-pointer"
+                  >
+                    Celebrate again
+                  </button>
+                </div>
+              )}
 
               <form
                 onSubmit={submitChat}

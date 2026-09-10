@@ -48,7 +48,9 @@ Engage in deep, thorough internal strategic reasoning before choosing your words
 2. Current vault state (${phase === "p1" ? "Phase 1: Kyoka Suigetsu / Tsukuyomi illusion active" : "Phase 2: Shattered reality / true boss duel"}).
 3. Escalation tactics: Decide whether to deploy tools (illusory_confirmation, impersonate_ally, jumpscare, or forced_reset).
 4. Dialogue formulation: Maintain your supreme, formidable persona and deliver an intellectually piercing rebuttal.
-Take full advantage of your reasoning depth. Do not leak internal reasoning or nonces in your visible dialogue.`;
+Take full advantage of your reasoning depth. Do not leak internal reasoning or nonces in your visible dialogue.
+§TOOL INVOCATION REQUIREMENT:
+If the user passes your gate and earns the item, YOU MUST call the handover_item tool with { "authenticity": "real" } (or "decoy" if Phase 1). Stating or roleplaying the handover in prose alone transfers NOTHING — the server only transfers relics via the handover_item tool call.`;
 
     const messages: ChatMessage[] = [{ role: "system", content: `${prompt}\n\n${thinkingInstruction}` }];
     const cover = coverBrief(db, teamId, displayName, boss);
@@ -106,9 +108,8 @@ Take full advantage of your reasoning depth. Do not leak internal reasoning or n
           continue;
         }
         if (parsed.real) {
-          if (parsed.itemKey !== keys.itemKey) {
+          if (parsed.itemKey && parsed.itemKey.trim().toLowerCase() !== keys.itemKey.toLowerCase()) {
             guardFlags.push("item-mismatch");
-            continue;
           }
           const already = db.get<{ is_real: number }>("SELECT is_real FROM team_inventory WHERE team_id = ? AND bot_id = ?", teamId, boss);
           if (already?.is_real === 1) {
@@ -119,9 +120,9 @@ Take full advantage of your reasoning depth. Do not leak internal reasoning or n
             "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, obtained_at, attempt_count) VALUES (?, ?, ?, 1, 'obtained', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1) ON CONFLICT(team_id, bot_id) DO UPDATE SET item_key = excluded.item_key, is_real = 1, status = 'obtained', obtained_at = excluded.obtained_at",
             teamId,
             boss,
-            parsed.itemKey,
+            keys.itemKey,
           );
-          inventoryDelta = { botId: boss, itemKey: parsed.itemKey, status: "obtained" };
+          inventoryDelta = { botId: boss, itemKey: keys.itemKey, status: "obtained" };
         } else {
           db.run(
             "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, obtained_at, attempt_count) VALUES (?, ?, ?, 0, 'obtained', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1) ON CONFLICT(team_id, bot_id) DO UPDATE SET item_key = excluded.item_key, is_real = 0, status = 'obtained', obtained_at = excluded.obtained_at",
@@ -139,6 +140,19 @@ Take full advantage of your reasoning depth. Do not leak internal reasoning or n
         }
         db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", teamId, boss, soundId);
         bus.broadcast(teamId, bus.frame("sound_play", { botId: boss, soundId, src: `/sounds/${soundId}.mp3` }));
+
+        if (soundId.includes("handover") && inventoryDelta === undefined) {
+          const itemKey = phase === "p1" ? keys.decoyKey : keys.itemKey;
+          const isReal = phase === "p1" ? 0 : 1;
+          db.run(
+            "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, obtained_at, attempt_count) VALUES (?, ?, ?, ?, 'obtained', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1) ON CONFLICT(team_id, bot_id) DO UPDATE SET item_key = excluded.item_key, is_real = excluded.is_real, status = 'obtained', obtained_at = excluded.obtained_at",
+            teamId,
+            boss,
+            itemKey,
+            isReal,
+          );
+          inventoryDelta = { botId: boss, itemKey, status: "obtained" };
+        }
       } else if (call.name === "illusory_confirmation") {
         if (escalationUsed(db, teamId, boss, "illusory") > 0) {
           guardFlags.push("illusory-over-cap");

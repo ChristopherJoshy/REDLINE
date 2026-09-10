@@ -35,7 +35,8 @@ import {
   Trash2,
   Plus,
   ShieldAlert,
-  EyeOff
+  EyeOff,
+  Zap
 } from "lucide-react";
 
 
@@ -99,6 +100,13 @@ interface SystemHealth {
   zenConfigured: boolean;
   nodeVersion: string;
   memoryUsageMb: number;
+  totalTokens?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  currentTps?: number;
+  peakTps?: number;
+  averageTps?: number;
+  totalLlmRequests?: number;
 }
 
 interface ChatLogMessage {
@@ -967,36 +975,76 @@ export default function AdminTeams(): React.JSX.Element {
         </div>
 
         {/* Global Key Metrics Strip */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)] ">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+          <div className="p-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)]">
             <span className="text-[11px] font-bold text-[var(--color-text-3)] uppercase tracking-wider">Enrolled Squads</span>
             <div className="mt-1 flex items-center justify-between">
-              <span className="font-[family-name:var(--font-display)] text-[28px] font-bold text-[var(--color-text-1)]">{teams.length}</span>
-              <Users className="w-6 h-6 text-[var(--color-brass)] opacity-60" />
+              <span className="font-[family-name:var(--font-display)] text-[26px] font-bold text-[var(--color-text-1)]">{teams.length}</span>
+              <Users className="w-5 h-5 text-[var(--color-brass)] opacity-60" />
             </div>
           </div>
 
-          <div className="p-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)] ">
-            <span className="text-[11px] font-bold text-[var(--color-text-3)] uppercase tracking-wider">Operators Deployed</span>
+          <div className="p-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)]">
+            <span className="text-[11px] font-bold text-[var(--color-text-3)] uppercase tracking-wider">Operators</span>
             <div className="mt-1 flex items-center justify-between">
-              <span className="font-[family-name:var(--font-display)] text-[28px] font-bold text-[var(--color-text-1)]">{totalMembers}</span>
-              <Activity className="w-6 h-6 text-[var(--color-moss)] opacity-60" />
+              <span className="font-[family-name:var(--font-display)] text-[26px] font-bold text-[var(--color-text-1)]">{totalMembers}</span>
+              <Activity className="w-5 h-5 text-[var(--color-moss)] opacity-60" />
             </div>
           </div>
 
-          <div className="p-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)] ">
-            <span className="text-[11px] font-bold text-[var(--color-text-3)] uppercase tracking-wider">Verified Relic Solves</span>
+          <div className="p-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)]">
+            <span className="text-[11px] font-bold text-[var(--color-text-3)] uppercase tracking-wider">Relic Solves</span>
             <div className="mt-1 flex items-center justify-between">
-              <span className="font-[family-name:var(--font-display)] text-[28px] font-bold text-[var(--color-text-1)]">{totalSolves}</span>
-              <ShieldCheck className="w-6 h-6 text-[var(--color-brass)] opacity-60" />
+              <span className="font-[family-name:var(--font-display)] text-[26px] font-bold text-[var(--color-text-1)]">{totalSolves}</span>
+              <ShieldCheck className="w-5 h-5 text-[var(--color-brass)] opacity-60" />
             </div>
           </div>
 
-          <div className="p-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)] ">
-            <span className="text-[11px] font-bold text-[var(--color-text-3)] uppercase tracking-wider">Arena Peak ELO</span>
+          <div className="p-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)]">
+            <span className="text-[11px] font-bold text-[var(--color-text-3)] uppercase tracking-wider">Peak ELO</span>
             <div className="mt-1 flex items-center justify-between">
-              <span className="font-[family-name:var(--font-display)] text-[28px] font-bold text-[var(--color-text-1)]">{highestElo}</span>
-              <Trophy className="w-6 h-6 text-yellow-500 opacity-60" />
+              <span className="font-[family-name:var(--font-display)] text-[26px] font-bold text-[var(--color-text-1)]">{highestElo}</span>
+              <Trophy className="w-5 h-5 text-yellow-500 opacity-60" />
+            </div>
+          </div>
+
+          <div className="p-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)]" title={`Prompt: ${(systemHealth?.promptTokens ?? 0).toLocaleString()} | Completion: ${(systemHealth?.completionTokens ?? 0).toLocaleString()}`}>
+            <span className="text-[11px] font-bold text-[var(--color-text-3)] uppercase tracking-wider">Total Tokens</span>
+            <div className="mt-1 flex items-center justify-between">
+              <div>
+                <span className="font-[family-name:var(--font-code)] text-[24px] font-bold text-[var(--color-text-1)]">
+                  {(systemHealth?.totalTokens ?? 0) >= 1_000_000
+                    ? `${((systemHealth?.totalTokens ?? 0) / 1_000_000).toFixed(2)}M`
+                    : (systemHealth?.totalTokens ?? 0) >= 10_000
+                    ? `${((systemHealth?.totalTokens ?? 0) / 1_000).toFixed(1)}k`
+                    : (systemHealth?.totalTokens ?? 0).toLocaleString()}
+                </span>
+                <span className="block text-[10px] text-[var(--color-text-3)] font-medium">
+                  {((systemHealth?.promptTokens ?? 0) / 1000).toFixed(1)}k in · {((systemHealth?.completionTokens ?? 0) / 1000).toFixed(1)}k out
+                </span>
+              </div>
+              <Cpu className="w-5 h-5 text-[var(--color-brass)] opacity-60" />
+            </div>
+          </div>
+
+          <div className="p-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)]" title={`Current: ${systemHealth?.currentTps ?? 0} tps | Peak: ${systemHealth?.peakTps ?? 0} tps | Avg: ${systemHealth?.averageTps ?? 0} tps`}>
+            <span className="text-[11px] font-bold text-[var(--color-text-3)] uppercase tracking-wider">Speed (TPS)</span>
+            <div className="mt-1 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-[family-name:var(--font-code)] text-[24px] font-bold text-[var(--color-text-1)]">
+                    {systemHealth?.currentTps ?? 0}
+                  </span>
+                  <span className="text-[11px] font-bold text-[var(--color-text-3)] font-[family-name:var(--font-code)]">
+                    TPS
+                  </span>
+                  <span className={`inline-block h-2 w-2 rounded-full ${(systemHealth?.currentTps ?? 0) > 0 ? "bg-[var(--color-moss)] animate-pulse" : "bg-[var(--color-text-faint)]"}`} />
+                </div>
+                <span className="block text-[10px] text-[var(--color-text-3)] font-medium">
+                  Peak: {systemHealth?.peakTps ?? 0} tps
+                </span>
+              </div>
+              <Zap className="w-5 h-5 text-amber-500 opacity-60" />
             </div>
           </div>
         </div>
@@ -1587,6 +1635,24 @@ export default function AdminTeams(): React.JSX.Element {
                   <div className="p-3.5 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-2)]">
                     <span className="text-[11px] font-bold text-[var(--color-text-3)] uppercase">Chat Logs Total</span>
                     <p className="text-[16px] font-bold text-[var(--color-text-1)] mt-0.5">{systemHealth.messagesCount} msgs</p>
+                  </div>
+                  <div className="p-3.5 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-2)]">
+                    <span className="text-[11px] font-bold text-[var(--color-text-3)] uppercase">Total Tokens</span>
+                    <p className="text-[16px] font-bold text-[var(--color-text-1)] mt-0.5 font-[family-name:var(--font-code)]">
+                      {(systemHealth.totalTokens ?? 0).toLocaleString()}
+                    </p>
+                    <span className="text-[11px] text-[var(--color-text-3)]">
+                      {(systemHealth.promptTokens ?? 0).toLocaleString()} in / {(systemHealth.completionTokens ?? 0).toLocaleString()} out
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-2)]">
+                    <span className="text-[11px] font-bold text-[var(--color-text-3)] uppercase">LLM Speed & Throughput</span>
+                    <p className="text-[16px] font-bold text-[var(--color-text-1)] mt-0.5 font-[family-name:var(--font-code)]">
+                      {systemHealth.currentTps ?? 0} <span className="text-[12px] font-normal text-[var(--color-text-3)]">current</span> / {systemHealth.peakTps ?? 0} <span className="text-[12px] font-normal text-[var(--color-text-3)]">peak</span>
+                    </p>
+                    <span className="text-[11px] text-[var(--color-text-3)]">
+                      Avg: {systemHealth.averageTps ?? 0} tps · {systemHealth.totalLlmRequests ?? 0} generations
+                    </span>
                   </div>
                 </div>
 

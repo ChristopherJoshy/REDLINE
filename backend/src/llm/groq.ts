@@ -2,6 +2,7 @@
 // Reasoning NEVER leaves this module except into reasoning_traces rows.
 import type { DatabaseAdapter } from "../db/database.js";
 import { runWithRotation } from "./keyPool.js";
+import { tokenTracker } from "./tokenTracker.js";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
@@ -35,6 +36,10 @@ async function* streamChatWithKey(
   messages: ChatMessage[],
   tools: ToolDef[],
 ): AsyncGenerator<StreamYield> {
+  const startTime = Date.now();
+  let estimatedCompletion = 0;
+  let exactUsage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null = null;
+
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -46,6 +51,7 @@ async function* streamChatWithKey(
       messages,
       tools: tools.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } })),
       stream: true,
+      stream_options: { include_usage: true },
     }),
   });
   if (!res.ok || res.body === null) {
@@ -74,11 +80,17 @@ async function* streamChatWithKey(
       if (payload === "[DONE]") {
         continue;
       }
-      let chunk: { choices?: Array<{ delta?: { content?: string; tool_calls?: Array<{ index: number; id?: string; function?: { name?: string; arguments?: string } }> }; finish_reason?: string }> };
+      let chunk: {
+        choices?: Array<{ delta?: { content?: string; tool_calls?: Array<{ index: number; id?: string; function?: { name?: string; arguments?: string } }> }; finish_reason?: string }>;
+        usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+      };
       try {
         chunk = JSON.parse(payload) as typeof chunk;
       } catch {
         continue;
+      }
+      if (chunk.usage && typeof chunk.usage.total_tokens === "number") {
+        exactUsage = chunk.usage;
       }
       const choice = chunk.choices?.[0];
       if (choice?.finish_reason !== undefined && choice.finish_reason !== null) {
@@ -86,6 +98,9 @@ async function* streamChatWithKey(
       }
       const delta = choice?.delta;
       if (typeof delta?.content === "string" && delta.content !== "") {
+        const count = Math.max(1, Math.ceil(delta.content.length / 4));
+        estimatedCompletion += count;
+        tokenTracker.recordTokenDelta(count);
         yield { kind: "delta", text: delta.content };
       }
       for (const tc of delta?.tool_calls ?? []) {
@@ -113,6 +128,19 @@ async function* streamChatWithKey(
     }
     yield { kind: "tool", call: { id: slot.id, name: slot.name, args } };
   }
+
+  const durationMs = Date.now() - startTime;
+  if (exactUsage) {
+    tokenTracker.recordStreamUsage(
+      exactUsage.prompt_tokens ?? 0,
+      exactUsage.completion_tokens ?? estimatedCompletion,
+      durationMs,
+    );
+  } else {
+    const estimatedPrompt = messages.reduce((acc, m) => acc + Math.max(1, Math.ceil(m.content.length / 3.8)), 0);
+    tokenTracker.recordStreamUsage(estimatedPrompt, estimatedCompletion, durationMs);
+  }
+
   yield { kind: "done", finish };
 }
 

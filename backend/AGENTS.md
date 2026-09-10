@@ -9,6 +9,7 @@ Baseline: root `AGENTS.md`. Player-facing copy tone follows root `DESIGN.md` (me
 - Submission pipeline: strip -> decode -> un-reverse -> NFKC + leet fold -> match hashed answers (pepper server-side) -> LLM guard. Silent fail, never which-check-fired.
 - ELO: `R' = R + K*(S-E)`, K=32 (40 provisional); teams start 600. Log every delta. Rewind truncates context (genuinely forgets).
 - Secrets: answer hashes + `JOIN_CODE_PEPPER` server-only. Admin routes auth-gated; exports (`.db`/`.json`/`.csv`) admin-only.
+- Telemetry: Token tracker monitors cumulative prompt/completion tokens and rolling TPS (5s window) with SQLite `game_state` persistence. Telemetry is exposed strictly to authenticated admin diagnostics routes (`/api/admin/system-health`), never to player clients.
 - DO NOT: ship purple-box content, add timers, expose reasoning bytes on WS/history, add cloud DB.
 
 ## Commands

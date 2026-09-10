@@ -16,6 +16,7 @@ import {
   toggleApiKey,
   type LlmProvider,
 } from "../llm/keyPool.js";
+import { tokenTracker } from "../llm/tokenTracker.js";
 
 const EXPORT_TABLES = ["elo_log", "chat_logs", "team_inventory"] as const;
 const announcementsHistory: AnnouncementData[] = [];
@@ -36,6 +37,7 @@ interface BoardRow {
 
 export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, root: string, bus?: Bus): void {
   registerKeyPoolDb(db);
+  tokenTracker.init(db);
 
   function guard(req: { headers: Record<string, string | string[] | undefined> }): boolean {
     return adminOk(adminHeader(req), env.adminCode);
@@ -431,6 +433,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     const membersCount = db.get<{ n: number }>("SELECT COUNT(*) AS n FROM team_members")?.n ?? 0;
     const messagesCount = db.get<{ n: number }>("SELECT COUNT(*) AS n FROM chat_logs")?.n ?? 0;
     const solvesCount = db.get<{ n: number }>("SELECT COUNT(*) AS n FROM team_inventory WHERE status = 'verified'")?.n ?? 0;
+    const tokenMetrics = tokenTracker.getMetrics();
     return {
       uptime: Math.round(process.uptime()),
       activeConnections: bus ? bus.connectionCount() : 0,
@@ -442,6 +445,13 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       zenConfigured: Boolean(env.zenApiKey),
       nodeVersion: process.version,
       memoryUsageMb: Math.round(process.memoryUsage().rss / (1024 * 1024)),
+      totalTokens: tokenMetrics.totalTokens,
+      promptTokens: tokenMetrics.promptTokens,
+      completionTokens: tokenMetrics.completionTokens,
+      currentTps: tokenMetrics.currentTps,
+      peakTps: tokenMetrics.peakTps,
+      averageTps: tokenMetrics.averageTps,
+      totalLlmRequests: tokenMetrics.totalRequests,
     };
   });
 

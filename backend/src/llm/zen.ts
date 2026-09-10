@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseAdapter } from "../db/database.js";
 import { runWithRotation } from "./keyPool.js";
 import type { ChatMessage, StreamYield, ToolDef } from "./groq.js";
+import { tokenTracker } from "./tokenTracker.js";
 
 const MODEL = "muse-spark-1.3-contributor-free";
 const ZEN_RESPONSES_URL = "https://opencode.ai/zen/v1/responses";
@@ -14,6 +15,8 @@ async function* streamZenChatWithKey(
   messages: ChatMessage[],
   tools: ToolDef[],
 ): AsyncGenerator<StreamYield & { reasoning?: string }> {
+  const startTime = Date.now();
+  let zenCompletionTokens = 0;
   const sessionId = randomUUID();
   const input = messages.map((m) => ({
     role: m.role,
@@ -85,6 +88,9 @@ async function* streamZenChatWithKey(
 
       // 1. Text deltas for player dialogue (never contains reasoning)
       if (type === "response.output_text.delta" && typeof payload["delta"] === "string") {
+        const count = Math.max(1, Math.ceil(payload["delta"].length / 4));
+        zenCompletionTokens += count;
+        tokenTracker.recordTokenDelta(count);
         yield { kind: "delta", text: payload["delta"] };
       }
 
@@ -126,6 +132,10 @@ async function* streamZenChatWithKey(
       }
     }
   }
+
+  const durationMs = Date.now() - startTime;
+  const promptEstimate = messages.reduce((acc, m) => acc + Math.max(1, Math.ceil(m.content.length / 3.8)), 0);
+  tokenTracker.recordStreamUsage(promptEstimate, zenCompletionTokens, durationMs);
 
   yield { kind: "done", finish: "stop", reasoning };
 }

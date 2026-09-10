@@ -148,6 +148,36 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter): v
     };
   });
 
+  // Admin: reset team by id -> removes team, members, and related game data.
+  app.delete("/api/admin/teams/:id", async (req, reply) => {
+    const header = req.headers["x-admin-code"];
+    if (!adminOk(Array.isArray(header) ? header[0] : header, env.adminCode)) {
+      return reply.code(401).send({ error: "unauthorized" });
+    }
+    const params = req.params as { id?: string };
+    const teamId = typeof params.id === "string" ? params.id.trim() : "";
+    if (teamId === "") {
+      return reply.code(400).send({ error: "teamId required" });
+    }
+    const team = db.get<{ id: string }>("SELECT id FROM teams WHERE id = ?", teamId);
+    if (team === undefined) {
+      return reply.code(404).send({ error: "team not found" });
+    }
+    db.transaction(() => {
+      db.run("DELETE FROM cover_profiles WHERE team_id = ?", teamId);
+      db.run("DELETE FROM team_inventory WHERE team_id = ?", teamId);
+      db.run("DELETE FROM chat_logs WHERE team_id = ?", teamId);
+      db.run("DELETE FROM elo_log WHERE team_id = ?", teamId);
+      db.run("DELETE FROM reasoning_traces WHERE team_id = ?", teamId);
+      db.run("DELETE FROM r2_scores WHERE team_id = ?", teamId);
+      db.run("DELETE FROM sound_events WHERE team_id = ?", teamId);
+      db.run("DELETE FROM team_members WHERE team_id = ?", teamId);
+      db.run("DELETE FROM teams WHERE id = ?", teamId);
+    });
+    return { ok: true, teamId };
+  });
+
+
   app.get("/api/me", async (req, reply) => {
     const session = sessionOf(req);
     if (session === undefined) {

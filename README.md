@@ -2,7 +2,7 @@
 
 > Live AI social-engineering CTF — built for the **Asthra 11.0 CSE** event.
 > 
-> 🌐 **Live Deployment:** [https://redline-frontend-mu.vercel.app/](https://redline-frontend-mu.vercel.app/)
+> 🌐 **Live Deployment:** [https://eventlinkredline.vercel.app/](https://eventlinkredline.vercel.app/)
 
 Teams enter with a join code, talk a roster of AI personas into giving up their prized
 possessions, trade at the merchant, crack the gates, pass the portal, and survive a
@@ -114,7 +114,7 @@ walked live before doors open.
 
 ## Deploying the frontend (Vercel)
 
-The frontend is live at **[https://redline-frontend-mu.vercel.app/](https://redline-frontend-mu.vercel.app/)**.
+The frontend is live at **[https://eventlinkredline.vercel.app/](https://eventlinkredline.vercel.app/)**.
 
 `vercel.json` lives at the repo root and configures the build and SPA routing:
 - **Build command**: `npm run build --workspace frontend`

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import { createTeam, type CreateTeamResult } from "@/api/teams";
 import { getGates, openVault, endRound1, type Gates } from "@/api/gates";
+import { apiFetch } from "@/api/client";
 import { CHARACTERS } from "@/data/characterLore";
 import { 
   Users, 
@@ -151,7 +152,7 @@ export default function AdminTeams(): React.JSX.Element {
     let active = true;
     async function verifySaved(): Promise<void> {
       try {
-        const res = await fetch("/api/admin/verify", {
+        const res = await apiFetch("/api/admin/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-admin-code": saved },
           body: JSON.stringify({ code: saved }),
@@ -195,7 +196,7 @@ export default function AdminTeams(): React.JSX.Element {
     setAuthError("");
 
     try {
-      const res = await fetch("/api/admin/verify", {
+      const res = await apiFetch("/api/admin/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-admin-code": code },
         body: JSON.stringify({ code }),
@@ -294,11 +295,11 @@ export default function AdminTeams(): React.JSX.Element {
       try {
         const headers = { "x-admin-code": adminCode };
         const [resOverview, resGates, resStream, resHealth, resAnnounce] = await Promise.all([
-          fetch("/api/admin/overview", { headers }).catch(() => null),
+          apiFetch("/api/admin/overview", { headers }).catch(() => null),
           getGates().catch(() => null),
-          fetch("/api/admin/activity-stream", { headers }).catch(() => null),
-          fetch("/api/admin/system-health", { headers }).catch(() => null),
-          fetch("/api/admin/announcements", { headers }).catch(() => null),
+          apiFetch("/api/admin/activity-stream", { headers }).catch(() => null),
+          apiFetch("/api/admin/system-health", { headers }).catch(() => null),
+          apiFetch("/api/admin/announcements", { headers }).catch(() => null),
         ]);
 
         if (resOverview && resOverview.ok && !dead) {
@@ -348,7 +349,7 @@ export default function AdminTeams(): React.JSX.Element {
       setCommsLoading(true);
       try {
         const url = `/api/admin/transcripts?teamId=${commsModalTeam?.id}&botId=${commsBotFilter}`;
-        const res = await fetch(url, { headers: { "x-admin-code": adminCode } });
+        const res = await apiFetch(url, { headers: { "x-admin-code": adminCode } });
         if (res.ok && !dead) {
           const data = (await res.json()) as { messages: ChatLogMessage[]; traces: ReasoningTrace[] };
           setCommsMessages(data.messages);
@@ -370,7 +371,7 @@ export default function AdminTeams(): React.JSX.Element {
     if (!pin || adminCode === "") return;
     setKeysLoading(true);
     try {
-      const res = await fetch("/api/admin/keys", {
+      const res = await apiFetch("/api/admin/keys", {
         headers: { "x-admin-code": adminCode, "x-settings-pin": pin },
       });
       if (res.ok) {
@@ -395,7 +396,7 @@ export default function AdminTeams(): React.JSX.Element {
     e.preventDefault();
     setPinError("");
     try {
-      const res = await fetch("/api/admin/settings/verify", {
+      const res = await apiFetch("/api/admin/settings/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pin: pinInput }),
@@ -427,7 +428,7 @@ export default function AdminTeams(): React.JSX.Element {
     if (!newKeyValue.trim()) return;
     setBusy(true);
     try {
-      const res = await fetch("/api/admin/keys", {
+      const res = await apiFetch("/api/admin/keys", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -459,7 +460,7 @@ export default function AdminTeams(): React.JSX.Element {
   async function handleDeleteKey(id: number): Promise<void> {
     if (!confirm("Are you sure you want to remove this key from the pool?")) return;
     try {
-      const res = await fetch(`/api/admin/keys/${id}`, {
+      const res = await apiFetch(`/api/admin/keys/${id}`, {
         method: "DELETE",
         headers: { "x-admin-code": adminCode, "x-settings-pin": settingsPin },
       });
@@ -474,7 +475,7 @@ export default function AdminTeams(): React.JSX.Element {
 
   async function handleToggleKey(id: number): Promise<void> {
     try {
-      const res = await fetch(`/api/admin/keys/${id}/toggle`, {
+      const res = await apiFetch(`/api/admin/keys/${id}/toggle`, {
         method: "PATCH",
         headers: { "x-admin-code": adminCode, "x-settings-pin": settingsPin },
       });
@@ -522,7 +523,7 @@ export default function AdminTeams(): React.JSX.Element {
     if (!eloModalTeam || adminCode === "") return;
     setBusy(true);
     try {
-      const res = await fetch("/api/admin/elo-adjust", {
+      const res = await apiFetch("/api/admin/elo-adjust", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-admin-code": adminCode },
         body: JSON.stringify({ teamId: eloModalTeam.id, delta: eloDelta, reason: eloReason }),
@@ -545,7 +546,7 @@ export default function AdminTeams(): React.JSX.Element {
   async function handleInventoryOverride(botId: string, itemKey: string, status: string): Promise<void> {
     if (!invModalTeam || adminCode === "") return;
     try {
-      const res = await fetch("/api/admin/inventory-override", {
+      const res = await apiFetch("/api/admin/inventory-override", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-admin-code": adminCode },
         body: JSON.stringify({ teamId: invModalTeam.id, botId, itemKey, status }),
@@ -577,7 +578,7 @@ export default function AdminTeams(): React.JSX.Element {
     if (!rewindConfirmTeam || adminCode === "") return;
     setBusy(true);
     try {
-      const res = await fetch("/api/admin/team-rewind", {
+      const res = await apiFetch("/api/admin/team-rewind", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-admin-code": adminCode },
         body: JSON.stringify({
@@ -603,7 +604,7 @@ export default function AdminTeams(): React.JSX.Element {
     if (broadcastMsg.trim() === "" || adminCode === "") return;
     setBusy(true);
     try {
-      const res = await fetch("/api/admin/announcement", {
+      const res = await apiFetch("/api/admin/announcement", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-admin-code": adminCode },
         body: JSON.stringify({
@@ -628,7 +629,7 @@ export default function AdminTeams(): React.JSX.Element {
     if (adminCode === "") return;
     setBusy(true);
     try {
-      const res = await fetch("/api/admin/backup", {
+      const res = await apiFetch("/api/admin/backup", {
         method: "POST",
         headers: { "x-admin-code": adminCode },
       });

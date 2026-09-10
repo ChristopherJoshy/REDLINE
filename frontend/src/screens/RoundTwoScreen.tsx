@@ -11,6 +11,7 @@ import ProfileModal from "@/components/ProfileModal";
 import CelebrationOverlay from "@/components/CelebrationOverlay";
 import { getCover } from "@/api/profiles";
 import { submitItem } from "@/api/merchant";
+import { apiFetch } from "@/api/client";
 import { Send } from "lucide-react";
 import { DUR, EASE, reducedMotion } from "@/lib/motionTokens";
 
@@ -88,7 +89,7 @@ export default function RoundTwoScreen({ teamId, boss, locked }: RoundTwoScreenP
     }, 900);
     const t2 = window.setTimeout(() => {
       setReveal("open");
-      void fetch("/api/round2/opener", {
+      void apiFetch("/api/round2/opener", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ boss }),
@@ -165,7 +166,7 @@ export default function RoundTwoScreen({ teamId, boss, locked }: RoundTwoScreenP
     let dead = false;
     async function load(): Promise<void> {
       try {
-        const res = await fetch("/api/round2/state");
+        const res = await apiFetch("/api/round2/state");
         const data = (await res.json()) as { phase: "p1" | "p2" };
         if (!dead && (data.phase === "p1" || data.phase === "p2")) setPhase(data.phase);
       } catch {

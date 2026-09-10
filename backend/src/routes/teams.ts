@@ -29,6 +29,26 @@ export function sessionOf(req: { headers: Record<string, string | string[] | und
   teamId: string;
   displayName: string;
 } | undefined {
+  // 1. Check custom header x-session-token
+  const xToken = req.headers["x-session-token"];
+  const headerToken = Array.isArray(xToken) ? xToken[0] : xToken;
+  if (typeof headerToken === "string" && headerToken.trim() !== "") {
+    const verified = verifySessionToken(headerToken.trim(), env.joinCodePepper);
+    if (verified) return verified;
+  }
+
+  // 2. Check Authorization Bearer header
+  const auth = req.headers["authorization"];
+  const authHeader = Array.isArray(auth) ? auth[0] : auth;
+  if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+    const bearerToken = authHeader.slice(7).trim();
+    if (bearerToken !== "") {
+      const verified = verifySessionToken(bearerToken, env.joinCodePepper);
+      if (verified) return verified;
+    }
+  }
+
+  // 3. Fallback to cookie
   const raw = req.headers["cookie"];
   const header = Array.isArray(raw) ? raw.join("; ") : raw;
   const token = parseCookies(header)[SESSION_COOKIE];
@@ -114,8 +134,18 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter): v
       return reply.code(404).send({ error: "unknown identity" });
     }
     const token = makeSessionToken(teamId, displayName, env.joinCodePepper);
-    void reply.header("Set-Cookie", `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax`);
-    return { teamId, displayName };
+    const team = db.get<{ name: string; elo: number }>("SELECT name, elo FROM teams WHERE id = ?", teamId);
+    void reply.header(
+      "Set-Cookie",
+      `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=None; Secure`,
+    );
+    return {
+      teamId,
+      displayName,
+      teamName: team?.name ?? "",
+      elo: team?.elo ?? 1200,
+      token,
+    };
   });
 
   app.get("/api/me", async (req, reply) => {
@@ -143,7 +173,7 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter): v
   app.post("/api/logout", async (_req, reply) => {
     void reply.header(
       "Set-Cookie",
-      `${SESSION_COOKIE}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax`,
+      `${SESSION_COOKIE}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=None; Secure`,
     );
     return { ok: true };
   });

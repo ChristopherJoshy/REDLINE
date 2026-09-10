@@ -17,6 +17,17 @@ export function apiFetch(input: string, init?: RequestInit): Promise<Response> {
   const url = apiUrl(input);
   const headers = new Headers(init?.headers);
   headers.set("ngrok-skip-browser-warning", "true");
+  try {
+    const token = localStorage.getItem("redline_session_token");
+    if (token) {
+      headers.set("x-session-token", token);
+      if (!headers.has("Authorization")) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+    }
+  } catch {
+    // LocalStorage might be restricted
+  }
   return fetch(url, {
     credentials: "include",
     ...init,

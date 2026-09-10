@@ -116,7 +116,19 @@ export default function App(): React.JSX.Element {
     );
   }
   if (!checked) return <main className="min-h-[100dvh] bg-[var(--color-bg-0)]" />;
-  if (identity === null) return <EnterScreen onIdentified={() => window.location.reload()} />;
+  if (identity === null) {
+    return (
+      <EnterScreen
+        onIdentified={(res) => {
+          if (res) {
+            setIdentity(res);
+          } else {
+            void me().then((m) => setIdentity(m));
+          }
+        }}
+      />
+    );
+  }
 
   return (
     <main className="no-steal flex min-h-[100dvh] flex-col bg-[var(--color-bg-0)] text-[var(--color-text-1)]">

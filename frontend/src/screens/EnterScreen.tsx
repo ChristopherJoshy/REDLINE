@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { createTimeline } from "animejs";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
-import { identify, joinTeam, type JoinResult } from "@/api/teams";
+import { identify, joinTeam, type JoinResult, type IdentifyResult } from "@/api/teams";
 import { Shield, User, ArrowRight, Lock, KeyRound } from "lucide-react";
 import { DUR, EASE, reducedMotion } from "@/lib/motionTokens";
 
-export default function EnterScreen({ onIdentified }: { onIdentified: () => void }): React.JSX.Element {
+export default function EnterScreen({ onIdentified }: { onIdentified: (res?: IdentifyResult) => void }): React.JSX.Element {
   const [code, setCode] = useState("");
   useDocumentTitle("Enter — REDLINE Arena");
   const [joined, setJoined] = useState<JoinResult | null>(null);
@@ -83,8 +83,8 @@ export default function EnterScreen({ onIdentified }: { onIdentified: () => void
     setBusy(true);
     setError("");
     try {
-      await identify(joined.teamId, picked);
-      onIdentified();
+      const res = await identify(joined.teamId, picked);
+      onIdentified(res);
     } catch {
       setError("That seat is taken or unverified.");
     } finally {

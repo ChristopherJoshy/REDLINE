@@ -20,22 +20,38 @@ interface BotState {
 const ROSTER: BotId[] = ["wick", "spidey", "escanor", "stark", "joker", "light", "levi", "deadpool", "itachi", "aizen", "merchant"];
 
 function wsUrl(): string {
+  let url = "";
   const envWs = import.meta.env.VITE_WS_URL;
   if (typeof envWs === "string" && envWs.trim() !== "") {
-    return envWs.trim();
-  }
-  const envApi = import.meta.env.VITE_API_URL;
-  if (typeof envApi === "string" && envApi.trim() !== "") {
-    try {
-      const u = new URL(envApi);
-      const proto = u.protocol === "https:" ? "wss:" : "ws:";
-      return `${proto}//${u.host}/ws`;
-    } catch {
-      // ignore invalid URL
+    url = envWs.trim();
+  } else {
+    const envApi = import.meta.env.VITE_API_URL;
+    if (typeof envApi === "string" && envApi.trim() !== "") {
+      try {
+        const u = new URL(envApi);
+        const proto = u.protocol === "https:" ? "wss:" : "ws:";
+        url = `${proto}//${u.host}/ws`;
+      } catch {
+        // ignore invalid URL
+      }
     }
   }
-  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${window.location.host}/ws`;
+  if (!url) {
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    url = `${proto}//${window.location.host}/ws`;
+  }
+
+  try {
+    const token = localStorage.getItem("redline_session_token");
+    if (token) {
+      const parsed = new URL(url);
+      parsed.searchParams.set("token", token);
+      return parsed.toString();
+    }
+  } catch {
+    // LocalStorage might be restricted
+  }
+  return url;
 }
 
 export function useBotStream(teamId: string): {

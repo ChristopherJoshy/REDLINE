@@ -28,7 +28,7 @@ app.addHook("onRequest", async (req, reply) => {
     reply.header("Access-Control-Allow-Origin", origin);
     reply.header("Access-Control-Allow-Credentials", "true");
     reply.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
-    reply.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-admin-code, x-admin-pin, ngrok-skip-browser-warning");
+    reply.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-session-token, x-admin-code, x-admin-pin, ngrok-skip-browser-warning");
   }
   if (req.method === "OPTIONS") {
     return reply.code(204).send();
@@ -109,7 +109,18 @@ async function boot(): Promise<void> {
   await app.listen({ port: env.port, host: "0.0.0.0" });
   const wss = new WebSocketServer({ server: app.server });
   wss.on("connection", (socket, req) => {
-    const token = parseCookies(req.headers.cookie)["redline_session"];
+    let token: string | undefined;
+    if (req.url) {
+      try {
+        const parsedUrl = new URL(req.url, "http://localhost");
+        token = parsedUrl.searchParams.get("token") ?? undefined;
+      } catch {
+        // ignore
+      }
+    }
+    if (!token) {
+      token = parseCookies(req.headers.cookie)["redline_session"];
+    }
     const session = token === undefined ? undefined : verifySessionToken(token, env.joinCodePepper);
     if (session === undefined) {
       socket.close(4401, "no session");

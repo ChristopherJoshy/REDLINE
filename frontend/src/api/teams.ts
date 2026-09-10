@@ -11,6 +11,7 @@ export interface IdentifyResult {
   displayName: string;
   teamName?: string;
   elo?: number;
+  token?: string;
 }
 
 async function post<T>(path: string, body: unknown, adminCode?: string): Promise<T> {
@@ -30,8 +31,16 @@ export function joinTeam(code: string): Promise<JoinResult> {
   return post<JoinResult>("/api/join", { code });
 }
 
-export function identify(teamId: string, displayName: string): Promise<IdentifyResult> {
-  return post<IdentifyResult>("/api/identify", { teamId, displayName });
+export async function identify(teamId: string, displayName: string): Promise<IdentifyResult> {
+  const res = await post<IdentifyResult>("/api/identify", { teamId, displayName });
+  if (res.token) {
+    try {
+      localStorage.setItem("redline_session_token", res.token);
+    } catch {
+      // LocalStorage might be restricted
+    }
+  }
+  return res;
 }
 
 export async function me(): Promise<IdentifyResult> {
@@ -44,6 +53,11 @@ export async function me(): Promise<IdentifyResult> {
 }
 
 export async function logout(): Promise<void> {
+  try {
+    localStorage.removeItem("redline_session_token");
+  } catch {
+    // LocalStorage might be restricted
+  }
   await apiFetch("/api/logout", { method: "POST" });
 }
 

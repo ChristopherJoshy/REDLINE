@@ -1,6 +1,8 @@
 # REDLINE Arena
 
 > Live AI social-engineering CTF — built for the **Asthra 11.0 CSE** event.
+> 
+> 🌐 **Live Deployment:** [https://redline-frontend-mu.vercel.app/](https://redline-frontend-mu.vercel.app/)
 
 Teams enter with a join code, talk a roster of AI personas into giving up their prized
 possessions, trade at the merchant, crack the gates, pass the portal, and survive a
@@ -112,15 +114,23 @@ walked live before doors open.
 
 ## Deploying the frontend (Vercel)
 
-`vercel.json` lives at the repo root and deploys **the frontend only** (import the repo
-root in Vercel, no Root Directory override needed):
+The frontend is live at **[https://redline-frontend-mu.vercel.app/](https://redline-frontend-mu.vercel.app/)**.
 
-- Install/build are scoped with `cd frontend` so the backend's native deps are never installed.
-- An SPA fallback rewrite covers `/`, `/admin`, and `/admin/board`.
+`vercel.json` lives at the repo root and configures the build and SPA routing:
+- **Build command**: `npm run build --workspace frontend`
+- **Output directory**: `frontend/dist`
+- **Install command**: `npm install`
+- **Rewrites**: All routes rewrite to `/index.html` for client-side routing.
 
-> UI-only caveat: the frontend calls relative `/api/*`, which on Vercel has no backend
-> behind it (calls degrade to the enter screen). Point a `/api/:path*` rewrite at a
-> reachable backend URL when one exists.
+### Environment variables on Vercel
+Set these in your Vercel Project Settings under **Environment Variables** (see `frontend/.env.example`):
+
+| Variable | Description |
+|---|---|
+| `VITE_API_URL` | Base URL of the backend server (e.g., `http://<your-vps-ip>:25565`) |
+| `VITE_WS_URL` | WebSocket URL for real-time events & chat streaming (e.g., `ws://<your-vps-ip>:25565/ws`) |
+
+When these variables are configured, the frontend automatically connects to the remote backend for all API calls and WebSocket streaming. In local development, `npm run dev:frontend` proxies requests using these same values from `frontend/.env`.
 
 ---
 

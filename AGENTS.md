@@ -21,6 +21,33 @@ doc, read-only; purple organizer boxes never ship to clients). Plan: `local://re
 - `npm run build`, `npm run test`, `tsc --noEmit` — all must pass.
 - Venue runs one process (`bun run backend/src/server.ts` or `node dist/server.js`), zero cloud deps.
 
+### Remote VPS Backend Deployment
+
+VPS host: `ubuntu@3.110.88.35` (service: `redline.service`, port: 25565, directory: `/home/ubuntu/redline`).
+Key path: `C:\Users\Chris\Documents\Minecraft\Personal\sshkey\test123.pem`.
+
+To update the remote backend:
+1. Build locally:
+   ```bash
+   npm run build
+   ```
+2. Archive the compiled backend distribution:
+   ```bash
+   tar -czf backend/dist.tar.gz -C backend/dist .
+   ```
+3. Transfer archive to VPS:
+   ```bash
+   scp -i "C:\Users\Chris\Documents\Minecraft\Personal\sshkey\test123.pem" backend/dist.tar.gz ubuntu@3.110.88.35:/home/ubuntu/redline/
+   ```
+4. Extract on VPS and restart `redline.service`:
+   ```bash
+   ssh -i "C:\Users\Chris\Documents\Minecraft\Personal\sshkey\test123.pem" ubuntu@3.110.88.35 "cd /home/ubuntu/redline && tar -xzf dist.tar.gz -C dist/ && rm dist.tar.gz && sudo systemctl restart redline"
+   ```
+5. Clean up local archive:
+   ```bash
+   rm backend/dist.tar.gz
+   ```
+
 ## Agent boundaries
 
 - Nearest AGENTS.md wins (root baseline; `frontend/` and `backend/` override).

@@ -15,3 +15,24 @@ Baseline: root `AGENTS.md`. Player-facing copy tone follows root `DESIGN.md` (me
 ## Commands
 
 - `bun run src/server.ts` (primary) or `node dist/server.js` (fallback). `tsc --noEmit`.
+
+### Deploying to Remote VPS (`3.110.88.35`)
+
+The VPS runs `/home/ubuntu/redline/dist/server.js` under systemd service `redline.service`. Since the remote directory is not a git clone, updates are pushed via compiled distribution archive:
+
+```bash
+# 1. Compile backend locally
+npm run build -w @redline/backend
+
+# 2. Package dist
+tar -czf dist.tar.gz -C dist .
+
+# 3. SCP to host
+scp -i "C:\Users\Chris\Documents\Minecraft\Personal\sshkey\test123.pem" dist.tar.gz ubuntu@3.110.88.35:/home/ubuntu/redline/
+
+# 4. Extract and restart service on remote
+ssh -i "C:\Users\Chris\Documents\Minecraft\Personal\sshkey\test123.pem" ubuntu@3.110.88.35 "cd /home/ubuntu/redline && tar -xzf dist.tar.gz -C dist/ && rm dist.tar.gz && sudo systemctl restart redline"
+
+# 5. Clean up local tarball
+rm dist.tar.gz
+```

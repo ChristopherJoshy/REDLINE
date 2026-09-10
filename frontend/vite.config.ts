@@ -13,13 +13,41 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": `http://127.0.0.1:${apiPort()}`,
-      "/ws": { target: `ws://127.0.0.1:${apiPort()}`, ws: true },
+      "/api": {
+        target: apiTarget(),
+        changeOrigin: true,
+      },
+      "/ws": {
+        target: wsTarget(),
+        ws: true,
+        changeOrigin: true,
+      },
     },
   },
 });
 
-function apiPort(): string {
+function apiTarget(): string {
   const g = globalThis as { process?: { env?: Record<string, string | undefined> } };
-  return g.process?.env?.["REDLINE_API_PORT"] ?? "3001";
+  const envUrl = g.process?.env?.["VITE_API_URL"] || g.process?.env?.["VITE_SERVER_URL"];
+  if (envUrl && envUrl.trim() !== "") {
+    return envUrl.trim().replace(/\/+$/, "");
+  }
+  const port = g.process?.env?.["REDLINE_API_PORT"] ?? "3001";
+  return `http://127.0.0.1:${port}`;
+}
+
+function wsTarget(): string {
+  const g = globalThis as { process?: { env?: Record<string, string | undefined> } };
+  const envWs = g.process?.env?.["VITE_WS_URL"];
+  if (envWs && envWs.trim() !== "") {
+    return envWs.trim();
+  }
+  const target = apiTarget();
+  try {
+    const u = new URL(target);
+    const proto = u.protocol === "https:" ? "wss:" : "ws:";
+    return `${proto}//${u.host}`;
+  } catch {
+    return "ws://127.0.0.1:3001";
+  }
 }

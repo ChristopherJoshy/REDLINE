@@ -4,6 +4,7 @@ import type { DatabaseAdapter } from "../db/database.js";
 import type { ChatMessage, ToolCall } from "../llm/groq.js";
 import { streamChat } from "../llm/groq.js";
 import { BOT_TOOLS, parseHandover, parseSoundId } from "../bots/tools.js";
+import { coverBrief } from "../bots/coverLens.js";
 import { BOTS, ROUND1_BOTS } from "../bots/registry.js";
 import { bossOf, isBoss } from "../bots/r2.js";
 import { handleR2Chat } from "./r2handler.js";
@@ -27,6 +28,7 @@ export async function handleChatSend(
   teamId: string,
   botId: BotId,
   text: string,
+  displayName: string,
 ): Promise<void> {
   if (!round1Open(db) && (ROUND1_BOTS as BotId[]).includes(botId)) {
     bus.broadcast(teamId, bus.frame("bot_error", { botId, message: "round sealed", retryable: false }));
@@ -37,7 +39,7 @@ export async function handleChatSend(
       bus.broadcast(teamId, bus.frame("bot_error", { botId, message: "not your vault", retryable: false }));
       return;
     }
-    await handleR2Chat(bus, db, teamId, botId, text);
+    await handleR2Chat(bus, db, teamId, botId, text, displayName);
     return;
   }
   const entry = BOTS[botId];
@@ -56,6 +58,10 @@ export async function handleChatSend(
       HISTORY_LIMIT,
     );
     const messages: ChatMessage[] = [{ role: "system", content: entry.prompt }];
+    const cover = coverBrief(db, teamId, displayName, botId);
+    if (cover !== undefined) {
+      messages.push({ role: "system", content: cover });
+    }
     for (const row of history.reverse()) {
       if (row.role !== "user" && row.role !== "assistant") {
         continue;
@@ -67,7 +73,7 @@ export async function handleChatSend(
     let fullText = "";
     const toolCalls: ToolCall[] = [];
     const guardFlags: string[] = [];
-    for await (const item of streamChat(messages, BOT_TOOLS)) {
+    for await (const item of streamChat(messages, BOT_TOOLS, db)) {
       if (item.kind === "delta") {
         fullText += item.text;
         bus.broadcast(teamId, bus.frame("bot_token", { botId, delta: item.text }));
@@ -78,6 +84,11 @@ export async function handleChatSend(
 
     let inventoryDelta: InventoryDelta | undefined;
     for (const call of toolCalls) {
+      if (call.name === "handover_item" && botId === "merchant") {
+        // The merchant never transfers in chat; the counter owns all sales.
+        guardFlags.push("merchant-no-handover");
+        continue;
+      }
       if (call.name === "handover_item") {
         const parsed = parseHandover(call.args);
         if (parsed === undefined) {
@@ -130,7 +141,8 @@ export async function handleChatSend(
       teamId,
       bus.frame("bot_done", { botId, fullText, typing: false, ...(inventoryDelta === undefined ? {} : { inventoryDelta }) }),
     );
-  } catch {
+  } catch (err) {
+    console.error(`[ChatHandler] Inference error for bot ${botId}:`, err);
     bus.broadcast(teamId, bus.frame("bot_error", { botId, message: "inference failed, retry", retryable: true }));
     bus.broadcast(teamId, bus.frame("bot_typing", { teamId, botId, typing: false }));
   }

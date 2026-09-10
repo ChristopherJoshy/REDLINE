@@ -2,13 +2,15 @@
 // Model: muse-spark-1.3-contributor-free (verified upstream ID for Muse Spark 1.3 Free)
 // Reasoning is captured strictly server-side for reasoning_traces and never streamed to players.
 import { randomUUID } from "node:crypto";
-import { env } from "../env.js";
+import type { DatabaseAdapter } from "../db/database.js";
+import { runWithRotation } from "./keyPool.js";
 import type { ChatMessage, StreamYield, ToolDef } from "./groq.js";
 
 const MODEL = "muse-spark-1.3-contributor-free";
 const ZEN_RESPONSES_URL = "https://opencode.ai/zen/v1/responses";
 
-export async function* streamZenChat(
+async function* streamZenChatWithKey(
+  apiKey: string,
   messages: ChatMessage[],
   tools: ToolDef[],
 ): AsyncGenerator<StreamYield & { reasoning?: string }> {
@@ -28,7 +30,7 @@ export async function* streamZenChat(
   const res = await fetch(ZEN_RESPONSES_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${env.zenApiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       "x-opencode-session": sessionId,
       "X-Session-ID": sessionId,
@@ -126,4 +128,12 @@ export async function* streamZenChat(
   }
 
   yield { kind: "done", finish: "stop", reasoning };
+}
+
+export async function* streamZenChat(
+  messages: ChatMessage[],
+  tools: ToolDef[],
+  db?: DatabaseAdapter,
+): AsyncGenerator<StreamYield & { reasoning?: string }> {
+  yield* runWithRotation("zen", (key) => streamZenChatWithKey(key, messages, tools), db);
 }

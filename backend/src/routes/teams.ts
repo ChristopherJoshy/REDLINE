@@ -50,14 +50,21 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter): v
     const members = Array.isArray(body.members)
       ? body.members.filter((m): m is string => typeof m === "string").map((m) => m.trim()).filter((m) => m !== "")
       : [];
-    if (name === "" || members.length < 2 || members.length > 4) {
-      return reply.code(400).send({ error: "need a team name and 2-4 members" });
+    if (name === "" || members.length < 2 || members.length > 3) {
+      return reply.code(400).send({ error: "need a team name and 2-3 members" });
     }
     const code = generateJoinCode();
     const id = randomUUID();
     try {
       db.transaction(() => {
-        db.run("INSERT INTO teams (id, name, join_code_hash, hint) VALUES (?, ?, ?, ?)", id, name, hashJoinCode(code, env.joinCodePepper), hintFor(code));
+        db.run(
+          "INSERT INTO teams (id, name, join_code_hash, hint, join_code) VALUES (?, ?, ?, ?, ?)",
+          id,
+          name,
+          hashJoinCode(code, env.joinCodePepper),
+          hintFor(code),
+          displayCode(code),
+        );
         const seen = new Set<string>();
         for (const displayName of members) {
           if (seen.has(displayName)) {
@@ -124,6 +131,21 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter): v
     if (member === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
-    return session;
+    const team = db.get<{ name: string; elo: number }>("SELECT name, elo FROM teams WHERE id = ?", session.teamId);
+    return {
+      teamId: session.teamId,
+      displayName: session.displayName,
+      teamName: team?.name ?? "",
+      elo: team?.elo ?? 1200,
+    };
+  });
+
+  app.post("/api/logout", async (_req, reply) => {
+    void reply.header(
+      "Set-Cookie",
+      `${SESSION_COOKIE}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax`,
+    );
+    return { ok: true };
   });
 }
+

@@ -74,6 +74,7 @@ export interface BotErrorData {
 
 export interface InventorySyncData {
   items: InventoryDelta[];
+  credits?: number;
 }
 
 export interface GateStateData {
@@ -94,6 +95,21 @@ export interface EffectPlayData {
   effectId: string;
 }
 
+export interface AnnouncementData {
+  id: string;
+  message: string;
+  level: "info" | "warning" | "alert";
+  sender?: string;
+  timestamp: string;
+}
+
+export interface EloUpdateData {
+  teamId: string;
+  elo: number;
+  delta: number;
+  reason: string;
+}
+
 export type ClientEvent =
   | Frame<"hello", HelloData>
   | Frame<"ping", Record<string, never>>
@@ -110,5 +126,8 @@ export type ServerEvent =
   | Frame<"inventory_sync", InventorySyncData>
   | Frame<"gate_state", GateStateData>
   | Frame<"ally_msg", AllyMsgData>
-  | Frame<"effect_play", EffectPlayData>;
+  | Frame<"effect_play", EffectPlayData>
+  | Frame<"announcement", AnnouncementData>
+  | Frame<"elo_update", EloUpdateData>;
 export type AnyEvent = ClientEvent | ServerEvent;
+

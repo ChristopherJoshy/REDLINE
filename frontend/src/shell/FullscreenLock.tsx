@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { apiFetch } from "@/api/client";
 
 // Fullscreen enforcement: overlay + Resume + server-side attempt log.
 // Never traps ESC; re-request + overlay penalty is the enforcement.
@@ -9,7 +10,7 @@ export default function FullscreenLock({ onLockChange }: { onLockChange: (locked
   lockedRef.current = locked;
 
   const logAttempt = useCallback(() => {
-    void fetch("/api/fullscreen-log", { method: "POST" }).catch(() => {});
+    void apiFetch("/api/fullscreen-log", { method: "POST" }).catch(() => {});
   }, []);
 
   const request = useCallback(() => {

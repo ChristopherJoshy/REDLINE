@@ -46,14 +46,24 @@ function loadDriver(path: string): SyncDriver {
 export function openDatabase(path: string, schemaPath: string): DatabaseAdapter {
   const driver = loadDriver(path);
   driver.exec(readFileSync(schemaPath, "utf8"));
+  try {
+    driver.exec("ALTER TABLE teams ADD COLUMN join_code TEXT;");
+  } catch {
+    // column already exists
+  }
+  try {
+    driver.exec("ALTER TABLE teams ADD COLUMN clue_credits INTEGER NOT NULL DEFAULT 0;");
+  } catch {
+    // column already exists
+  }
   return {
     exec: (sql) => driver.exec(sql),
     run: (sql, ...params) => {
       const r = driver.prepare(sql).run(...params);
       return { changes: Number(r.changes), lastInsertRowid: r.lastInsertRowid };
     },
-    get: <T>(sql: string, ...params: unknown[]): T | undefined =>
-      driver.prepare(sql).get(...params) as T | undefined,
+  get: <T>(sql: string, ...params: unknown[]): T | undefined =>
+    (driver.prepare(sql).get(...params) as T | null | undefined) ?? undefined,
     all: <T>(sql: string, ...params: unknown[]): T[] =>
       driver.prepare(sql).all(...params) as T[],
     transaction: <T>(fn: () => T): T => driver.transaction(fn)(),

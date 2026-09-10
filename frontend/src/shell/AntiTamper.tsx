@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "@/api/client";
 
 // Friction-only deterrence: toasts + server log. Never the gate —
 // DevTools, view-source, curl, and JS-off always bypass scripts, so no
 // secrets, flags, scores, or role checks live in client code. Server is truth.
 export default function AntiTamper(): React.JSX.Element | null {
+  if (import.meta.env.DEV) {
+    return null;
+  }
+
   const [toast, setToast] = useState("");
 
   const log = useCallback((kind: string) => {
-    void fetch("/api/deterrence-log", {
+    void apiFetch("/api/deterrence-log", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind }),

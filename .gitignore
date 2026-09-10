@@ -23,6 +23,7 @@ backend/backups/
 *.log
 logs/
 coverage/
+deploy-vps.sh
 
 # OS noise
 .DS_Store

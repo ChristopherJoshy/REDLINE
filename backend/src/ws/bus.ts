@@ -73,6 +73,25 @@ export class Bus {
     }
   }
 
+  broadcastAll(event: ServerEvent): void {
+    for (const teamId of this.teamSockets.keys()) {
+      this.pushRing(teamId, event);
+    }
+    for (const socket of this.teams.keys()) {
+      this.send(socket, event);
+    }
+    for (const listeners of this.listeners.values()) {
+      for (const fn of listeners) {
+        fn(event);
+      }
+    }
+  }
+
+  connectionCount(): number {
+    return this.teams.size;
+  }
+
+
   replay(socket: WebSocket, teamId: string, lastEventId: string): void {
     const idx = this.ring.findIndex((e) => e.id === lastEventId && e.teamId === teamId);
     const missed = idx < 0 ? [] : this.ring.slice(idx + 1).filter((e) => e.teamId === teamId);

@@ -1,3 +1,5 @@
+import { apiFetch } from "./client";
+
 export interface Gates {
   round1Open: boolean;
   vaultOpen: boolean;
@@ -7,7 +9,7 @@ export interface Gates {
 }
 
 export async function getGates(): Promise<Gates> {
-  const res = await fetch("/api/gates");
+  const res = await apiFetch("/api/gates");
   if (!res.ok) {
     throw new Error("no gates");
   }
@@ -15,7 +17,7 @@ export async function getGates(): Promise<Gates> {
 }
 
 async function adminPost(path: string, code: string): Promise<unknown> {
-  const res = await fetch(path, { method: "POST", headers: { "x-admin-code": code } });
+  const res = await apiFetch(path, { method: "POST", headers: { "x-admin-code": code } });
   const data = (await res.json()) as unknown;
   if (!res.ok) {
     throw new Error("admin failed");
@@ -36,7 +38,7 @@ export function openVault(code: string): Promise<unknown> {
 }
 
 export async function enterRound2(): Promise<{ boss: string }> {
-  const res = await fetch("/api/round2/enter", { method: "POST" });
+  const res = await apiFetch("/api/round2/enter", { method: "POST" });
   const data = (await res.json()) as { boss: string } & { error?: string };
   if (!res.ok) {
     throw new Error(data.error ?? "vault sealed");

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AnyEvent, BotId, ClientEvent, InventoryDelta } from "@contracts/events";
 import { createFrame, parseEvent } from "@/ws/client";
 import { playSound } from "@/chat/sound";
+import { apiUrl, apiFetch } from "@/api/client";
 
 export interface ChatMessage {
   role: "user" | "bot" | "ally";
@@ -19,6 +20,20 @@ interface BotState {
 const ROSTER: BotId[] = ["wick", "spidey", "escanor", "stark", "joker", "light", "levi", "deadpool", "itachi", "aizen", "merchant"];
 
 function wsUrl(): string {
+  const envWs = import.meta.env.VITE_WS_URL;
+  if (typeof envWs === "string" && envWs.trim() !== "") {
+    return envWs.trim();
+  }
+  const envApi = import.meta.env.VITE_API_URL;
+  if (typeof envApi === "string" && envApi.trim() !== "") {
+    try {
+      const u = new URL(envApi);
+      const proto = u.protocol === "https:" ? "wss:" : "ws:";
+      return `${proto}//${u.host}/ws`;
+    } catch {
+      // ignore invalid URL
+    }
+  }
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${proto}//${window.location.host}/ws`;
 }
@@ -26,8 +41,11 @@ function wsUrl(): string {
 export function useBotStream(teamId: string): {
   bots: Record<BotId, BotState>;
   inventory: InventoryDelta[];
+  credits: number;
   flash: number;
   send: (botId: BotId, text: string) => void;
+  say: (botId: BotId, text: string) => void;
+  rewind: (botId: BotId) => Promise<{ ok: boolean; error?: string }>;
 } {
   const [bots, setBots] = useState<Record<BotId, BotState>>(() => {
     const out = {} as Record<BotId, BotState>;
@@ -37,6 +55,7 @@ export function useBotStream(teamId: string): {
     return out;
   });
   const [inventory, setInventory] = useState<InventoryDelta[]>([]);
+  const [credits, setCredits] = useState(0);
   const [flash, setFlash] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
   const queueRef = useRef<ClientEvent[]>([]);
@@ -73,6 +92,7 @@ export function useBotStream(teamId: string): {
       playSound(event.data.src);
     } else if (event.event === "inventory_sync") {
       setInventory(event.data.items);
+      if (typeof event.data.credits === "number") setCredits(event.data.credits);
     } else if (event.event === "ally_msg") {
       const { botId, displayName, text, confirmed } = event.data;
       setBots((prev) => ({
@@ -82,6 +102,20 @@ export function useBotStream(teamId: string): {
     } else if (event.event === "effect_play") {
       if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         setFlash((f) => f + 1);
+      }
+    } else if (event.event === "announcement") {
+      window.dispatchEvent(new CustomEvent("arena:announcement", { detail: event.data }));
+      try {
+        playSound("/sounds/portal_active.mp3");
+      } catch {
+        // sound optional
+      }
+    } else if (event.event === "elo_update") {
+      window.dispatchEvent(new CustomEvent("arena:elo_update", { detail: event.data }));
+      try {
+        playSound("/sounds/merchant_success.mp3");
+      } catch {
+        // sound optional
       }
     }
   }, []);
@@ -104,7 +138,7 @@ export function useBotStream(teamId: string): {
         } catch {
           last = "";
         }
-        source = new EventSource(last === "" ? "/api/stream" : `/api/stream?lastEventId=${encodeURIComponent(last)}`);
+        source = new EventSource(apiUrl(last === "" ? "/api/stream" : `/api/stream?lastEventId=${encodeURIComponent(last)}`));
         source.onmessage = (e: MessageEvent<string>) => {
           try {
             apply(parseEvent(e.data));
@@ -177,5 +211,38 @@ export function useBotStream(teamId: string): {
     [teamId],
   );
 
-  return { bots, inventory, send, flash };
+  // Local merchant-desk notes: deterministic counter receipts land in the
+  // thread instantly; the server persists the same lines in chat_logs.
+  const say = useCallback((botId: BotId, text: string) => {
+    setBots((prev) => ({ ...prev, [botId]: { ...prev[botId], messages: [...prev[botId].messages, { role: "bot", text }] } }));
+  }, []);
+  // Player rewind: server truncates chat_logs + charges 1 ELO; drop local
+  // transcript so the UI genuinely forgets too, then sync the HUD badge.
+  const rewind = useCallback(
+    async (botId: BotId): Promise<{ ok: boolean; error?: string }> => {
+      try {
+        const res = await apiFetch("/api/rewind", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ botId }),
+        });
+        const data = (await res.json()) as { ok?: boolean; elo?: number; error?: string };
+        if (!res.ok || data.ok !== true) {
+          return { ok: false, error: data.error ?? "Rewind failed" };
+        }
+        setBots((prev) => ({ ...prev, [botId]: { messages: [], typing: false, streaming: "" } }));
+        window.dispatchEvent(
+          new CustomEvent("arena:elo_update", {
+            detail: { teamId, elo: data.elo ?? 0, delta: -1, reason: `rewind:${botId}` },
+          }),
+        );
+        return { ok: true };
+      } catch {
+        return { ok: false, error: "Rewind failed" };
+      }
+    },
+    [teamId],
+  );
+
+  return { bots, inventory, credits, send, say, flash, rewind };
 }

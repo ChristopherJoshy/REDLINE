@@ -4,6 +4,7 @@ import type { DatabaseAdapter } from "../db/database.js";
 import type { ChatMessage, ToolCall } from "../llm/groq.js";
 import { streamZenChat } from "../llm/zen.js";
 import { parseHandover, parseSoundId } from "../bots/tools.js";
+import { coverBrief } from "../bots/coverLens.js";
 import { R2_TOOLS, bossKeys, escalationUsed, markEscalation, r2Prompt, type BossId } from "../bots/r2.js";
 import type { Bus } from "../ws/bus.js";
 
@@ -28,6 +29,7 @@ export async function handleR2Chat(
   teamId: string,
   boss: BossId,
   text: string,
+  displayName: string,
 ): Promise<void> {
   bus.broadcast(teamId, bus.frame("bot_typing", { teamId, botId: boss, typing: true }));
   const started = Date.now();
@@ -41,6 +43,10 @@ export async function handleR2Chat(
       HISTORY_LIMIT,
     );
     const messages: ChatMessage[] = [{ role: "system", content: prompt }];
+    const cover = coverBrief(db, teamId, displayName, boss);
+    if (cover !== undefined) {
+      messages.push({ role: "system", content: cover });
+    }
     if (reveal) {
       messages.push({ role: "system", content: "This is the first Phase-2 turn: open with the release reveal." });
     }
@@ -56,7 +62,7 @@ export async function handleR2Chat(
     const toolCalls: ToolCall[] = [];
     const guardFlags: string[] = [];
     let reasoning = "";
-    for await (const item of streamZenChat(messages, R2_TOOLS)) {
+    for await (const item of streamZenChat(messages, R2_TOOLS, db)) {
       if (item.kind === "delta") {
         fullText += item.text;
         bus.broadcast(teamId, bus.frame("bot_token", { botId: boss, delta: item.text }));
@@ -173,7 +179,8 @@ export async function handleR2Chat(
       bus.broadcast(teamId, bus.frame("inventory_sync", { items }));
     }
     bus.broadcast(teamId, bus.frame("bot_done", { botId: boss, fullText, typing: false, ...(inventoryDelta === undefined ? {} : { inventoryDelta }) }));
-  } catch {
+  } catch (err) {
+    console.error(`[R2ChatHandler] Inference error for boss ${boss}:`, err);
     bus.broadcast(teamId, bus.frame("bot_error", { botId: boss, message: "inference failed, retry", retryable: true }));
     bus.broadcast(teamId, bus.frame("bot_typing", { teamId, botId: boss, typing: false }));
   }

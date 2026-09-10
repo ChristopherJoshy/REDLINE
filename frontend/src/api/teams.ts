@@ -1,3 +1,5 @@
+import { apiFetch } from "./client";
+
 export interface JoinResult {
   teamId: string;
   teamName: string;
@@ -7,6 +9,8 @@ export interface JoinResult {
 export interface IdentifyResult {
   teamId: string;
   displayName: string;
+  teamName?: string;
+  elo?: number;
 }
 
 async function post<T>(path: string, body: unknown, adminCode?: string): Promise<T> {
@@ -14,7 +18,7 @@ async function post<T>(path: string, body: unknown, adminCode?: string): Promise
   if (adminCode !== undefined) {
     headers["x-admin-code"] = adminCode;
   }
-  const res = await fetch(path, { method: "POST", headers, body: JSON.stringify(body) });
+  const res = await apiFetch(path, { method: "POST", headers, body: JSON.stringify(body) });
   const data = (await res.json()) as T & { error?: string };
   if (!res.ok) {
     throw new Error(data.error ?? "request failed");
@@ -31,13 +35,18 @@ export function identify(teamId: string, displayName: string): Promise<IdentifyR
 }
 
 export async function me(): Promise<IdentifyResult> {
-  const res = await fetch("/api/me");
+  const res = await apiFetch("/api/me");
   const data = (await res.json()) as IdentifyResult & { error?: string };
   if (!res.ok) {
     throw new Error(data.error ?? "no session");
   }
   return data;
 }
+
+export async function logout(): Promise<void> {
+  await apiFetch("/api/logout", { method: "POST" });
+}
+
 
 export interface CreateTeamResult {
   id: string;

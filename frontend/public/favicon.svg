@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    #g-tight { flood-color: #DC2626; flood-opacity: 0.6; }
+    #g-halo { flood-color: #DC2626; flood-opacity: 0; }
+    #r { fill: #DC2626; }
+    @media (prefers-color-scheme: dark) {
+      #r { fill: #FF1F3D; }
+      #g-tight { flood-color: #FF1F3D; flood-opacity: 0.95; }
+      #g-halo { flood-color: #FF1F3D; flood-opacity: 0.5; }
+    }
+  </style>
+  <defs>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow id="g-tight" dx="0" dy="0" stdDeviation="2.2" flood-color="#DC2626" flood-opacity="0.6"/>
+      <feDropShadow id="g-halo" dx="0" dy="0" stdDeviation="6" flood-color="#DC2626" flood-opacity="0"/>
+    </filter>
+  </defs>
+  <text id="r" x="32" y="47" text-anchor="middle" font-family="'Arial Black', Arial, 'Segoe UI', sans-serif" font-size="46" font-weight="900" filter="url(#glow)">R</text>
+</svg>

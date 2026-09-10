@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#2D1F12" />
+      <stop offset="70%" stop-color="#140D07" />
+      <stop offset="100%" stop-color="#080503" />
+    </radialGradient>
+    <linearGradient id="goldRim" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE68A" />
+      <stop offset="25%" stop-color="#D97706" />
+      <stop offset="50%" stop-color="#FFFBEB" />
+      <stop offset="75%" stop-color="#B45309" />
+      <stop offset="100%" stop-color="#78350F" />
+    </linearGradient>
+    <radialGradient id="goldCenter" cx="45%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#FEF3C7" />
+      <stop offset="40%" stop-color="#F59E0B" />
+      <stop offset="80%" stop-color="#B45309" />
+      <stop offset="100%" stop-color="#78350F" />
+    </radialGradient>
+    <radialGradient id="bloodGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#EF4444" />
+      <stop offset="40%" stop-color="#B91C1C" />
+      <stop offset="80%" stop-color="#7F1D1D" />
+      <stop offset="100%" stop-color="#450A0A" />
+    </radialGradient>
+    <filter id="goldGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000" flood-opacity="0.75" />
+    </filter>
+  </defs>
+
+  <!-- Background Plate -->
+  <rect width="512" height="512" rx="96" fill="url(#bgGrad)" stroke="#B45309" stroke-width="4" filter="url(#dropShadow)" />
+  <rect x="12" y="12" width="488" height="488" rx="84" fill="none" stroke="#F59E0B" stroke-opacity="0.3" stroke-width="2" />
+
+  <!-- Outer Heavy Medallion Base -->
+  <circle cx="256" cy="256" r="200" fill="url(#goldRim)" filter="url(#dropShadow)" />
+  <circle cx="256" cy="256" r="185" fill="#1C1008" stroke="#FDE68A" stroke-width="3" />
+  
+  <!-- Coin Fluting / Tooth Notches -->
+  <g stroke="#D97706" stroke-width="3" opacity="0.6">
+    <line x1="441.0" y1="256.0" x2="451.0" y2="256.0" /><line x1="438.2" y1="288.1" x2="448.0" y2="289.9" /><line x1="429.8" y1="319.3" x2="439.2" y2="322.7" /><line x1="416.2" y1="348.5" x2="424.9" y2="353.5" /><line x1="397.7" y1="374.9" x2="405.4" y2="381.3" /><line x1="374.9" y1="397.7" x2="381.3" y2="405.4" /><line x1="348.5" y1="416.2" x2="353.5" y2="424.9" /><line x1="319.3" y1="429.8" x2="322.7" y2="439.2" /><line x1="288.1" y1="438.2" x2="289.9" y2="448.0" /><line x1="256.0" y1="441.0" x2="256.0" y2="451.0" /><line x1="223.9" y1="438.2" x2="222.1" y2="448.0" /><line x1="192.7" y1="429.8" x2="189.3" y2="439.2" /><line x1="163.5" y1="416.2" x2="158.5" y2="424.9" /><line x1="137.1" y1="397.7" x2="130.7" y2="405.4" /><line x1="114.3" y1="374.9" x2="106.6" y2="381.3" /><line x1="95.8" y1="348.5" x2="87.1" y2="353.5" /><line x1="82.2" y1="319.3" x2="72.8" y2="322.7" /><line x1="73.8" y1="288.1" x2="64.0" y2="289.9" /><line x1="71.0" y1="256.0" x2="61.0" y2="256.0" /><line x1="73.8" y1="223.9" x2="64.0" y2="222.1" /><line x1="82.2" y1="192.7" x2="72.8" y2="189.3" /><line x1="95.8" y1="163.5" x2="87.1" y2="158.5" /><line x1="114.3" y1="137.1" x2="106.6" y2="130.7" /><line x1="137.1" y1="114.3" x2="130.7" y2="106.6" /><line x1="163.5" y1="95.8" x2="158.5" y2="87.1" /><line x1="192.7" y1="82.2" x2="189.3" y2="72.8" /><line x1="223.9" y1="73.8" x2="222.1" y2="64.0" /><line x1="256.0" y1="71.0" x2="256.0" y2="61.0" /><line x1="288.1" y1="73.8" x2="289.9" y2="64.0" /><line x1="319.3" y1="82.2" x2="322.7" y2="72.8" /><line x1="348.5" y1="95.8" x2="353.5" y2="87.1" /><line x1="374.9" y1="114.3" x2="381.3" y2="106.6" /><line x1="397.7" y1="137.1" x2="405.4" y2="130.7" /><line x1="416.2" y1="163.5" x2="424.9" y2="158.5" /><line x1="429.8" y1="192.7" x2="439.2" y2="189.3" /><line x1="438.2" y1="223.9" x2="448.0" y2="222.1" />
+  </g>
+
+  <!-- Inscription Ring -->
+  <circle cx="256" cy="256" r="162" fill="url(#goldCenter)" stroke="#78350F" stroke-width="4" />
+  <circle cx="256" cy="256" r="148" fill="none" stroke="#FEF3C7" stroke-dasharray="8 6" stroke-width="2" opacity="0.8" />
+
+  <!-- Heavy Medallion Hinge -->
+  <rect x="246" y="60" width="20" height="392" rx="8" fill="url(#goldRim)" stroke="#451A03" stroke-width="3" />
+  <circle cx="256" cy="75" r="8" fill="#FDE68A" stroke="#451A03" stroke-width="2" />
+  <circle cx="256" cy="437" r="8" fill="#FDE68A" stroke="#451A03" stroke-width="2" />
+
+  <!-- Left Half: Continental Crest / Latin Seal -->
+  <g transform="translate(-40, 0) scale(0.65) translate(80, 75)" filter="url(#goldGlow)">
+    <path d="M140.5 19.156V192.28l21.813 28.532h15.53V19.156H140.5zm56.03 0v201.656h122.064V19.156H196.53zm140.75 0v201.656h12.345l22.094-28.53V19.155h-34.44zM173.94 239.5v18.125h164.09V239.5H173.94zm30.78 36.813 8.032 10.53c-25.262 12.014-45.128 33.46-55.094 59.813l65.03 47.47 5.47 3.968-2.094 6.437-17.312 53.69 45.656-33.064 5.5-3.97 5.47 3.97 62.468 45.22c24.872-19.957 40.78-50.6 40.78-85.063 0-6.494-.573-12.854-1.655-19.032l-58.845 42.94-11-15.095L361.688 347c-10.683-28.55-32.932-51.392-61.125-62.78l6.125-7.908h-38.813l-25.5 78-17.75-5.812 23.594-72.188h-43.5zm-52.374 89.625a110.094 110.094 0 0 0-1.72 19.375c0 32.163 13.84 61.008 35.907 80.937l19.69-61.03-53.876-39.283zm107.562 78.343-51.53 37.314c15.266 8.124 32.707 12.72 51.25 12.72 18.673-.002 36.218-4.676 51.562-12.908l-51.282-37.125z" fill="url(#goldRim)" stroke="#451A03" stroke-width="2" />
+  </g>
+
+  <!-- Right Half: Blood-Oath Thumbprint Chamber -->
+  <g transform="translate(100, 0)">
+    <circle cx="256" cy="256" r="75" fill="url(#bloodGlow)" stroke="#450A0A" stroke-width="6" />
+    <circle cx="256" cy="256" r="65" fill="none" stroke="#991B1B" stroke-width="2" opacity="0.8" />
+    <!-- Intricate Thumbprint Whorl Rings -->
+    <ellipse cx="256" cy="256" rx="20" ry="38" fill="none" stroke="#FCA5A5" stroke-width="2.5" stroke-dasharray="14 4" opacity="0.7" />
+    <ellipse cx="256" cy="256" rx="32" ry="50" fill="none" stroke="#F87171" stroke-width="2" stroke-dasharray="18 6" opacity="0.65" />
+    <ellipse cx="256" cy="256" rx="44" ry="60" fill="none" stroke="#EF4444" stroke-width="2" stroke-dasharray="22 8" opacity="0.6" />
+    <ellipse cx="256" cy="256" rx="54" ry="68" fill="none" stroke="#DC2626" stroke-width="2" stroke-dasharray="26 10" opacity="0.5" />
+    <circle cx="256" cy="256" r="6" fill="#FEE2E2" opacity="0.9" filter="url(#goldGlow)" />
+  </g>
+
+  <!-- Specular Glass Flare -->
+  <path d="M120 100 Q 256 60 392 100 Q 256 160 120 100 Z" fill="#FFF" opacity="0.15" />
+</svg>

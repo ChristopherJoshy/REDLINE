@@ -6,8 +6,8 @@ import type { ChatMessage } from "../llm/groq.js";
 import { streamZenChat } from "../llm/zen.js";
 import { sessionOf } from "./teams.js";
 import { R2_TOOLS, bossKeys, bossOf, escalationUsed, isBoss, r2Phase, userTurns, type BossId } from "../bots/r2.js";
-import { ITACHI_P1_PROMPT } from "../bots/itachi.prompt.js";
-import { AIZEN_P1_PROMPT } from "../bots/aizen.prompt.js";
+import { ITACHI_P1_PROMPT, ITACHI_META } from "../bots/itachi.prompt.js";
+import { AIZEN_P1_PROMPT, AIZEN_META } from "../bots/aizen.prompt.js";
 import { foldAnswer, matchesAny, variants } from "../portal/normalize.js";
 import { applyElo } from "../elo/ratings.js";
 import { env } from "../env.js";
@@ -53,12 +53,15 @@ export async function r2Submit(
       score,
       JSON.stringify({ turns, resets }),
     );
+    const bounty = boss === "itachi" ? ITACHI_META.bounty : AIZEN_META.bounty;
+    db.run("UPDATE teams SET clue_credits = clue_credits + ? WHERE id = ?", bounty, teamId);
+    const credits = db.get<{ clue_credits: number }>("SELECT clue_credits FROM teams WHERE id = ?", teamId)?.clue_credits ?? 0;
     const delta: InventoryDelta = { botId: boss, itemKey: keys.itemKey, status: "verified" };
     const items = db.all<InventoryDelta>(
       "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
       teamId,
     );
-    bus.broadcast(teamId, bus.frame("inventory_sync", { items }));
+    bus.broadcast(teamId, bus.frame("inventory_sync", { items, credits }));
     db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", teamId, boss, "merchant/success-thank-you");
     bus.broadcast(teamId, bus.frame("sound_play", { botId: boss, soundId: "merchant/success-thank-you", src: "/sounds/merchant/success-thank-you.mp3" }));
     return { result: "verified", botId: boss, eloDelta: elo.delta, score };

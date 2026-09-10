@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-// Nether-portal transition: ~3s purple swirl + hum loop, hard cut to the vault.
+// Vault transition: ~3s brass swirl + hum loop, hard cut to round 2.
 // Reduced-motion: static poster + caption, short dissolve, same cut.
 // WebGL unavailable: CSS swirl fallback, same duration, same cut.
 const DURATION_MS = 3000;
@@ -39,9 +39,9 @@ void main() {
   float n = noise(vec2(swirl, r * 3.0 - uTime * 0.7)) * 0.6
           + noise(vec2(swirl * 2.0, r * 6.0 + uTime)) * 0.4;
   float bands = smoothstep(0.15, 0.9, n * (1.2 - r * 0.55));
-  vec3 deep = vec3(0.231, 0.027, 0.392);
-  vec3 mid = vec3(0.416, 0.051, 0.678);
-  vec3 hi = vec3(0.659, 0.333, 0.969);
+  vec3 deep = vec3(0.078, 0.063, 0.043);
+  vec3 mid = vec3(0.431, 0.333, 0.078);
+  vec3 hi = vec3(0.953, 0.929, 0.878);
   vec3 col = mix(deep, mid, bands);
   col = mix(col, hi, pow(bands, 3.0) * 0.9);
   col *= 1.0 - smoothstep(0.7, 1.4, r);
@@ -151,11 +151,11 @@ export default function PortalTransition({ onDone }: { onDone: () => void }): Re
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-portal-950)]" role="status" aria-label="Entering the vault">
+    <div className="dark-cinematic fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-bg-0)]" role="status" aria-label="Entering round 2">
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
       {noGl && <div className="portal-fallback absolute inset-0" aria-hidden="true" />}
       <p className="relative font-[family-name:var(--font-vault)] text-[22px] tracking-wide text-[var(--color-text-1)]">
-        The Nether takes hold
+        Entering the vault
       </p>
     </div>
   );

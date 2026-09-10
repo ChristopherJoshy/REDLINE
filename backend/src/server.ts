@@ -6,6 +6,7 @@ import { WebSocketServer } from "ws";
 import { env } from "./env.js";
 import { openDatabase } from "./db/database.js";
 import { registerTeamRoutes, sessionOf } from "./routes/teams.js";
+import { registerProfileRoutes } from "./routes/profiles.js";
 import { registerAdminRoutes } from "./routes/admin.js";
 import { registerGateRoutes } from "./routes/gates.js";
 import { registerRound2Routes } from "./routes/round2.js";
@@ -13,13 +14,27 @@ import { registerMerchantRoutes } from "./routes/merchant.js";
 import { Bus } from "./ws/bus.js";
 import { handleChatSend } from "./chat/handler.js";
 import { parseCookies, verifySessionToken } from "./auth/codes.js";
-import type { ClientEvent } from "./contracts/events.js";
+import type { ClientEvent, InventoryDelta } from "./contracts/events.js";
 
 // src/ and dist/ are both one level below the backend root.
 const root = existsSync(join(__dirname, "..", "package.json"))
   ? join(__dirname, "..")
   : join(__dirname, "..", "..");
 const app = Fastify({ logger: true });
+
+app.addHook("onRequest", async (req, reply) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    reply.header("Access-Control-Allow-Origin", origin);
+    reply.header("Access-Control-Allow-Credentials", "true");
+    reply.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
+    reply.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-admin-code, x-admin-pin");
+  }
+  if (req.method === "OPTIONS") {
+    return reply.code(204).send();
+  }
+});
+
 app.get("/api/health", async () => ({ ok: true }));
 
 // Single LAN process: the built frontend (dist, sounds included) + API + WS.
@@ -41,10 +56,11 @@ mkdirSync(join(root, "data"), { recursive: true });
 const db = openDatabase(join(root, "data", "redline.db"), join(__dirname, "db", "schema.sql"));
 const bus = new Bus();
 registerTeamRoutes(app, db);
+registerProfileRoutes(app, db);
 registerMerchantRoutes(app, db, bus);
 registerGateRoutes(app, db);
 registerRound2Routes(app, db, bus);
-registerAdminRoutes(app, db, root);
+registerAdminRoutes(app, db, root, bus);
 
 app.post("/api/fullscreen-log", async (req, reply) => {
   const session = sessionOf(req);
@@ -112,13 +128,20 @@ async function boot(): Promise<void> {
           bus.replay(socket, session.teamId, event.data.lastEventId);
         }
         bus.send(socket, bus.frame("hello_ack", {}));
+        // Fresh mounts (or a dropped room) start from current truth, not empty.
+        const items = db.all<InventoryDelta>(
+          "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
+          session.teamId,
+        );
+        const credits = db.get<{ clue_credits: number }>("SELECT clue_credits FROM teams WHERE id = ?", session.teamId)?.clue_credits ?? 0;
+        bus.send(socket, bus.frame("inventory_sync", { items, credits }));
       } else if (event.event === "ping") {
         bus.send(socket, bus.frame("pong", {}));
       } else if (event.event === "chat_send") {
-        if (event.data.teamId !== session.teamId) {
+        if (event.data.teamId && event.data.teamId !== session.teamId) {
           return;
         }
-        void handleChatSend(bus, db, session.teamId, event.data.botId, event.data.text);
+        void handleChatSend(bus, db, session.teamId, event.data.botId, event.data.text, session.displayName);
       }
     });
   });

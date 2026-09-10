@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <radialGradient id="deathBg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#18181B" />
+      <stop offset="50%" stop-color="#09090B" />
+      <stop offset="100%" stop-color="#000000" />
+    </radialGradient>
+    <linearGradient id="parchmentTorn" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F4F4F5" />
+      <stop offset="50%" stop-color="#E4E4E7" />
+      <stop offset="100%" stop-color="#D4D4D8" />
+    </linearGradient>
+    <filter id="sinisterRed" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="96" fill="url(#deathBg)" stroke="#DC2626" stroke-width="4" />
+  <rect x="12" y="12" width="488" height="488" rx="84" fill="none" stroke="#EF4444" stroke-opacity="0.3" stroke-width="2" />
+
+  <!-- Torn Scrap Sheet -->
+  <g transform="rotate(4, 256, 256)">
+    <!-- Charcoal shadow -->
+    <path d="M125 75 L 395 65 L 375 425 L 350 410 L 325 435 L 290 415 L 250 440 L 210 415 L 180 435 L 145 405 L 115 420 Z" fill="#000" opacity="0.7" transform="translate(10, 15)" />
+    <!-- Torn White Note Paper with burned edges -->
+    <path d="M125 75 L 395 65 L 375 425 L 350 410 L 325 435 L 290 415 L 250 440 L 210 415 L 180 435 L 145 405 L 115 420 Z" fill="url(#parchmentTorn)" stroke="#18181B" stroke-width="4" />
+
+    <!-- Lined Paper Stripes -->
+    <g stroke="#94A3B8" stroke-width="1.5" opacity="0.6">
+      <line x1="140" y1="170" x2="365" y2="165" />
+      <line x1="140" y1="210" x2="365" y2="205" />
+      <line x1="140" y1="250" x2="365" y2="245" />
+      <line x1="140" y1="290" x2="365" y2="285" />
+      <line x1="140" y1="330" x2="365" y2="325" />
+      <line x1="140" y1="370" x2="365" y2="365" />
+    </g>
+
+    <!-- Gothic Header: DEATH NOTE -->
+    <text x="250" y="135" font-size="19" font-family="Georgia, serif" font-weight="bold" fill="#09090B" text-anchor="middle" letter-spacing="3">DEATH NOTE</text>
+    <text x="250" y="152" font-size="9" font-family="Georgia, serif" font-weight="bold" fill="#71717A" text-anchor="middle" letter-spacing="1">RULES OF ENGAGEMENT</text>
+
+    <!-- Japanese Kanji Watermark (死神 - Shinigami) -->
+    <text x="250" y="295" font-size="110" font-family="serif" font-weight="bold" fill="#DC2626" opacity="0.25" text-anchor="middle" filter="url(#sinisterRed)">死神</text>
+
+    <!-- Blood Splatter on torn edge -->
+    <circle cx="160" cy="380" r="10" fill="#991B1B" opacity="0.9" />
+    <circle cx="178" cy="392" r="5" fill="#DC2626" opacity="0.8" />
+    <circle cx="150" cy="398" r="4" fill="#991B1B" opacity="0.75" />
+  </g>
+</svg>

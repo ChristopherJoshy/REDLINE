@@ -1,6 +1,7 @@
 // Groq OpenAI-compatible chat completions with streaming + tool calls.
 // Reasoning NEVER leaves this module except into reasoning_traces rows.
-import { env } from "../env.js";
+import type { DatabaseAdapter } from "../db/database.js";
+import { runWithRotation } from "./keyPool.js";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
@@ -27,13 +28,17 @@ export type StreamYield =
   | { kind: "tool"; call: ToolCall }
   | { kind: "done"; finish: string };
 
-const MODEL = "llama-3.1-8b-instant";
+const MODEL = "qwen/qwen3.8-27b";
 
-export async function* streamChat(messages: ChatMessage[], tools: ToolDef[]): AsyncGenerator<StreamYield> {
+async function* streamChatWithKey(
+  apiKey: string,
+  messages: ChatMessage[],
+  tools: ToolDef[],
+): AsyncGenerator<StreamYield> {
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${env.groqApiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -44,7 +49,8 @@ export async function* streamChat(messages: ChatMessage[], tools: ToolDef[]): As
     }),
   });
   if (!res.ok || res.body === null) {
-    throw new Error(`groq ${res.status}`);
+    const errorBody = await res.text().catch(() => "");
+    throw new Error(`groq ${res.status}: ${errorBody.slice(0, 150)}`);
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -108,4 +114,12 @@ export async function* streamChat(messages: ChatMessage[], tools: ToolDef[]): As
     yield { kind: "tool", call: { id: slot.id, name: slot.name, args } };
   }
   yield { kind: "done", finish };
+}
+
+export async function* streamChat(
+  messages: ChatMessage[],
+  tools: ToolDef[],
+  db?: DatabaseAdapter,
+): AsyncGenerator<StreamYield> {
+  yield* runWithRotation("groq", (key) => streamChatWithKey(key, messages, tools), db);
 }

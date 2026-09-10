@@ -179,18 +179,20 @@ export default function EnterScreen({ onIdentified }: { onIdentified: () => void
                     onClick={() => setPicked(m)}
                     className={`flex min-h-[48px] items-center gap-3 rounded-[6px] border px-4 text-left transition-colors ${
                       picked === m
-                        ? "border-[var(--color-brass)] bg-[var(--color-brass-wash)] text-[var(--color-text-1)]"
+                        ? "border-[var(--color-brass)] bg-[var(--color-brass-wash)] text-[#14100b]"
                         : "border-[var(--color-border)] text-[var(--color-text-2)] hover:bg-[var(--color-surface-2)]"
                     }`}
                   >
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-[6px] ${
-                      picked === m ? "bg-[var(--color-text-1)] text-[var(--color-bg-0)]" : "bg-[var(--color-surface-2)] text-[var(--color-text-3)]"
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-[6px] transition-colors ${
+                      picked === m ? "bg-[#14100b] text-[#f3ede0]" : "bg-[var(--color-surface-2)] text-[var(--color-text-3)]"
                     }`}>
                       <User className="w-4 h-4" />
                     </span>
-                    <span className="font-semibold text-[15px] flex-1">{m}</span>
+                    <span className={`font-semibold text-[15px] flex-1 ${picked === m ? "text-[#14100b]" : "text-[var(--color-text-1)]"}`}>
+                      {m}
+                    </span>
                     {picked === m && (
-                      <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-brass)]" aria-hidden="true" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#6e5514]" aria-hidden="true" />
                     )}
                   </button>
                 ))}

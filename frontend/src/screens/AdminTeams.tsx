@@ -252,7 +252,7 @@ export default function AdminTeams(): React.JSX.Element {
 
   // Registration Form State
   const [name, setName] = useState("");
-  const [rawMembers, setRawMembers] = useState("");
+  const [memberInputs, setMemberInputs] = useState<string[]>(["", ""]);
   const [created, setCreated] = useState<CreateTeamResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -489,6 +489,27 @@ export default function AdminTeams(): React.JSX.Element {
     }
   }
 
+  // Member input helpers (min 2, max 3)
+  function handleMemberChange(index: number, val: string): void {
+    setMemberInputs((prev) => {
+      const copy = [...prev];
+      copy[index] = val;
+      return copy;
+    });
+  }
+
+  function handleAddMember(): void {
+    if (memberInputs.length < 3) {
+      setMemberInputs((prev) => [...prev, ""]);
+    }
+  }
+
+  function handleRemoveMember(index: number): void {
+    if (memberInputs.length > 2) {
+      setMemberInputs((prev) => prev.filter((_, i) => i !== index));
+    }
+  }
+
   // Handle Team Creation
   async function handleCreateTeam(e: React.FormEvent): Promise<void> {
     e.preventDefault();
@@ -497,19 +518,18 @@ export default function AdminTeams(): React.JSX.Element {
     setCreated(null);
     setCopied(false);
     try {
-      const members = rawMembers
-        .split("\n")
+      const members = memberInputs
         .map((m) => m.trim())
         .filter((m) => m !== "");
       if (members.length < 2 || members.length > 3) {
-        setError("Need 2 to 3 operator names (one per line).");
+        setError("Need 2 to 3 valid operator names.");
         setBusy(false);
         return;
       }
       const res = await createTeam(adminCode, name.trim(), members);
       setCreated(res);
       setName("");
-      setRawMembers("");
+      setMemberInputs(["", ""]);
       notify(`Team ${res.name} enrolled with join code: ${res.code}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create team failed");
@@ -1373,22 +1393,60 @@ export default function AdminTeams(): React.JSX.Element {
               </div>
 
               <div>
-                <label className="text-[13px] font-bold text-[var(--color-text-2)] block mb-1">
-                  Operators (2 to 3 names, one per line):
-                </label>
-                <textarea
-                  value={rawMembers}
-                  onChange={(e) => setRawMembers(e.target.value)}
-                  placeholder="Alice&#10;Bob&#10;Charlie"
-                  rows={4}
-                  className="w-full p-4 rounded-[6px] border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[15px] focus:bg-[var(--color-surface-1)] focus:border-[var(--color-brass)] focus:outline-none transition"
-                />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[13px] font-bold text-[var(--color-text-2)]">
+                    Operators ({memberInputs.length} of 3 • min 2, max 3):
+                  </label>
+                  {memberInputs.length < 3 && (
+                    <button
+                      type="button"
+                      onClick={handleAddMember}
+                      className="flex items-center gap-1 text-[12px] font-semibold text-[var(--color-brass)] hover:text-[var(--color-brass-ink)] bg-[var(--color-brass-wash)]/60 px-2 py-0.5 rounded-[4px] border border-[var(--color-border)] cursor-pointer transition active:scale-[0.98]"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Member</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2.5">
+                  {memberInputs.map((val, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          value={val}
+                          onChange={(e) => handleMemberChange(idx, e.target.value)}
+                          placeholder={`Operator ${idx + 1} name (e.g. Agent ${idx + 1})`}
+                          className="w-full h-11 px-4 rounded-[6px] border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[15px] focus:bg-[var(--color-surface-1)] focus:border-[var(--color-brass)] focus:outline-none transition"
+                        />
+                      </div>
+                      {memberInputs.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMember(idx)}
+                          aria-label={`Remove Operator ${idx + 1}`}
+                          title="Remove operator"
+                          className="h-11 w-11 shrink-0 flex items-center justify-center rounded-[6px] border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text-3)] hover:text-[var(--color-seal)] hover:bg-[var(--color-seal-wash)] transition cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[12px] text-[var(--color-text-3)] mt-1.5">
+                  Names can contain spaces, letters, numbers, and symbols.
+                </p>
               </div>
 
               <button
                 type="submit"
-                disabled={busy || name.trim() === "" || rawMembers.trim() === ""}
-                className="mt-2 py-3.5 px-6 rounded-[6px] bg-[var(--color-text-1)] hover:opacity-90 text-white font-bold text-[15px]  disabled:opacity-50 transition cursor-pointer"
+                disabled={
+                  busy ||
+                  name.trim() === "" ||
+                  memberInputs.filter((m) => m.trim() !== "").length < 2
+                }
+                className="mt-2 py-3.5 px-6 rounded-[6px] bg-[var(--color-text-1)] hover:opacity-90 text-white font-bold text-[15px] disabled:opacity-50 transition cursor-pointer active:scale-[0.98]"
               >
                 {busy ? "Registering…" : "Generate Squad Access Code"}
               </button>

@@ -21,17 +21,14 @@ function opt(v: unknown, max: number): string | undefined {
 }
 
 export function registerProfileRoutes(app: FastifyInstance, db: DatabaseAdapter): void {
-  // Own cover, or 404 when none filed yet (client gates chat on this).
+  // Own cover, or null when none filed yet.
   app.get("/api/profile", async (req, reply) => {
     const session = sessionOf(req);
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
     const row = getCover(db, session.teamId, session.displayName);
-    if (row === undefined) {
-      return reply.code(404).send({ error: "no profile" });
-    }
-    return { profile: row };
+    return { profile: row ?? null };
   });
 
   // Whole-team covers (sync view for teammates).

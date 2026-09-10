@@ -190,14 +190,14 @@ export default function AdminBoard(): React.JSX.Element {
                 return (
                   <div
                     key={r.name}
-                    className={`grid grid-cols-12 items-center rounded-[6px] border px-4 py-3.5 sm:px-6 ${
+                    className={`grid grid-cols-12 items-center rounded-[6px] border px-4 py-3.5 sm:px-6 transition-colors ${
                       first
-                        ? "border-[var(--color-border-strong)] bg-[var(--color-brass-wash)]"
-                        : "border-[var(--color-border)]"
+                        ? "border-[var(--color-border-strong)] bg-[var(--color-surface-2)] ring-1 ring-[var(--color-border-strong)]/40"
+                        : "border-[var(--color-border)] bg-[var(--color-surface-1)]/40 hover:bg-[var(--color-surface-2)]/30"
                     }`}
                   >
                     <div className="col-span-2 flex items-center justify-center sm:col-span-1">
-                      <span className={`font-[family-name:var(--font-code)] text-[15px] font-bold ${first ? "text-[var(--color-brass-ink)]" : "text-[var(--color-text-2)]"}`}>
+                      <span className={`font-[family-name:var(--font-code)] text-[15px] font-bold ${first ? "text-[var(--color-text-1)] font-extrabold" : "text-[var(--color-text-2)]"}`}>
                         {rank}
                       </span>
                     </div>
@@ -209,7 +209,11 @@ export default function AdminBoard(): React.JSX.Element {
                     </div>
 
                     <div className="col-span-2 text-center sm:col-span-2">
-                      <span className="inline-block rounded-[6px] border border-[var(--color-border)] px-2.5 py-1 font-[family-name:var(--font-code)] text-[12px] text-[var(--color-text-2)]">
+                      <span className={`inline-block rounded-[6px] border px-2.5 py-1 font-[family-name:var(--font-code)] text-[12px] ${
+                        first
+                          ? "border-[var(--color-border-strong)] text-[var(--color-text-1)] bg-[var(--color-surface-3)]"
+                          : "border-[var(--color-border)] text-[var(--color-text-2)] bg-[var(--color-surface-1)]"
+                      }`}>
                         {r.hint || "...."}
                       </span>
                     </div>

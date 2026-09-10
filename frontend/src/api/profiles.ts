@@ -25,11 +25,12 @@ async function read<T>(res: Response): Promise<T> {
   return data;
 }
 
-// Own cover; throws "no profile" (404) when none filed yet.
-export async function getCover(): Promise<CoverProfile> {
+// Own cover; returns null when none filed yet.
+export async function getCover(): Promise<CoverProfile | null> {
   const res = await apiFetch("/api/profile");
-  const data = await read<{ profile: CoverProfile }>(res);
-  return data.profile;
+  if (!res.ok) return null;
+  const data = (await res.json()) as { profile: CoverProfile | null };
+  return data.profile ?? null;
 }
 
 // Whole-team covers (sync view for teammates).

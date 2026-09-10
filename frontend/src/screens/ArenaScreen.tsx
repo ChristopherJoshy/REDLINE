@@ -638,9 +638,9 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
           onClose={() => { setCoverOpen(false); setCoverLock(false); setPendingBot(null); }}
           onSaved={(profile, isNew) => {
             setCover(profile);
-            if (isNew && pendingBot !== null) {
-              setCoverOpen(false);
-              setCoverLock(false);
+            setCoverOpen(false);
+            setCoverLock(false);
+            if (pendingBot !== null) {
               setChattingBotId(pendingBot);
               setPendingBot(null);
             }

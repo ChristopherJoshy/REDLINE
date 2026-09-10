@@ -54,6 +54,8 @@ export default function ProfileModal({ lockCreate, onSaved, onClose }: ProfileMo
 
   const squadSectionRef = useRef<HTMLElement>(null);
   const prevTeamLen = useRef(0);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     let dead = false;
@@ -72,14 +74,14 @@ export default function ProfileModal({ lockCreate, onSaved, onClose }: ProfileMo
     }
     void load();
     function onKey(e: KeyboardEvent): void {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     }
     window.addEventListener("keydown", onKey);
     return () => {
       dead = true;
       window.removeEventListener("keydown", onKey);
     };
-  }, [onClose]);
+  }, []);
 
   // Squad list stagger when team populates
   useEffect(() => {
@@ -121,27 +123,47 @@ export default function ProfileModal({ lockCreate, onSaved, onClose }: ProfileMo
       if (status === "create") {
         try {
           const created = await createCover(payload);
+          setFields({ alias: created.alias, role: created.role, affiliation: created.affiliation, detail: created.detail });
           setTeam(await getTeamCovers().catch(() => []));
           setStatus("manage");
           onSaved(created, true);
         } catch (err) {
-          const mine = await getCover().catch(() => null);
-          if (mine !== null) {
-            setFields({ alias: mine.alias, role: mine.role, affiliation: mine.affiliation, detail: mine.detail });
+          // If profile already exists (409), recover by updating so edits are not lost
+          try {
+            const updated = await updateCover(payload);
+            setFields({ alias: updated.alias, role: updated.role, affiliation: updated.affiliation, detail: updated.detail });
             setTeam(await getTeamCovers().catch(() => []));
             setStatus("manage");
-            setError("");
-          } else {
-            setError(err instanceof Error ? err.message : "Cover save failed");
+            onSaved(updated, false);
+          } catch {
+            const mine = await getCover().catch(() => null);
+            if (mine !== null) {
+              setFields({ alias: mine.alias, role: mine.role, affiliation: mine.affiliation, detail: mine.detail });
+              setTeam(await getTeamCovers().catch(() => []));
+              setStatus("manage");
+              setError("");
+            } else {
+              setError(err instanceof Error ? err.message : "Cover save failed");
+            }
           }
         }
       } else {
         try {
           const updated = await updateCover(payload);
+          setFields({ alias: updated.alias, role: updated.role, affiliation: updated.affiliation, detail: updated.detail });
           setTeam(await getTeamCovers().catch(() => []));
           onSaved(updated, false);
         } catch (err) {
-          setError(err instanceof Error ? err.message : "Cover save failed");
+          // If profile was somehow not found on server (404), fall back to create
+          try {
+            const created = await createCover(payload);
+            setFields({ alias: created.alias, role: created.role, affiliation: created.affiliation, detail: created.detail });
+            setTeam(await getTeamCovers().catch(() => []));
+            setStatus("manage");
+            onSaved(created, true);
+          } catch {
+            setError(err instanceof Error ? err.message : "Cover save failed");
+          }
         }
       }
     } finally {
@@ -247,7 +269,7 @@ export default function ProfileModal({ lockCreate, onSaved, onClose }: ProfileMo
                 disabled={busy || fields.alias.trim() === ""}
                 className="mt-1 min-h-[48px] rounded-[6px] bg-[var(--color-text-1)] px-6 py-3.5 text-[15px] font-semibold text-[var(--color-bg-0)] hover:opacity-90 disabled:opacity-50 transition-opacity"
               >
-                {busy ? "Filing" : status === "create" ? "File cover" : "Update cover"}
+                {busy ? (status === "create" ? "Filing..." : "Updating...") : status === "create" ? "File cover" : "Update cover"}
               </button>
             </form>
           )}

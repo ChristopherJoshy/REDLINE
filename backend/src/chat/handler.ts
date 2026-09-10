@@ -57,12 +57,21 @@ export async function handleChatSend(
       botId,
       HISTORY_LIMIT,
     );
-    const messages: ChatMessage[] = [{ role: "system", content: entry.prompt }];
+    const thinkingInstruction = `§THINKING PROTOCOL (ROUND 1):
+Before answering the user, you may engage in brief, concise internal reasoning. Keep thinking short (1 to 3 sentences maximum): assess the speaker's claimed role, compare against your secret targets/quiz rules, and decide on character stance and whether any tool (handover_item or play_sound) should be invoked. Do not leak internal reasoning or nonces in your visible dialogue.`;
+
+    const messages: ChatMessage[] = [
+      { role: "system", content: `${entry.prompt}\n\n${thinkingInstruction}` },
+    ];
     const cover = coverBrief(db, teamId, displayName, botId);
     if (cover !== undefined) {
       messages.push({ role: "system", content: cover });
     }
-    for (const row of history.reverse()) {
+    // Note: 'history' already contains the latest user message because of db.run INSERT on line 53.
+    // The history rows are ordered DESC, so history[0] is the current user message.
+    // We reverse earlier messages and pass the current user message fenced.
+    const pastRows = history.slice(1).reverse();
+    for (const row of pastRows) {
       if (row.role !== "user" && row.role !== "assistant") {
         continue;
       }

@@ -4,10 +4,9 @@ import { reducedMotion } from "@/lib/motionTokens";
 
 /**
  * TypingBubble — three ink-dots in an asymmetric breathing wave.
- * Uses Anime.js v4 `animate` + `stagger` instead of CSS `animate-bounce`.
- * The wave is fast-down / slow-up to feel organic, not mechanical.
+ * When `thinking` is true, displays a subtle thought badge and animated ink dots.
  */
-export default function TypingBubble(): React.JSX.Element {
+export default function TypingBubble({ thinking = true }: { thinking?: boolean }): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -17,7 +16,7 @@ export default function TypingBubble(): React.JSX.Element {
     if (reducedMotion()) return;
 
     const anim = animate(Array.from(dots), {
-      translateY: [0, -5, 0],
+      translateY: [0, -4, 0],
       opacity: [0.9, 0.35, 0.9],
       duration: 780,
       delay: stagger(140, { start: 0 }),
@@ -33,16 +32,23 @@ export default function TypingBubble(): React.JSX.Element {
   return (
     <div
       ref={containerRef}
-      aria-label="Bot is typing"
-      className="flex items-center gap-1.5 px-4 py-3"
+      aria-label={thinking ? "Bot is thinking" : "Bot is typing"}
+      className="flex items-center gap-2 px-3.5 py-2.5"
     >
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="ink-dot block h-2 w-2 rounded-full bg-[var(--color-text-3)]"
-          aria-hidden="true"
-        />
-      ))}
+      {thinking && (
+        <span className="text-[12px] font-medium tracking-wide text-[var(--color-text-3)] select-none">
+          Thinking
+        </span>
+      )}
+      <div className="flex items-center gap-1.5 py-0.5">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="ink-dot block h-1.5 w-1.5 rounded-full bg-[var(--color-brass)]"
+            aria-hidden="true"
+          />
+        ))}
+      </div>
     </div>
   );
 }

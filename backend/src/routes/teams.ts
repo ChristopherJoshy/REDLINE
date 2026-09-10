@@ -166,11 +166,15 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter): v
     db.transaction(() => {
       db.run("DELETE FROM cover_profiles WHERE team_id = ?", teamId);
       db.run("DELETE FROM team_inventory WHERE team_id = ?", teamId);
+      db.run("DELETE FROM merchant_clues WHERE team_id = ?", teamId);
       db.run("DELETE FROM chat_logs WHERE team_id = ?", teamId);
       db.run("DELETE FROM elo_log WHERE team_id = ?", teamId);
       db.run("DELETE FROM reasoning_traces WHERE team_id = ?", teamId);
-      db.run("DELETE FROM r2_scores WHERE team_id = ?", teamId);
       db.run("DELETE FROM sound_events WHERE team_id = ?", teamId);
+      db.run("DELETE FROM fullscreen_attempts WHERE team_id = ?", teamId);
+      db.run("DELETE FROM r2_assignments WHERE team_id = ?", teamId);
+      db.run("DELETE FROM r2_scores WHERE team_id = ?", teamId);
+      db.run("DELETE FROM deterrence_log WHERE team_id = ?", teamId);
       db.run("DELETE FROM team_members WHERE team_id = ?", teamId);
       db.run("DELETE FROM teams WHERE id = ?", teamId);
     });

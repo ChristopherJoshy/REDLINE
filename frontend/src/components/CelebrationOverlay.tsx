@@ -5,6 +5,7 @@ import type { BotId } from "@contracts/events";
 import { CHARACTERS } from "@/data/characterLore";
 import { CheckCircle2 } from "lucide-react";
 import { DUR, EASE, reducedMotion } from "@/lib/motionTokens";
+import { playSound, unlockAudio } from "@/chat/sound";
 
 export const CHEERS: Record<BotId, string> = {
   wick: "Settled. The ledger holds your name now. Consequences, the good kind.",
@@ -20,6 +21,21 @@ export const CHEERS: Record<BotId, string> = {
   merchant: "Pleasure doing business with you.",
 };
 
+// Map each bot to their celebration line or signature sound
+const CELEBRATION_SOUNDS: Partial<Record<BotId, string>> = {
+  wick: "/sounds/wick/quiz-pass.mp3",
+  spidey: "/sounds/spidey/quiz-pass.mp3",
+  escanor: "/sounds/escanor/quiz-pass.mp3",
+  stark: "/sounds/stark/quiz-pass.mp3",
+  joker: "/sounds/joker/handover-tdk-smile.mp3",
+  light: "/sounds/light/laugh-kira-laugh.mp3",
+  levi: "/sounds/levi/briefing-survey-corps.mp3",
+  deadpool: "/sounds/deadpool/address-hey-you-guys.mp3",
+  itachi: "/sounds/itachi/genjutsu-voice-en.mp3",
+  aizen: "/sounds/aizen/shatter.mp3",
+  merchant: "/sounds/merchant/success-thank-you.mp3",
+};
+
 export default function CelebrationOverlay({ botId, onClose }: { botId: BotId; onClose: () => void }): React.JSX.Element {
   const lore = CHARACTERS[botId];
 
@@ -31,6 +47,17 @@ export default function CelebrationOverlay({ botId, onClose }: { botId: BotId; o
   const nameRef = useRef<HTMLHeadingElement>(null);
   const cheerRef = useRef<HTMLParagraphElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+
+  // Play celebration sound every time modal opens (first time or "celebrate again")
+  useEffect(() => {
+    unlockAudio();
+    const soundSrc = CELEBRATION_SOUNDS[botId] ?? "/sounds/merchant/success-thank-you.mp3";
+    try {
+      playSound(soundSrc);
+    } catch {
+      // Audio optional
+    }
+  }, [botId]);
 
   // Win-state entrance choreography
   useEffect(() => {

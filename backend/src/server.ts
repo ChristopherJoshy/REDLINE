@@ -28,7 +28,7 @@ app.addHook("onRequest", async (req, reply) => {
     reply.header("Access-Control-Allow-Origin", origin);
     reply.header("Access-Control-Allow-Credentials", "true");
     reply.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
-    reply.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-admin-code, x-admin-pin");
+    reply.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-admin-code, x-admin-pin, ngrok-skip-browser-warning");
   }
   if (req.method === "OPTIONS") {
     return reply.code(204).send();

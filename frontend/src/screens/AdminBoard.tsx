@@ -151,7 +151,7 @@ export default function AdminBoard(): React.JSX.Element {
         <header className="mb-6 flex flex-col items-center text-center">
           <span aria-hidden="true" className="mb-3 block h-[3px] w-12 bg-[var(--color-brass)]" />
           <p className="font-[family-name:var(--font-code)] text-[11px] tracking-[0.25em] text-[var(--color-text-3)]">
-            ASTHRA 11.0
+            REDLINE
           </p>
           <h1 className="font-[family-name:var(--font-display)] text-[clamp(28px,5vw,44px)] font-bold tracking-[0.1em] text-[var(--color-text-1)]">
             STANDINGS

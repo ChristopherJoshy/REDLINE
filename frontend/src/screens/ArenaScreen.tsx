@@ -12,6 +12,7 @@ import { AVATAR_FOCUS, CHARACTERS } from "@/data/characterLore";
 import InventoryModal from "@/components/InventoryModal";
 import MerchantCounter from "@/components/MerchantCounter";
 import CelebrationOverlay from "@/components/CelebrationOverlay";
+import ClaimItemModal from "@/components/ClaimItemModal";
 import { DUR, EASE, reducedMotion } from "@/lib/motionTokens";
 import {
   Lock,
@@ -50,6 +51,7 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
   const [coverLock, setCoverLock] = useState(false);
   const [pendingBot, setPendingBot] = useState<BotId | null>(null);
   const [celebration, setCelebration] = useState<BotId | null>(null);
+  const [claimRelic, setClaimRelic] = useState<{ botId: BotId; itemKey: string } | null>(null);
   const prevInventory = useRef<InventoryDelta[] | null>(null);
 
   // Refs for mark-list stagger
@@ -68,18 +70,26 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
     return () => { dead = true; };
   }, []);
 
-  // Celebration trigger on inventory change
+  // Handover (claim popup) & Verification (celebration overlay) triggers on inventory change
   useEffect(() => {
     const prev = prevInventory.current;
     prevInventory.current = inventory;
-    if (prev === null || prev.length === 0) return;
+    if (prev === null) return;
     for (const item of inventory) {
-      if (item.status !== "verified") continue;
-      if (prev.find((i) => i.botId === item.botId)?.status === "verified") continue;
-      if (chattingBotId !== null && chattingBotId !== "merchant" && item.botId === chattingBotId) {
-        setChattingBotId(null);
+      const prevItem = prev.find((i) => i.botId === item.botId);
+      
+      // Check 1: Brand new obtained item (or transitioned to obtained) -> Trigger Claim Popup!
+      if (item.status === "obtained" && (prevItem === undefined || prevItem.status === "locked")) {
+        setClaimRelic({ botId: item.botId, itemKey: item.itemKey });
       }
-      setCelebration(item.botId);
+
+      // Check 2: Transitioned to verified -> Trigger Celebration Overlay!
+      if (item.status === "verified" && prevItem?.status !== "verified") {
+        if (chattingBotId !== null && chattingBotId !== "merchant" && item.botId === chattingBotId) {
+          setChattingBotId(null);
+        }
+        setCelebration(item.botId);
+      }
     }
   }, [inventory, chattingBotId]);
 
@@ -630,6 +640,18 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
 
       {celebration !== null && (
         <CelebrationOverlay botId={celebration} onClose={() => setCelebration(null)} />
+      )}
+
+      {claimRelic !== null && (
+        <ClaimItemModal
+          botId={claimRelic.botId}
+          itemKey={claimRelic.itemKey}
+          onClaim={() => setClaimRelic(null)}
+          onVisitMerchant={() => {
+            setClaimRelic(null);
+            engage("merchant");
+          }}
+        />
       )}
 
       {coverOpen && (

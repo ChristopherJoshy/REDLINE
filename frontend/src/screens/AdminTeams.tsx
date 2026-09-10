@@ -630,6 +630,32 @@ export default function AdminTeams(): React.JSX.Element {
       setBusy(false);
     }
   }
+  // Handle Team Reset (admin-only): permanently removes team + members + related data.
+  async function handleResetTeam(team: AdminTeamOverview): Promise<void> {
+    if (adminCode === "") return;
+    const code = team.join_code || team.hint;
+    if (!window.confirm(`Permanently reset squad "${team.name}" (${code})? This removes the team, its operators, and all related game data. This cannot be undone.`)) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await apiFetch(`/api/admin/teams/${team.id}`, {
+        method: "DELETE",
+        headers: { "x-admin-code": adminCode },
+      });
+      if (res.ok) {
+        notify(`Squad ${team.name} (${code}) has been reset and removed.`);
+        setTeams((prev) => prev.filter((x) => x.id !== team.id));
+      } else {
+        const d = (await res.json().catch(() => null)) as { error?: string } | null;
+        alert(d?.error ?? "Failed to reset squad");
+      }
+    } catch {
+      alert("Failed to reset squad");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   // Handle Global Announcement Broadcast
   async function handleSendBroadcast(e: React.FormEvent): Promise<void> {
@@ -1178,6 +1204,18 @@ export default function AdminTeams(): React.JSX.Element {
                           <RotateCcw className="w-3.5 h-3.5 text-[var(--color-seal)]" />
                           <span>Rewind</span>
                         </button>
+                        {(t.id === "GW3Z-ABTF" || t.join_code === "GW3Z-ABTF" || t.hint === "GW3Z-ABTF") && (
+                          <button
+                            type="button"
+                            onClick={() => void handleResetTeam(t)}
+                            disabled={busy}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] border border-[var(--color-seal)] bg-[var(--color-seal-wash)] hover:bg-[var(--color-surface-2)] text-[var(--color-seal)] text-[12px] font-bold transition cursor-pointer disabled:opacity-50"
+                            title="Permanently reset this squad (remove team, operators, and game data)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-[var(--color-seal)]" />
+                            <span>Reset Team</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

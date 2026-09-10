@@ -76,6 +76,7 @@ export function useBotStream(teamId: string): {
   const socketRef = useRef<WebSocket | null>(null);
   const queueRef = useRef<ClientEvent[]>([]);
   const retryRef = useRef(1000);
+  const lastSoundRef = useRef<string | null>(null);
 
   const apply = useCallback((event: AnyEvent) => {
     if (event.event === "bot_typing") {
@@ -105,7 +106,11 @@ export function useBotStream(teamId: string): {
         [botId]: { messages: [...prev[botId].messages, { role: "bot", text: message }], typing: false, streaming: "" },
       }));
     } else if (event.event === "sound_play") {
-      playSound(event.data.src);
+      const key = `${event.data.botId}:${event.data.soundId ?? event.data.src}`;
+      if (lastSoundRef.current !== key) {
+        lastSoundRef.current = key;
+        playSound(event.data.src);
+      }
     } else if (event.event === "inventory_sync") {
       setInventory(event.data.items);
       if (typeof event.data.credits === "number") setCredits(event.data.credits);

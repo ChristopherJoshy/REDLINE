@@ -53,6 +53,7 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
   const [celebration, setCelebration] = useState<BotId | null>(null);
   const [claimRelic, setClaimRelic] = useState<{ botId: BotId; itemKey: string } | null>(null);
   const prevInventory = useRef<InventoryDelta[] | null>(null);
+  const initialSyncDone = useRef(false);
 
   // Refs for mark-list stagger
   const markListRef = useRef<HTMLDivElement>(null);
@@ -74,6 +75,15 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
   useEffect(() => {
     const prev = prevInventory.current;
     prevInventory.current = inventory;
+    
+    // Ignore the first inventory sync on page load/refresh so existing filed/held relics don't pop up
+    if (!initialSyncDone.current) {
+      if (inventory.length > 0) {
+        initialSyncDone.current = true;
+      }
+      return;
+    }
+
     if (prev === null) return;
     for (const item of inventory) {
       const prevItem = prev.find((i) => i.botId === item.botId);

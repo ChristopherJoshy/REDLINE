@@ -144,8 +144,12 @@ async function boot(): Promise<void> {
           "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
           session.teamId,
         );
-        const credits = db.get<{ clue_credits: number }>("SELECT clue_credits FROM teams WHERE id = ?", session.teamId)?.clue_credits ?? 0;
+        const teamRow = db.get<{ elo: number; clue_credits: number }>("SELECT elo, clue_credits FROM teams WHERE id = ?", session.teamId);
+        const credits = teamRow?.clue_credits ?? 0;
         bus.send(socket, bus.frame("inventory_sync", { items, credits }));
+        if (teamRow !== undefined) {
+          bus.send(socket, bus.frame("elo_update", { teamId: session.teamId, elo: teamRow.elo, delta: 0, reason: "sync" }));
+        }
       } else if (event.event === "ping") {
         bus.send(socket, bus.frame("pong", {}));
       } else if (event.event === "chat_send") {

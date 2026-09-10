@@ -87,6 +87,12 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
         session.teamId,
       );
       bus.broadcast(session.teamId, bus.frame("inventory_sync", { items, credits }));
+      bus.broadcast(session.teamId, bus.frame("elo_update", {
+        teamId: session.teamId,
+        elo: elo.after,
+        delta: elo.delta,
+        reason: `verified:${hit}`,
+      }));
       db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", session.teamId, hit, "merchant/success-thank-you");
       bus.broadcast(session.teamId, bus.frame("sound_play", { botId: "merchant", soundId: "merchant/success-thank-you", src: "/sounds/merchant/success-thank-you.mp3" }));
       return { result: "verified", botId: hit, eloDelta: elo.delta, credits, soundId: "merchant/success-thank-you" };

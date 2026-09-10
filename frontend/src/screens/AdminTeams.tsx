@@ -557,7 +557,12 @@ export default function AdminTeams(): React.JSX.Element {
         body: JSON.stringify({ teamId: eloModalTeam.id, delta: eloDelta, reason: eloReason }),
       });
       if (res.ok) {
+        const data = (await res.json()) as { after?: number };
+        const newElo = typeof data.after === "number" ? data.after : eloModalTeam.elo + eloDelta;
         notify(`Adjusted ${eloModalTeam.name} ELO by ${eloDelta > 0 ? "+" : ""}${eloDelta}`);
+        setTeams((prev) =>
+          prev.map((t) => (t.id === eloModalTeam.id ? { ...t, elo: newElo } : t))
+        );
         setEloModalTeam(null);
       } else {
         const d = (await res.json()) as { error?: string };

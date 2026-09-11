@@ -138,7 +138,56 @@ export function useBotStream(teamId: string): {
       } catch {
         // sound optional
       }
+    } else if (event.event === "chat_sync") {
+      const history = event.data.history;
+      setBots((prev) => {
+        const next = { ...prev };
+        for (const [botId, msgs] of Object.entries(history)) {
+          const bId = botId as BotId;
+          if (next[bId] && msgs) {
+            next[bId] = {
+              ...next[bId],
+              messages: msgs.map((m) => ({
+                role: m.role,
+                text: m.text,
+              })),
+            };
+          }
+        }
+        return next;
+      });
     }
+  }, []);
+
+  // Fetch initial chat logs from server so refresh preserves all messages
+  useEffect(() => {
+    let dead = false;
+    apiFetch("/api/chat/history")
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json() as Promise<{ history?: Partial<Record<BotId, Array<{ role: "user" | "bot"; text: string }>>> }>;
+      })
+      .then((data) => {
+        if (dead || !data || !data.history) return;
+        setBots((prev) => {
+          const next = { ...prev };
+          for (const [botId, msgs] of Object.entries(data.history ?? {})) {
+            const bId = botId as BotId;
+            if (next[bId] && msgs && msgs.length > 0) {
+              next[bId] = {
+                ...next[bId],
+                messages: msgs.map((m) => ({
+                  role: m.role,
+                  text: m.text,
+                })),
+              };
+            }
+          }
+          return next;
+        });
+      })
+      .catch(() => {});
+    return () => { dead = true; };
   }, []);
 
   useEffect(() => {

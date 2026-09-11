@@ -14,7 +14,7 @@ import { registerMerchantRoutes } from "./routes/merchant.js";
 import { Bus } from "./ws/bus.js";
 import { handleChatSend } from "./chat/handler.js";
 import { parseCookies, verifySessionToken } from "./auth/codes.js";
-import type { ClientEvent, InventoryDelta } from "./contracts/events.js";
+import type { BotId, ClientEvent, InventoryDelta } from "./contracts/events.js";
 
 // src/ and dist/ are both one level below the backend root.
 const root = existsSync(join(__dirname, "..", "package.json"))
@@ -77,6 +77,28 @@ app.post("/api/deterrence-log", async (req) => {
   const kind = typeof body.kind === "string" ? body.kind.slice(0, 32) : "unknown";
   db.run("INSERT INTO deterrence_log (team_id, kind) VALUES (?, ?)", session?.teamId ?? null, kind);
   return { ok: true };
+});
+
+app.get("/api/chat/history", async (req, reply) => {
+  const session = sessionOf(req);
+  if (session === undefined) {
+    return reply.code(401).send({ error: "no session" });
+  }
+  const logs = db.all<{ bot_id: BotId; role: "user" | "assistant"; text_final: string }>(
+    "SELECT bot_id, role, text_final FROM chat_logs WHERE team_id = ? ORDER BY id ASC",
+    session.teamId,
+  );
+  const history: Partial<Record<BotId, Array<{ role: "user" | "bot"; text: string }>>> = {};
+  for (const row of logs) {
+    if (!history[row.bot_id]) {
+      history[row.bot_id] = [];
+    }
+    history[row.bot_id]!.push({
+      role: row.role === "assistant" ? "bot" : "user",
+      text: row.text_final,
+    });
+  }
+  return { history };
 });
 
 // EventSource fallback for venues whose firewall blocks the WS upgrade.
@@ -150,6 +172,21 @@ async function boot(): Promise<void> {
         if (teamRow !== undefined) {
           bus.send(socket, bus.frame("elo_update", { teamId: session.teamId, elo: teamRow.elo, delta: 0, reason: "sync" }));
         }
+        const logs = db.all<{ bot_id: BotId; role: "user" | "assistant"; text_final: string }>(
+          "SELECT bot_id, role, text_final FROM chat_logs WHERE team_id = ? ORDER BY id ASC",
+          session.teamId,
+        );
+        const history: Partial<Record<BotId, Array<{ role: "user" | "bot"; text: string }>>> = {};
+        for (const row of logs) {
+          if (!history[row.bot_id]) {
+            history[row.bot_id] = [];
+          }
+          history[row.bot_id]!.push({
+            role: row.role === "assistant" ? "bot" : "user",
+            text: row.text_final,
+          });
+        }
+        bus.send(socket, bus.frame("chat_sync", { history }));
       } else if (event.event === "ping") {
         bus.send(socket, bus.frame("pong", {}));
       } else if (event.event === "chat_send") {

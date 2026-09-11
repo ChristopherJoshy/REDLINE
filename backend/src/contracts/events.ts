@@ -110,6 +110,13 @@ export interface EloUpdateData {
   reason: string;
 }
 
+export interface ChatSyncData {
+  history: Partial<Record<BotId, Array<{
+    role: "user" | "bot";
+    text: string;
+  }>>>;
+}
+
 export type ClientEvent =
   | Frame<"hello", HelloData>
   | Frame<"ping", Record<string, never>>
@@ -128,6 +135,7 @@ export type ServerEvent =
   | Frame<"ally_msg", AllyMsgData>
   | Frame<"effect_play", EffectPlayData>
   | Frame<"announcement", AnnouncementData>
-  | Frame<"elo_update", EloUpdateData>;
+  | Frame<"elo_update", EloUpdateData>
+  | Frame<"chat_sync", ChatSyncData>;
 export type AnyEvent = ClientEvent | ServerEvent;
 

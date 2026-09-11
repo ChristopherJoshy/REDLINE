@@ -7,7 +7,7 @@ import { env } from "../env.js";
 import { adminOk } from "../auth/codes.js";
 import { sessionOf } from "./teams.js";
 import type { Bus } from "../ws/bus.js";
-import type { InventoryDelta, AnnouncementData } from "../contracts/events.js";
+import type { BotId, InventoryDelta, AnnouncementData } from "../contracts/events.js";
 import {
   addApiKey,
   deleteApiKey,
@@ -65,11 +65,16 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       return reply.code(404).send({ error: "unknown team" });
     }
     const after = team.elo - 1;
+    const botId = body.botId as BotId;
     db.transaction(() => {
-      db.run("DELETE FROM chat_logs WHERE team_id = ? AND bot_id = ?", session.teamId, body.botId as string);
+      db.run("DELETE FROM chat_logs WHERE team_id = ? AND bot_id = ?", session.teamId, botId);
       db.run("UPDATE teams SET elo = ? WHERE id = ?", after, session.teamId);
-      db.run("INSERT INTO elo_log (team_id, delta, before_rating, after_rating, reason) VALUES (?, -1, ?, ?, ?)", session.teamId, team.elo, after, `rewind:${body.botId as string}`);
+      db.run("INSERT INTO elo_log (team_id, delta, before_rating, after_rating, reason) VALUES (?, -1, ?, ?, ?)", session.teamId, team.elo, after, `rewind:${botId}`);
     });
+    if (bus !== undefined) {
+      bus.broadcast(session.teamId, bus.frame("chat_sync", { history: { [botId]: [] } }));
+      bus.broadcast(session.teamId, bus.frame("elo_update", { teamId: session.teamId, elo: after, delta: -1, reason: `rewind:${botId}` }));
+    }
     return { ok: true, elo: after };
   });
 

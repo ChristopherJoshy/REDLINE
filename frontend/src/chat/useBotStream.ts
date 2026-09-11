@@ -5,10 +5,12 @@ import { playSound } from "@/chat/sound";
 import { apiUrl, apiFetch } from "@/api/client";
 
 export interface ChatMessage {
+  id?: number | undefined;
   role: "user" | "bot" | "ally";
   text: string;
-  name?: string;
-  confirmed?: boolean;
+  name?: string | undefined;
+  confirmed?: boolean | undefined;
+  createdAt?: string | undefined;
 }
 
 interface BotState {
@@ -61,7 +63,7 @@ export function useBotStream(teamId: string): {
   flash: number;
   send: (botId: BotId, text: string) => void;
   say: (botId: BotId, text: string) => void;
-  rewind: (botId: BotId) => Promise<{ ok: boolean; error?: string }>;
+  rewind: (botId: BotId, options?: { messageId?: number; turns?: number }) => Promise<{ ok: boolean; error?: string }>;
 } {
   const [bots, setBots] = useState<Record<BotId, BotState>>(() => {
     const out = {} as Record<BotId, BotState>;
@@ -148,8 +150,10 @@ export function useBotStream(teamId: string): {
             next[bId] = {
               ...next[bId],
               messages: msgs.map((m) => ({
+                id: m.id,
                 role: m.role,
                 text: m.text,
+                createdAt: m.createdAt,
               })),
             };
           }
@@ -165,7 +169,7 @@ export function useBotStream(teamId: string): {
     apiFetch("/api/chat/history")
       .then((res) => {
         if (!res.ok) return null;
-        return res.json() as Promise<{ history?: Partial<Record<BotId, Array<{ role: "user" | "bot"; text: string }>>> }>;
+        return res.json() as Promise<{ history?: Partial<Record<BotId, Array<{ id?: number; role: "user" | "bot"; text: string; createdAt?: string }>>> }>;
       })
       .then((data) => {
         if (dead || !data || !data.history) return;
@@ -177,8 +181,10 @@ export function useBotStream(teamId: string): {
               next[bId] = {
                 ...next[bId],
                 messages: msgs.map((m) => ({
+                  id: m.id,
                   role: m.role,
                   text: m.text,
+                  createdAt: m.createdAt,
                 })),
               };
             }
@@ -286,21 +292,35 @@ export function useBotStream(teamId: string): {
   const say = useCallback((botId: BotId, text: string) => {
     setBots((prev) => ({ ...prev, [botId]: { ...prev[botId], messages: [...prev[botId].messages, { role: "bot", text }] } }));
   }, []);
-  // Player rewind: server truncates chat_logs + charges 1 ELO; drop local
-  // transcript so the UI genuinely forgets too, then sync the HUD badge.
+  // Player rewind: server truncates chat_logs (at messageId/turns or whole chat) + charges 1 ELO.
+  // Updates local transcript to the server's remaining messages, then syncs HUD.
   const rewind = useCallback(
-    async (botId: BotId): Promise<{ ok: boolean; error?: string }> => {
+    async (botId: BotId, options?: { messageId?: number; turns?: number }): Promise<{ ok: boolean; error?: string }> => {
       try {
         const res = await apiFetch("/api/rewind", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ botId }),
+          body: JSON.stringify({ botId, ...options }),
         });
-        const data = (await res.json()) as { ok?: boolean; elo?: number; error?: string };
+        const data = (await res.json()) as {
+          ok?: boolean;
+          elo?: number;
+          messages?: Array<{ id?: number; role: "user" | "bot"; text: string; createdAt?: string }>;
+          error?: string;
+        };
         if (!res.ok || data.ok !== true) {
           return { ok: false, error: data.error ?? "Rewind failed" };
         }
-        setBots((prev) => ({ ...prev, [botId]: { messages: [], typing: false, streaming: "" } }));
+        const remaining: ChatMessage[] = (data.messages ?? []).map((m) => ({
+          id: m.id,
+          role: m.role,
+          text: m.text,
+          createdAt: m.createdAt,
+        }));
+        setBots((prev) => ({
+          ...prev,
+          [botId]: { messages: remaining, typing: false, streaming: "" },
+        }));
         window.dispatchEvent(
           new CustomEvent("arena:elo_update", {
             detail: { teamId, elo: data.elo ?? 0, delta: -1, reason: `rewind:${botId}` },

@@ -84,18 +84,20 @@ app.get("/api/chat/history", async (req, reply) => {
   if (session === undefined) {
     return reply.code(401).send({ error: "no session" });
   }
-  const logs = db.all<{ bot_id: BotId; role: "user" | "assistant"; text_final: string }>(
-    "SELECT bot_id, role, text_final FROM chat_logs WHERE team_id = ? ORDER BY id ASC",
+  const logs = db.all<{ id: number; bot_id: BotId; role: "user" | "assistant"; text_final: string; created_at: string }>(
+    "SELECT id, bot_id, role, text_final, created_at FROM chat_logs WHERE team_id = ? ORDER BY id ASC",
     session.teamId,
   );
-  const history: Partial<Record<BotId, Array<{ role: "user" | "bot"; text: string }>>> = {};
+  const history: Partial<Record<BotId, Array<{ id?: number; role: "user" | "bot"; text: string; createdAt?: string }>>> = {};
   for (const row of logs) {
     if (!history[row.bot_id]) {
       history[row.bot_id] = [];
     }
     history[row.bot_id]!.push({
+      id: row.id,
       role: row.role === "assistant" ? "bot" : "user",
       text: row.text_final,
+      createdAt: row.created_at,
     });
   }
   return { history };
@@ -172,18 +174,20 @@ async function boot(): Promise<void> {
         if (teamRow !== undefined) {
           bus.send(socket, bus.frame("elo_update", { teamId: session.teamId, elo: teamRow.elo, delta: 0, reason: "sync" }));
         }
-        const logs = db.all<{ bot_id: BotId; role: "user" | "assistant"; text_final: string }>(
-          "SELECT bot_id, role, text_final FROM chat_logs WHERE team_id = ? ORDER BY id ASC",
+        const logs = db.all<{ id: number; bot_id: BotId; role: "user" | "assistant"; text_final: string; created_at: string }>(
+          "SELECT id, bot_id, role, text_final, created_at FROM chat_logs WHERE team_id = ? ORDER BY id ASC",
           session.teamId,
         );
-        const history: Partial<Record<BotId, Array<{ role: "user" | "bot"; text: string }>>> = {};
+        const history: Partial<Record<BotId, Array<{ id?: number; role: "user" | "bot"; text: string; createdAt?: string }>>> = {};
         for (const row of logs) {
           if (!history[row.bot_id]) {
             history[row.bot_id] = [];
           }
           history[row.bot_id]!.push({
+            id: row.id,
             role: row.role === "assistant" ? "bot" : "user",
             text: row.text_final,
+            createdAt: row.created_at,
           });
         }
         bus.send(socket, bus.frame("chat_sync", { history }));

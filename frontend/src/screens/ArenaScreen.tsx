@@ -28,7 +28,8 @@ import {
   VenetianMask,
   Gift,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  RotateCcw
 } from "lucide-react";
 
 const ROSTER: Array<{ id: BotId; label: string }> = [
@@ -55,6 +56,7 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
   const [pendingBot, setPendingBot] = useState<BotId | null>(null);
   const [celebration, setCelebration] = useState<BotId | null>(null);
   const [claimRelic, setClaimRelic] = useState<{ botId: BotId; itemKey: string } | null>(null);
+  const [rewindingId, setRewindingId] = useState<number | null>(null);
   const prevInventory = useRef<InventoryDelta[] | null>(null);
   const initialSyncDone = useRef(false);
 
@@ -579,10 +581,12 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
               <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 max-w-[860px] w-full mx-auto" aria-live="polite">
                 {activeBot?.messages.map((m, idx) => {
                   const isUser = m.role === "user";
+                  const canRewind = m.id !== undefined && chattingBotId !== null;
+                  const isRewindingThis = m.id !== undefined && rewindingId === m.id;
                   return (
                     <div
-                      key={idx}
-                      className={`chat-msg flex gap-3 max-w-[85%] ${isUser ? "self-end flex-row-reverse" : "self-start"}`}
+                      key={m.id ?? idx}
+                      className={`chat-msg group relative flex gap-3 max-w-[85%] ${isUser ? "self-end flex-row-reverse" : "self-start"}`}
                     >
                       <span className="block w-8 h-8 rounded-[6px] overflow-hidden shrink-0 border border-[var(--color-border)] bg-[var(--color-surface-1)]" aria-hidden="true">
                         {isUser ? (
@@ -598,14 +602,44 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
                         )}
                       </span>
 
-                      <div
-                        className={`rounded-[8px] px-4 py-3 text-[15px] leading-relaxed ${
-                          isUser
-                            ? "bg-[var(--color-text-1)] text-[var(--color-bg-0)]"
-                            : "border border-[var(--color-border)] bg-[var(--color-surface-1)] text-[var(--color-text-1)]"
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap">{m.text}</p>
+                      <div className="flex flex-col gap-1 max-w-full">
+                        <div
+                          className={`rounded-[8px] px-4 py-3 text-[15px] leading-relaxed relative ${
+                            isUser
+                              ? "bg-[var(--color-text-1)] text-[var(--color-bg-0)]"
+                              : "border border-[var(--color-border)] bg-[var(--color-surface-1)] text-[var(--color-text-1)]"
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap">{m.text}</p>
+                        </div>
+
+                        {/* Granular Rewind Button on message hover/focus */}
+                        {canRewind && (
+                          <div className={`flex items-center gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity ${isUser ? "justify-end" : "justify-start"}`}>
+                            <button
+                              type="button"
+                              disabled={isRewindingThis}
+                              onClick={async () => {
+                                if (m.id === undefined || chattingBotId === null) return;
+                                const confirmMsg = isUser
+                                  ? `Rewind to this message? Turns from here onward will be deleted (−1 ELO).`
+                                  : `Rewind to before this reply? (−1 ELO)`;
+                                if (!window.confirm(confirmMsg)) return;
+                                setRewindingId(m.id);
+                                if (isUser) {
+                                  setDraft(m.text);
+                                }
+                                await rewind(chattingBotId, { messageId: m.id });
+                                setRewindingId(null);
+                              }}
+                              className="flex items-center gap-1 text-[11px] font-semibold text-[var(--color-text-3)] hover:text-[var(--color-seal)] px-1.5 py-0.5 rounded hover:bg-[var(--color-surface-2)] transition"
+                              title="Rewind to this point in time (-1 ELO)"
+                            >
+                              <RotateCcw className={`w-3 h-3 ${isRewindingThis ? "animate-spin" : ""}`} />
+                              <span>{isRewindingThis ? "Rewinding..." : "Rewind to here"}</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

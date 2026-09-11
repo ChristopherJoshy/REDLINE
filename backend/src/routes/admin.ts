@@ -50,13 +50,13 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
   }
 
 
-  // Rewind: −1 ELO immediately, bot context genuinely truncated to phase start.
+  // Rewind: −1 ELO immediately, truncate to point-in-time messageId / turns / phase start.
   app.post("/api/rewind", async (req, reply) => {
     const session = sessionOf(req);
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
-    const body = (req.body ?? {}) as { botId?: unknown };
+    const body = (req.body ?? {}) as { botId?: unknown; messageId?: unknown; turns?: unknown };
     if (typeof body.botId !== "string") {
       return reply.code(400).send({ error: "bot required" });
     }
@@ -64,18 +64,66 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     if (team === undefined) {
       return reply.code(404).send({ error: "unknown team" });
     }
-    const after = team.elo - 1;
+    const after = Math.max(0, team.elo - 1);
     const botId = body.botId as BotId;
-    db.transaction(() => {
-      db.run("DELETE FROM chat_logs WHERE team_id = ? AND bot_id = ?", session.teamId, botId);
-      db.run("UPDATE teams SET elo = ? WHERE id = ?", after, session.teamId);
-      db.run("INSERT INTO elo_log (team_id, delta, before_rating, after_rating, reason) VALUES (?, -1, ?, ?, ?)", session.teamId, team.elo, after, `rewind:${botId}`);
-    });
-    if (bus !== undefined) {
-      bus.broadcast(session.teamId, bus.frame("chat_sync", { history: { [botId]: [] } }));
-      bus.broadcast(session.teamId, bus.frame("elo_update", { teamId: session.teamId, elo: after, delta: -1, reason: `rewind:${botId}` }));
+    const targetMsgId = typeof body.messageId === "number" ? body.messageId : undefined;
+    const turns = typeof body.turns === "number" ? body.turns : undefined;
+
+    let cutoffId: number | undefined = targetMsgId;
+    if (cutoffId === undefined && typeof turns === "number" && turns > 0) {
+      // Find the ID of the Nth latest user turn
+      const userRows = db.all<{ id: number }>(
+        "SELECT id FROM chat_logs WHERE team_id = ? AND bot_id = ? AND role = 'user' ORDER BY id DESC LIMIT ?",
+        session.teamId,
+        botId,
+        turns,
+      );
+      if (userRows.length > 0) {
+        cutoffId = userRows[userRows.length - 1]?.id;
+      }
     }
-    return { ok: true, elo: after };
+
+    db.transaction(() => {
+      if (cutoffId !== undefined) {
+        db.run("DELETE FROM chat_logs WHERE team_id = ? AND bot_id = ? AND id >= ?", session.teamId, botId, cutoffId);
+      } else {
+        db.run("DELETE FROM chat_logs WHERE team_id = ? AND bot_id = ?", session.teamId, botId);
+      }
+      // Revert unverified relic if team was holding it without filing at merchant
+      db.run("UPDATE team_inventory SET status = 'locked' WHERE team_id = ? AND bot_id = ? AND status = 'obtained'", session.teamId, botId);
+
+      db.run("UPDATE teams SET elo = ? WHERE id = ?", after, session.teamId);
+      db.run(
+        "INSERT INTO elo_log (team_id, delta, before_rating, after_rating, reason) VALUES (?, -1, ?, ?, ?)",
+        session.teamId,
+        team.elo,
+        after,
+        cutoffId !== undefined ? `rewind:${botId}:msg_${cutoffId}` : `rewind:${botId}:all`,
+      );
+    });
+
+    const remainingLogs = db.all<{ id: number; role: "user" | "assistant"; text_final: string; created_at: string }>(
+      "SELECT id, role, text_final, created_at FROM chat_logs WHERE team_id = ? AND bot_id = ? ORDER BY id ASC",
+      session.teamId,
+      botId,
+    );
+    const remainingMsgs = remainingLogs.map((row) => ({
+      id: row.id,
+      role: (row.role === "assistant" ? "bot" : "user") as "user" | "bot",
+      text: row.text_final,
+      createdAt: row.created_at,
+    }));
+
+    if (bus !== undefined) {
+      bus.broadcast(session.teamId, bus.frame("chat_sync", { history: { [botId]: remainingMsgs } }));
+      bus.broadcast(session.teamId, bus.frame("elo_update", { teamId: session.teamId, elo: after, delta: -1, reason: `rewind:${botId}` }));
+      const items = db.all<InventoryDelta>(
+        "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
+        session.teamId,
+      );
+      bus.broadcast(session.teamId, bus.frame("inventory_sync", { items }));
+    }
+    return { ok: true, elo: after, messages: remainingMsgs };
   });
 
   app.get("/api/admin/board", async (req, reply) => {

@@ -112,8 +112,10 @@ export interface EloUpdateData {
 
 export interface ChatSyncData {
   history: Partial<Record<BotId, Array<{
+    id?: number;
     role: "user" | "bot";
     text: string;
+    createdAt?: string;
   }>>>;
 }
 

@@ -144,10 +144,28 @@ async function* streamChatWithKey(
   yield { kind: "done", finish };
 }
 
+import { streamZenChat } from "./zen.js";
+
 export async function* streamChat(
   messages: ChatMessage[],
   tools: ToolDef[],
   db?: DatabaseAdapter,
 ): AsyncGenerator<StreamYield> {
-  yield* runWithRotation("groq", (key) => streamChatWithKey(key, messages, tools), db);
+  try {
+    yield* runWithRotation("groq", (key) => streamChatWithKey(key, messages, tools), db);
+  } catch (groqErr) {
+    console.warn("[StreamChat] Groq provider failed or exhausted, attempting OpenCode Zen (Muse Spark 1.3 Free) fallback...", groqErr);
+    try {
+      for await (const chunk of streamZenChat(messages, tools, db)) {
+        if (chunk.kind === "delta" || chunk.kind === "tool") {
+          yield chunk;
+        } else if (chunk.kind === "done") {
+          yield { kind: "done", finish: chunk.finish };
+        }
+      }
+    } catch (zenErr) {
+      console.error("[StreamChat] Zen fallback also failed:", zenErr);
+      throw groqErr;
+    }
+  }
 }

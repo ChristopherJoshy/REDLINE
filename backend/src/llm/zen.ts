@@ -10,7 +10,7 @@ import { tokenTracker } from "./tokenTracker.js";
 const MODEL = "muse-spark-1.3-contributor-free";
 const ZEN_RESPONSES_URL = "https://opencode.ai/zen/v1/responses";
 
-async function* streamZenChatWithKey(
+export async function* streamZenChatWithKey(
   apiKey: string,
   messages: ChatMessage[],
   tools: ToolDef[],

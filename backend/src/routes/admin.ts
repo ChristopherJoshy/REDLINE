@@ -18,6 +18,7 @@ import {
   type LlmProvider,
 } from "../llm/keyPool.js";
 import { tokenTracker } from "../llm/tokenTracker.js";
+import { round2Status, round2TimeLeft, round2Duration } from "./gates.js";
 
 const EXPORT_TABLES = ["elo_log", "chat_logs", "team_inventory"] as const;
 const announcementsHistory: AnnouncementData[] = [];
@@ -180,7 +181,14 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
         lastActivity: lastMsg ? lastMsg.created_at : team.created_at,
       };
     });
-    return { teams: result };
+    return {
+      teams: result,
+      round2: {
+        status: round2Status(db),
+        timeLeft: round2TimeLeft(db),
+        duration: round2Duration(db),
+      },
+    };
   });
 
   app.get("/api/admin/export.json", async (req, reply) => {

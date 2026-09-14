@@ -128,6 +128,23 @@ export interface BotLocksData {
   locks: Partial<Record<BotId, BotLockInfo>>;
 }
 
+export interface Round2CountdownData {
+  endsAt: string;
+}
+
+export interface Round2StartData {
+  durationSecs: number;
+}
+
+export interface Round2EndData {
+  reason: "expired" | "admin_stop";
+}
+
+export interface Round2ExtendData {
+  addedSecs: number;
+  newEndsAt: string;
+}
+
 export type ClientEvent =
   | Frame<"hello", HelloData>
   | Frame<"ping", Record<string, never>>
@@ -148,6 +165,10 @@ export type ServerEvent =
   | Frame<"announcement", AnnouncementData>
   | Frame<"elo_update", EloUpdateData>
   | Frame<"chat_sync", ChatSyncData>
-  | Frame<"bot_locks", BotLocksData>;
+  | Frame<"bot_locks", BotLocksData>
+  | Frame<"round2_countdown", Round2CountdownData>
+  | Frame<"round2_start", Round2StartData>
+  | Frame<"round2_end", Round2EndData>
+  | Frame<"round2_extend", Round2ExtendData>;
 export type AnyEvent = ClientEvent | ServerEvent;
 

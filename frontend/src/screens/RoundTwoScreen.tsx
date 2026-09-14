@@ -19,11 +19,12 @@ interface RoundTwoScreenProps {
   teamId: string;
   boss: BotId;
   locked: boolean;
+  onRoundEnd?: () => void;
 }
 
 type Reveal = "blackout" | "sigil" | "open";
 
-export default function RoundTwoScreen({ teamId, boss, locked }: RoundTwoScreenProps): React.JSX.Element {
+export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: RoundTwoScreenProps): React.JSX.Element {
   const { bots, send, flash, inventory, rewind } = useBotStream(teamId);
   const [reveal, setReveal] = useState<Reveal>("blackout");
   const [draft, setDraft] = useState("");
@@ -52,6 +53,15 @@ export default function RoundTwoScreen({ teamId, boss, locked }: RoundTwoScreenP
     prevStatus.current = cur;
     if (had !== null && had !== "verified" && cur === "verified") setCelebration(true);
   }, [inventory, boss]);
+
+  // Listen for round2 end event
+  useEffect(() => {
+    function handleEnd(): void {
+      onRoundEnd?.();
+    }
+    window.addEventListener("arena:round2_end", handleEnd);
+    return () => window.removeEventListener("arena:round2_end", handleEnd);
+  }, [onRoundEnd]);
 
   async function offer(): Promise<void> {
     const item = inventory.find((i) => i.botId === boss && i.status === "obtained");

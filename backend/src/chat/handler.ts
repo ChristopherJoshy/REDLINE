@@ -8,7 +8,7 @@ import { coverBrief } from "../bots/coverLens.js";
 import { BOTS, ROUND1_BOTS } from "../bots/registry.js";
 import { bossOf, isBoss } from "../bots/r2.js";
 import { handleR2Chat } from "./r2handler.js";
-import { round1Open } from "../routes/gates.js";
+import { round1Open, round2Status } from "../routes/gates.js";
 import type { Bus } from "../ws/bus.js";
 
 const HISTORY_LIMIT = 30;
@@ -37,6 +37,10 @@ export async function handleChatSend(
   if (isBoss(botId)) {
     if (bossOf(teamId, db) !== botId) {
       bus.broadcast(teamId, bus.frame("bot_error", { botId, message: "not your vault", retryable: false }));
+      return;
+    }
+    if (round2Status(db) !== "active") {
+      bus.broadcast(teamId, bus.frame("bot_error", { botId, message: "round 2 not active", retryable: false }));
       return;
     }
     await handleR2Chat(bus, db, teamId, botId, text, displayName);

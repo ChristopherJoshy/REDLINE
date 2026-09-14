@@ -6,6 +6,8 @@ export interface Gates {
   qualified: boolean;
   solved: number;
   round1Size: number;
+  round2Status: "off" | "countdown" | "active";
+  round2TimeLeft: number;
 }
 
 export async function getGates(): Promise<Gates> {
@@ -16,8 +18,13 @@ export async function getGates(): Promise<Gates> {
   return (await res.json()) as Gates;
 }
 
-async function adminPost(path: string, code: string): Promise<unknown> {
-  const res = await apiFetch(path, { method: "POST", headers: { "x-admin-code": code } });
+async function adminPost(path: string, code: string, body?: Record<string, unknown>): Promise<unknown> {
+  const init: RequestInit = { method: "POST", headers: { "x-admin-code": code } };
+  if (body !== undefined) {
+    init.headers = { ...init.headers, "Content-Type": "application/json" };
+    init.body = JSON.stringify(body);
+  }
+  const res = await apiFetch(path, init);
   const data = (await res.json()) as unknown;
   if (!res.ok) {
     throw new Error("admin failed");
@@ -35,6 +42,18 @@ export function computeTop5(code: string): Promise<{ top5: string[] }> {
 
 export function openVault(code: string): Promise<unknown> {
   return adminPost("/api/admin/open-vault", code);
+}
+
+export function startRound2(code: string, durationSecs?: number): Promise<{ ok: boolean; countdownEndsAt: string; duration: number }> {
+  return adminPost("/api/admin/start-round2", code, durationSecs !== undefined ? { durationSecs } : undefined) as Promise<{ ok: boolean; countdownEndsAt: string; duration: number }>;
+}
+
+export function stopRound2(code: string): Promise<unknown> {
+  return adminPost("/api/admin/stop-round2", code);
+}
+
+export function extendRound2(code: string, addSecs: number): Promise<{ ok: boolean; newEndsAt: string; addedSecs: number }> {
+  return adminPost("/api/admin/extend-round2", code, { addSecs }) as Promise<{ ok: boolean; newEndsAt: string; addedSecs: number }>;
 }
 
 export async function enterRound2(): Promise<{ boss: string }> {

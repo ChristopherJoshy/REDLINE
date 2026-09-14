@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import { createTeam, type CreateTeamResult } from "@/api/teams";
-import { getGates, openVault, endRound1, type Gates } from "@/api/gates";
+import { getGates, openVault, endRound1, startRound2, stopRound2, extendRound2, type Gates } from "@/api/gates";
 import { apiFetch } from "@/api/client";
 import { CHARACTERS } from "@/data/characterLore";
 import { 
@@ -68,6 +68,12 @@ interface AdminTeamOverview {
   solved: number;
   lastActivity: string;
   locks?: Record<string, { displayName: string; since: string }>;
+}
+
+interface Round2State {
+  status: "off" | "countdown" | "active";
+  timeLeft: number;
+  duration: number;
 }
 
 interface ApiKeyRecord {
@@ -252,6 +258,7 @@ export default function AdminTeams(): React.JSX.Element {
   // Data State
   const [teams, setTeams] = useState<AdminTeamOverview[]>([]);
   const [gates, setGates] = useState<Gates | null>(null);
+  const [round2, setRound2] = useState<Round2State>({ status: "off", timeLeft: 0, duration: 1800 });
   const [activityStream, setActivityStream] = useState<ActivityEvent[]>([]);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
@@ -312,8 +319,11 @@ export default function AdminTeams(): React.JSX.Element {
         ]);
 
         if (resOverview && resOverview.ok && !dead) {
-          const data = (await resOverview.json()) as { teams: AdminTeamOverview[] };
+          const data = (await resOverview.json()) as { teams: AdminTeamOverview[]; round2?: Round2State };
           setTeams(data.teams);
+          if (data.round2) {
+            setRound2(data.round2);
+          }
           setError("");
         } else if (resOverview && resOverview.status === 401 && !dead) {
           handleLock();
@@ -349,6 +359,20 @@ export default function AdminTeams(): React.JSX.Element {
       clearInterval(timer);
     };
   }, [authed, adminCode]);
+
+  // Tick round2 timer locally between polls
+  useEffect(() => {
+    if (round2.status === "off") return;
+    const tick = setInterval(() => {
+      setRound2((prev) => {
+        if (prev.status === "off") return prev;
+        const next = Math.max(0, prev.timeLeft - 1);
+        if (next <= 0) return { ...prev, status: "off", timeLeft: 0 };
+        return { ...prev, timeLeft: next };
+      });
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [round2.status]);
 
   // Load comms transcript when modal opens
   useEffect(() => {
@@ -626,8 +650,9 @@ export default function AdminTeams(): React.JSX.Element {
         setRewindConfirmTeam(null);
         const overviewRes = await apiFetch("/api/admin/overview", { headers: { "x-admin-code": adminCode } }).catch(() => null);
         if (overviewRes && overviewRes.ok) {
-          const data = (await overviewRes.json()) as { teams: AdminTeamOverview[] };
+          const data = (await overviewRes.json()) as { teams: AdminTeamOverview[]; round2?: Round2State };
           setTeams(data.teams);
+          if (data.round2) setRound2(data.round2);
         }
       }
     } catch {
@@ -1622,22 +1647,110 @@ export default function AdminTeams(): React.JSX.Element {
 
             {gates && (
               <div className="flex flex-col gap-5">
-                <div className="grid grid-cols-2 gap-4 font-mono">
+                <div className="grid grid-cols-3 gap-4 font-mono">
                   <div className="p-5 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
-                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Round 1 State</span>
+                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Round 1</span>
                     <p className="mt-2 font-bold text-[16px] text-[#F4F4F5]">
-                      {gates.round1Open ? "ACTIVE & ACCEPTING" : "FROZEN"}
+                      {gates.round1Open ? "ACTIVE" : "FROZEN"}
                     </p>
                   </div>
                   <div className="p-5 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
-                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Vault Door</span>
+                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Vault</span>
                     <p className="mt-2 font-bold text-[16px] text-[#F4F4F5]">
-                      {gates.vaultOpen ? "OPEN TO QUALIFIERS" : "SEALED"}
+                      {gates.vaultOpen ? "OPEN" : "SEALED"}
+                    </p>
+                  </div>
+                  <div className="p-5 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
+                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Round 2</span>
+                    <p className={`mt-2 font-bold text-[16px] ${round2.status === "active" ? "text-[#10B981]" : round2.status === "countdown" ? "text-[#F59E0B]" : "text-[#F4F4F5]"}`}>
+                      {round2.status === "active" ? "ACTIVE" : round2.status === "countdown" ? "COUNTDOWN" : "OFF"}
                     </p>
                   </div>
                 </div>
 
+                {/* Round 2 Timer Display */}
+                {round2.status !== "off" && (
+                  <div className="p-5 rounded-[2px] border border-[#3F3F46] bg-[#18181B] flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-[#A1A1AA] uppercase font-mono">
+                        {round2.status === "countdown" ? "Starts In" : "Time Remaining"}
+                      </span>
+                      <span className="text-[11px] font-bold text-[#A1A1AA] uppercase font-mono">
+                        Total: {Math.floor(round2.duration / 60)}m
+                      </span>
+                    </div>
+                    <p className="font-mono text-[36px] font-bold text-[#10B981] tracking-wider">
+                      {Math.floor(round2.timeLeft / 60)}:{String(round2.timeLeft % 60).padStart(2, "0")}
+                    </p>
+                    {round2.status === "active" && (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await extendRound2(adminCode, 300);
+                            notify("Extended Round 2 by 5 minutes");
+                          }}
+                          className="px-3 py-1.5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono text-[11px] font-bold uppercase transition cursor-pointer"
+                        >
+                          +5 min
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await extendRound2(adminCode, 600);
+                            notify("Extended Round 2 by 10 minutes");
+                          }}
+                          className="px-3 py-1.5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono text-[11px] font-bold uppercase transition cursor-pointer"
+                        >
+                          +10 min
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await extendRound2(adminCode, 1800);
+                            notify("Extended Round 2 by 30 minutes");
+                          }}
+                          className="px-3 py-1.5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono text-[11px] font-bold uppercase transition cursor-pointer"
+                        >
+                          +30 min
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex flex-col gap-3 pt-4 border-t border-[#3F3F46]">
+                  {round2.status === "off" && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await startRound2(adminCode);
+                        const g = await getGates();
+                        setGates(g);
+                        notify("Round 2 started! 30s countdown begins now.");
+                      }}
+                      className="py-4 px-4 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-[#F4F4F5] font-mono font-bold text-[14px] uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Unlock className="w-4 h-4" />
+                      <span>Start Round 2 (30s countdown)</span>
+                    </button>
+                  )}
+
+                  {round2.status !== "off" && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await stopRound2(adminCode);
+                        const g = await getGates();
+                        setGates(g);
+                        notify("Round 2 stopped!");
+                      }}
+                      className="py-3.5 px-4 rounded-[2px] border border-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-[#EF4444] font-mono font-bold text-[13px] uppercase tracking-wider transition cursor-pointer"
+                    >
+                      Stop Round 2
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={async () => {
@@ -1647,20 +1760,7 @@ export default function AdminTeams(): React.JSX.Element {
                     }}
                     className="py-3.5 px-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono font-bold text-[13px] uppercase tracking-wider transition cursor-pointer"
                   >
-                    Freeze / End Round 1 Submissions
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await openVault(adminCode);
-                      setGates(await getGates());
-                      notify("Round 2 Nether Vault unlocked!");
-                    }}
-                    className="py-4 px-4 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-[#F4F4F5] font-mono font-bold text-[14px] uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Unlock className="w-4 h-4" />
-                    <span>Authorize Round 2 Nether Vault Access</span>
+                    Freeze / End Round 1 Only
                   </button>
                 </div>
               </div>

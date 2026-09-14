@@ -166,6 +166,14 @@ export function useBotStream(teamId: string): {
         }
         return next;
       });
+    } else if (event.event === "round2_end") {
+      window.dispatchEvent(new CustomEvent("arena:round2_end", { detail: event.data }));
+    } else if (event.event === "round2_countdown") {
+      window.dispatchEvent(new CustomEvent("arena:round2_countdown", { detail: event.data }));
+    } else if (event.event === "round2_start") {
+      window.dispatchEvent(new CustomEvent("arena:round2_start", { detail: event.data }));
+    } else if (event.event === "round2_extend") {
+      window.dispatchEvent(new CustomEvent("arena:round2_extend", { detail: event.data }));
     }
   }, []);
 

@@ -109,14 +109,15 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
   // Handover (claim popup) & Verification (celebration overlay) triggers on inventory change
   useEffect(() => {
     const prev = prevInventory.current;
-    prevInventory.current = inventory;
-    
+
     // Ignore the first inventory sync on page load/refresh so existing filed/held relics don't pop up
     if (!initialSyncDone.current) {
       initialSyncDone.current = true;
+      prevInventory.current = inventory;
       return;
     }
 
+    prevInventory.current = inventory;
     if (prev === null) return;
     for (const item of inventory) {
       const prevItem = prev.find((i) => i.botId === item.botId);

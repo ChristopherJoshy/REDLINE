@@ -1,37 +1,40 @@
 @import "./fonts.css";
 @import "tailwindcss";
 
-/* REDLINE Arena — Medieval Minimal (DESIGN.md). Parchment + ink, one brass accent. Flat, no gradients. */
+/* REDLINE Arena — Dark CTF Command Center. Near-black grounds, red accent, gold rewards. */
 @theme inline {
-  --color-bg-0: #f3ede0;
-  --color-bg-1: #e9e0c9;
-  --color-surface-1: #fbf8ee;
-  --color-surface-2: #f0e8d2;
-  --color-surface-3: #e2d5b4;
-  --color-border: #d8cba6;
-  --color-border-strong: #a8976b;
-  --color-text-1: #201a12;
-  --color-text-2: #4a4234;
-  --color-text-3: #7a6f5c;
-  --color-text-faint: #a89c82;
-  --color-brass: #6e5514;
-  --color-brass-ink: #4a3a0c;
-  --color-brass-wash: #efe6c8;
-  --color-seal: #7f1d1d;
-  --color-seal-wash: #f3e2dd;
-  --color-moss: #4b5523;
-  --color-moss-wash: #e9ead9;
-  --color-moss-border: #c6c9a3;
-  --color-redline: #7f1d1d;
-  --color-redline-soft: #a33b2e;
-  --color-redline-dim: rgba(127, 29, 29, 0.08);
-  --color-gold: #6e5514;
-  --color-cyan: #4a4234;
-  --color-green: #4b5523;
-  --color-portal-950: #201a12;
-  --color-portal-700: #4a4234;
-  --color-portal-400: #6e5514;
-  --color-vault-p2: #14100b;
+  --color-bg-0: #05070a;
+  --color-bg-1: #090d12;
+  --color-surface-1: #0d1117;
+  --color-surface-2: #11161d;
+  --color-surface-3: #182028;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 30, 45, 0.35);
+  --color-text-1: #f5f5f5;
+  --color-text-2: #d7d9de;
+  --color-text-3: #a7adb7;
+  --color-text-faint: #707782;
+  --color-brass: #ff1e2d;
+  --color-brass-ink: #ffffff;
+  --color-brass-wash: rgba(255, 30, 45, 0.12);
+  --color-seal: #ff1e2d;
+  --color-seal-wash: rgba(255, 30, 45, 0.12);
+  --color-moss: #9db87a;
+  --color-moss-wash: rgba(157, 184, 122, 0.1);
+  --color-moss-border: rgba(157, 184, 122, 0.35);
+  --color-redline: #ff1e2d;
+  --color-redline-soft: #e50914;
+  --color-redline-dim: rgba(255, 30, 45, 0.25);
+  --color-gold: #d89b24;
+  --color-gold-bright: #f2b632;
+  --color-gold-wash: rgba(216, 155, 36, 0.12);
+  --color-gold-border: rgba(216, 155, 36, 0.45);
+  --color-cyan: #8ab4d6;
+  --color-green: #9db87a;
+  --color-portal-950: #05070a;
+  --color-portal-700: #a7adb7;
+  --color-portal-400: #ff1e2d;
+  --color-vault-p2: #090d12;
   --font-display: "Cinzel", Georgia, serif;
   --font-body: "Inter", system-ui, sans-serif;
   --font-code: "JetBrains Mono", ui-monospace, monospace;
@@ -54,24 +57,29 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Entry gate: ink ground, parchment text. */
+/* Entry gate: cyberpunk red-black theme. */
 .dark-cinematic {
-  --color-bg-0: #14100b;
-  --color-bg-1: #1e1811;
-  --color-surface-1: #241d13;
-  --color-surface-2: #2e2517;
-  --color-surface-3: #3d3220;
-  --color-border: #3d3220;
-  --color-border-strong: #6b5f45;
-  --color-text-1: #f3ede0;
-  --color-text-2: #d8cba6;
-  --color-text-3: #a89c82;
-  --color-text-faint: #7a6f5c;
-  --color-redline: #e0a080;
-  --color-redline-soft: #e0a080;
-  --color-redline-dim: rgba(224, 160, 128, 0.12);
-  background-color: #14100b;
-  color: #f3ede0;
+  --color-bg-0: #0a0a0a;
+  --color-bg-1: #111111;
+  --color-surface-1: #1a1a1a;
+  --color-surface-2: #222222;
+  --color-surface-3: #2a2a2a;
+  --color-border: #333333;
+  --color-border-strong: #dc2626;
+  --color-text-1: #ffffff;
+  --color-text-2: #e5e5e5;
+  --color-text-3: #a3a3a3;
+  --color-text-faint: #525252;
+  --color-redline: #dc2626;
+  --color-redline-soft: #ef4444;
+  --color-redline-dim: rgba(220, 38, 38, 0.15);
+  --color-seal: #dc2626;
+  --color-seal-wash: rgba(220, 38, 38, 0.15);
+  --color-brass: #dc2626;
+  --color-brass-ink: #ffffff;
+  --color-brass-wash: rgba(220, 38, 38, 0.2);
+  background-color: #0a0a0a;
+  color: #ffffff;
 }
 
 @keyframes troll-shake {
@@ -98,6 +106,32 @@ body {
   animation: rise-in 500ms var(--ease-out) both;
 }
 
+/* Writing mode for vertical text */
+.writing-mode-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* Scanline effect */
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+/* Glitch effect for REDLINE text */
+@keyframes glitch {
+  0%, 100% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+}
+
+/* Glow pulse animation */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(220, 38, 38, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(220, 38, 38, 0.6); }
+}
 
 /* --motion-enabled: readable by JS via getComputedStyle to detect reduced-motion preference */
 :root {
@@ -116,3 +150,98 @@ body {
   }
 }
 
+/* REDLINE CTF Command Center utilities */
+.redline-bg {
+  background-image: url("/backgrounds/login-uiwork.png");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+.redline-veil {
+  background:
+    linear-gradient(180deg, rgba(5, 7, 10, 0.82) 0%, rgba(5, 7, 10, 0.88) 100%),
+    radial-gradient(1200px 500px at 50% -10%, var(--accent-glow), transparent 60%);
+}
+
+.redline-panel {
+  background: linear-gradient(180deg, rgba(17, 22, 29, 0.78), rgba(9, 13, 18, 0.82));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(6px);
+}
+
+.redline-selected {
+  border-color: var(--accent-border) !important;
+  background: linear-gradient(180deg, var(--accent-wash), rgba(13, 17, 23, 0.72)) !important;
+  box-shadow: 0 0 0 1px var(--accent-border), 0 0 24px var(--accent-glow);
+  backdrop-filter: blur(6px);
+}
+
+.redline-gold-card {
+  border: 1px solid rgba(216, 155, 36, 0.45) !important;
+  background: linear-gradient(180deg, rgba(216, 155, 36, 0.1), rgba(9, 13, 18, 0.94)) !important;
+  box-shadow: 0 0 24px rgba(216, 155, 36, 0.12);
+}
+
+.redline-cta {
+  background: linear-gradient(180deg, var(--accent), var(--accent-deep));
+  box-shadow: 0 0 24px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  color: var(--accent-ink);
+  transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out), filter 180ms var(--ease-out);
+}
+
+.redline-cta:hover {
+  filter: brightness(1.12);
+  box-shadow: 0 0 32px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.redline-cta:active {
+  transform: scale(0.99);
+}
+
+.redline-chip {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.mark-card {
+  transition: border-color 180ms var(--ease-out), background 180ms var(--ease-out), box-shadow 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+
+.mark-card:hover {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.redline-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.redline-scroll::-webkit-scrollbar-thumb {
+  background: var(--accent-glow);
+  border-radius: 4px;
+}
+
+.redline-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:root {
+  --accent: #ff1e2d;
+  --accent-ink: #ffffff;
+  --accent-deep: color-mix(in srgb, var(--accent) 55%, black);
+  --accent-soft: color-mix(in srgb, var(--accent) 55%, white);
+  --accent-wash: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-border: color-mix(in srgb, var(--accent) 45%, transparent);
+  --accent-glow: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.acc-text { color: var(--accent-soft); }
+.acc-text-strong { color: var(--accent); }
+.acc-bg { background-color: var(--accent); }
+.acc-border { border-color: var(--accent-border) !important; }
+.acc-wash { background-color: var(--accent-wash); border-color: var(--accent-border); color: var(--accent-soft); }
+.acc-bar { background: linear-gradient(180deg, var(--accent), var(--accent-deep)); box-shadow: 0 0 12px var(--accent-glow); }
+.acc-glow { box-shadow: 0 0 24px var(--accent-glow); }

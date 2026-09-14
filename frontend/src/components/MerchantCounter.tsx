@@ -135,21 +135,21 @@ export default function MerchantCounter({
   }
 
   return (
-    <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-1)]">
+    <div className="border-t border-[rgba(216,155,36,0.35)] bg-[rgba(5,7,10,0.88)]">
       <div className="mx-auto flex w-full max-w-[860px] flex-col gap-5 p-4 sm:p-6">
         <div className="flex items-center justify-between gap-2">
-          <h4 className="flex items-center gap-2 text-[12px] font-semibold tracking-[0.14em] text-[var(--color-text-3)]">
+          <h4 className="flex items-center gap-2 text-[12px] font-bold tracking-[0.2em] text-[var(--color-gold-bright)]">
             <Scale className="w-4 h-4" />
             <span>COUNTER</span>
           </h4>
-          <span className="flex items-center gap-1.5 rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-3 py-1 font-[family-name:var(--font-code)] text-[13px] font-semibold text-[var(--color-brass-ink)]">
+          <span className="flex items-center gap-1.5 rounded-[6px] border border-[rgba(216,155,36,0.5)] bg-[rgba(216,155,36,0.12)] px-3 py-1 font-[family-name:var(--font-code)] text-[13px] font-semibold text-[var(--color-gold-bright)]">
             <Coins className="w-4 h-4" />
             <span>{credits} credits</span>
           </span>
         </div>
 
         {held.length === 0 ? (
-          <p className="rounded-[8px] border border-[var(--color-border)] bg-[var(--color-bg-0)] p-4 text-[13px] text-[var(--color-text-3)]">
+          <p className="redline-panel rounded-[10px] p-4 text-[13px] text-[var(--color-text-3)]">
             Nothing to sell. Talk to a mark and bring back what they give you.
           </p>
         ) : (
@@ -159,13 +159,13 @@ export default function MerchantCounter({
               return (
                 <div
                   key={item.itemKey}
-                  className="flex items-center gap-3 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-bg-0)] p-3"
+                  className="redline-panel flex items-center gap-3 rounded-[10px] p-3"
                 >
                   {lore !== undefined && (
                     <img src={lore.targetItem.asset} alt="" className="h-12 w-12 shrink-0 object-contain" />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-semibold text-[var(--color-text-1)]">
+                    <p className="truncate text-[14px] font-semibold text-white">
                       {itemName(item)}
                     </p>
                     <p className="truncate text-[12px] text-[var(--color-text-3)]">
@@ -176,7 +176,7 @@ export default function MerchantCounter({
                     type="button"
                     onClick={() => void sell(item)}
                     disabled={busyKey !== null}
-                    className="min-h-[44px] shrink-0 rounded-[6px] bg-[var(--color-text-1)] px-4 py-2 text-[13px] font-semibold text-[var(--color-bg-0)] hover:opacity-90 disabled:opacity-50 transition-opacity active:scale-[0.98]"
+                    className="redline-cta min-h-[44px] shrink-0 rounded-[6px] px-4 py-2 text-[13px] font-semibold disabled:opacity-50 active:scale-[0.98]"
                   >
                     {busyKey === item.itemKey ? "Weighing" : "Lay on counter"}
                   </button>
@@ -189,30 +189,30 @@ export default function MerchantCounter({
         {receipt !== null && (
           <div
             ref={receiptRef}
-            className={`rounded-[8px] border p-4 ${
+            className={`rounded-[10px] border p-4 ${
               receipt.ok
-                ? "border-[var(--color-moss-border)] bg-[var(--color-moss-wash)]"
-                : "border-[var(--color-seal)] bg-[var(--color-seal-wash)]"
+                ? "border-[rgba(157,184,122,0.4)] bg-[rgba(157,184,122,0.08)]"
+                : "border-[rgba(255,30,45,0.5)] bg-[rgba(255,30,45,0.1)]"
             }`}
             style={{ opacity: reducedMotion() ? 1 : 0 }}
           >
             <div className="flex items-start gap-3">
               <span ref={receiptIconRef as React.RefObject<HTMLSpanElement>}>
                 {receipt.ok ? (
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-moss)]" />
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#9db87a]" />
                 ) : (
-                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-seal)]" />
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#ff5b64]" />
                 )}
               </span>
               <div>
-                <p className="text-[12px] font-semibold tracking-[0.14em] opacity-80">
+                <p className="text-[12px] font-semibold tracking-[0.14em] text-[var(--color-text-3)]">
                   {receipt.title.toUpperCase()}
                 </p>
-                <p className="mt-1 text-[14px] text-[var(--color-text-1)]">{receipt.line}</p>
+                <p className="mt-1 text-[14px] text-white">{receipt.line}</p>
                 {receipt.flash !== "" && (
                   <p
                     ref={eloRef}
-                    className="mt-1 font-[family-name:var(--font-code)] text-[13px] font-bold text-[var(--color-moss)]"
+                    className="mt-1 font-[family-name:var(--font-code)] text-[13px] font-bold text-[#b8d097]"
                     style={{ opacity: reducedMotion() ? 1 : 0 }}
                   >
                     {receipt.flash}
@@ -224,11 +224,11 @@ export default function MerchantCounter({
         )}
 
         <div className="flex flex-col gap-2">
-          <h4 className="text-[12px] font-semibold tracking-[0.14em] text-[var(--color-text-3)]">
+          <h4 className="text-[12px] font-bold tracking-[0.18em] text-[var(--color-text-3)]">
             CLUE BOARD · EARN CREDITS BY SELLING GENUINE ARTICLES
           </h4>
           {shopError !== "" && (
-            <p role="alert" className="rounded-[6px] border border-[var(--color-seal)] bg-[var(--color-seal-wash)] px-3 py-2 text-[13px] font-semibold text-[var(--color-seal)]">
+            <p role="alert" className="rounded-[6px] border border-[rgba(255,30,45,0.5)] bg-[rgba(255,30,45,0.1)] px-3 py-2 text-[13px] font-semibold text-[#ff8087]">
               {shopError}
             </p>
           )}
@@ -237,13 +237,13 @@ export default function MerchantCounter({
               const lore = CHARACTERS[id];
               const filed = statusOf(id) === "verified";
               return (
-                <div key={id} className="rounded-[8px] border border-[var(--color-border)] bg-[var(--color-bg-0)] p-3">
+                <div key={id} className="redline-panel rounded-[10px] p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-[14px] font-semibold text-[var(--color-text-1)]">
+                    <p className="truncate text-[14px] font-semibold text-white">
                       {lore?.name ?? id}
                     </p>
                     {filed && (
-                      <span className="shrink-0 rounded-[6px] border border-[var(--color-moss-border)] bg-[var(--color-moss-wash)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-moss)]">
+                      <span className="shrink-0 rounded-[6px] border border-[rgba(157,184,122,0.45)] bg-[rgba(157,184,122,0.12)] px-2 py-0.5 text-[11px] font-semibold text-[#b8d097]">
                         Filed
                       </span>
                     )}
@@ -256,8 +256,8 @@ export default function MerchantCounter({
                         const text = owned[id]?.[t.tier];
                         if (text !== undefined && text !== "") {
                           return (
-                            <p key={t.tier} className="rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] p-2 text-[12px] text-[var(--color-text-1)]">
-                              <span className="font-semibold">{t.label}: </span>
+                            <p key={t.tier} className="rounded-[6px] border border-[rgba(216,155,36,0.45)] bg-[rgba(216,155,36,0.1)] p-2 text-[12px] text-[var(--color-text-1)]">
+                              <span className="font-semibold text-[var(--color-gold-bright)]">{t.label}: </span>
                               {text}
                             </p>
                           );
@@ -269,10 +269,10 @@ export default function MerchantCounter({
                               type="button"
                               onClick={() => void buy(id, t.tier, t.label)}
                               disabled={busyKey !== null}
-                              className="flex min-h-[44px] items-center justify-between gap-2 rounded-[6px] border border-[var(--color-border)] px-3 py-1.5 text-[13px] transition hover:bg-[var(--color-surface-2)] disabled:opacity-50"
+                              className="redline-chip flex min-h-[44px] items-center justify-between gap-2 rounded-[6px] px-3 py-1.5 text-[13px] transition hover:border-[rgba(255,30,45,0.4)] disabled:opacity-50"
                             >
-                              <span className="font-medium text-[var(--color-text-1)]">{t.label} · owned</span>
-                              <span className="font-semibold text-[var(--color-brass-ink)]">
+                              <span className="font-medium text-white">{t.label} · owned</span>
+                              <span className="font-semibold text-[var(--color-gold-bright)]">
                                 {busyKey === `${id}:${t.tier}` ? "Reading" : "Show again"}
                               </span>
                             </button>
@@ -284,10 +284,10 @@ export default function MerchantCounter({
                             type="button"
                             onClick={() => void buy(id, t.tier, t.label)}
                             disabled={busyKey !== null || credits < t.cost}
-                            className="flex min-h-[44px] items-center justify-between gap-2 rounded-[6px] border border-[var(--color-border)] px-3 py-1.5 text-[13px] transition hover:bg-[var(--color-surface-2)] disabled:opacity-50"
+                            className="redline-chip flex min-h-[44px] items-center justify-between gap-2 rounded-[6px] px-3 py-1.5 text-[13px] transition hover:border-[rgba(216,155,36,0.5)] disabled:opacity-50"
                           >
-                            <span className="font-medium text-[var(--color-text-1)]">{t.label}</span>
-                            <span className="font-[family-name:var(--font-code)] font-semibold text-[var(--color-brass-ink)]">
+                            <span className="font-medium text-white">{t.label}</span>
+                            <span className="font-[family-name:var(--font-code)] font-semibold text-[var(--color-gold-bright)]">
                               {busyKey === `${id}:${t.tier}` ? "Buying" : `${t.cost} credits`}
                             </span>
                           </button>

@@ -320,16 +320,16 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
       role="dialog"
       aria-modal="true"
       aria-labelledby="cover-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm sm:p-6"
       onClick={() => { if (!required) onClose(); }}
     >
       <div
-        className="rise-in relative flex w-full max-w-[880px] max-h-[90vh] flex-col overflow-hidden rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-surface-1)]"
+        className="redline-panel relative flex w-full max-w-[880px] max-h-[90vh] flex-col overflow-hidden rounded-[12px]"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
+        <header className="flex items-center justify-between border-b border-[rgba(255,30,45,0.25)] bg-[rgba(5,7,10,0.7)] px-6 py-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-[6px] bg-[var(--color-text-1)] text-[var(--color-bg-0)]">
+            <span className="flex h-10 w-10 items-center justify-center rounded-[8px] border border-[rgba(255,30,45,0.45)] bg-[rgba(255,30,45,0.12)] text-[#ff5b64]">
               <VenetianMask className="w-5 h-5" />
             </span>
             <div>
@@ -547,7 +547,7 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
                       <button
                         type="button"
                         onClick={next}
-                        className="flex min-h-[48px] flex-1 items-center justify-center gap-1 rounded-[6px] bg-[var(--color-text-1)] px-6 py-3.5 text-[15px] font-semibold text-[var(--color-bg-0)] hover:opacity-90 active:scale-[0.98] transition"
+                        className="redline-cta flex min-h-[48px] flex-1 items-center justify-center gap-1 rounded-[8px] px-6 py-3.5 text-[15px] font-semibold active:scale-[0.98]"
                       >
                         <span>Continue</span>
                         <ChevronRight className="w-4 h-4" />
@@ -556,7 +556,7 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
                       <button
                         type="submit"
                         disabled={busy || fields.alias.trim() === ""}
-                        className="min-h-[48px] flex-1 rounded-[6px] bg-[var(--color-text-1)] px-6 py-3.5 text-[15px] font-semibold text-[var(--color-bg-0)] hover:opacity-90 disabled:opacity-50 active:scale-[0.98] transition"
+                        className="redline-cta min-h-[48px] flex-1 rounded-[8px] px-6 py-3.5 text-[15px] font-semibold disabled:opacity-50 active:scale-[0.98]"
                       >
                         {busy ? (status === "create" ? "Filing..." : "Updating...") : status === "create" ? `File cover for ${botName}` : "Update cover"}
                       </button>
@@ -585,7 +585,7 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
               <h3 className="text-[12px] font-semibold tracking-[0.14em] text-[var(--color-text-3)]">DOSSIER STRENGTH</h3>
               <div className="h-2 overflow-hidden rounded-[6px] bg-[var(--color-surface-3)]" role="progressbar" aria-valuenow={strength} aria-valuemin={0} aria-valuemax={100} aria-label="Dossier strength">
                 <div
-                  className="h-full rounded-[6px] bg-[var(--color-brass)] transition-[width] duration-300"
+                  className="acc-bg h-full rounded-[6px] transition-[width] duration-300"
                   style={{ width: `${strength}%` }}
                 />
               </div>

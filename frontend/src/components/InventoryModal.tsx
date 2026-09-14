@@ -116,15 +116,15 @@ export default function InventoryModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="inv-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm sm:p-6"
     >
       <div
         ref={modalRef}
-        className="relative flex w-full max-w-[960px] h-[90vh] max-h-[700px] flex-col overflow-hidden rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-surface-1)]"
+        className="redline-panel relative flex w-full max-w-[960px] h-[90vh] max-h-[700px] flex-col overflow-hidden rounded-[12px]"
       >
-        <header className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
+        <header className="flex items-center justify-between border-b border-[rgba(255,30,45,0.25)] bg-[rgba(5,7,10,0.7)] px-6 py-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-[6px] bg-[var(--color-text-1)] text-[var(--color-bg-0)]">
+            <span className="flex h-10 w-10 items-center justify-center rounded-[8px] border border-[rgba(255,30,45,0.45)] bg-[rgba(255,30,45,0.12)] text-[#ff5b64]">
               <Package className="w-5 h-5" />
             </span>
             <div>
@@ -138,7 +138,7 @@ export default function InventoryModal({
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-3 py-1 text-[13px] font-semibold text-[var(--color-brass-ink)] font-[family-name:var(--font-code)]">
+            <div className="flex items-center gap-1.5 rounded-[6px] border border-[rgba(216,155,36,0.5)] bg-[rgba(216,155,36,0.12)] px-3 py-1 text-[13px] font-semibold text-[var(--color-gold-bright)] font-[family-name:var(--font-code)]">
               <Coins className="w-4 h-4" />
               <span>{credits} credits</span>
             </div>
@@ -286,7 +286,7 @@ export default function InventoryModal({
                       onOpenMerchant();
                       onClose();
                     }}
-                    className="mt-2 min-h-[48px] w-full rounded-[6px] bg-[var(--color-text-1)] px-4 py-3 text-[14px] font-semibold text-[var(--color-bg-0)] hover:opacity-90 active:scale-[0.99] transition-opacity"
+                    className="redline-cta mt-2 min-h-[48px] w-full rounded-[8px] px-4 py-3 text-[14px] font-semibold active:scale-[0.99]"
                   >
                     <span>Take to merchant</span>
                   </button>

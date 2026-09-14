@@ -4,7 +4,7 @@ import type { BotId } from "@contracts/events";
 import TypingBubble from "@/chat/TypingBubble";
 import { useBotStream } from "@/chat/useBotStream";
 import { playSound, unlockAudio } from "@/chat/sound";
-import { AVATAR_FOCUS, CHARACTERS } from "@/data/characterLore";
+import { AVATAR_FOCUS, CHARACTERS, CHAT_BACKGROUND } from "@/data/characterLore";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import RewindButton from "@/chat/RewindButton";
 import ProfileModal from "@/components/ProfileModal";
@@ -89,8 +89,12 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
 
   const state = bots[boss];
   const lore = CHARACTERS[boss];
+  const chatBg = CHAT_BACKGROUND[boss];
   useDocumentTitle(`Round 2 · ${lore?.name ?? boss} — REDLINE Arena`);
   const bossAudio = boss === "itachi" ? "/sounds/itachi/crow-caw.mp3" : "/sounds/aizen/entry-yokoso-full.mp3";
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("arena:accent", { detail: { accent: lore?.accent ?? "#ff1e2d", ink: lore?.accentInk ?? "#ffffff" } }));
+  }, [boss, lore?.accent, lore?.accentInk]);
 
   // Reveal sequence with Anime.js sigil choreography
   useEffect(() => {
@@ -240,19 +244,27 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-[var(--color-bg-0)]">
+    <div
+      className="bot-theme relative flex flex-col flex-1 min-h-0"
+      style={
+        (chatBg === undefined
+          ? { "--accent": lore?.accent ?? "#ff1e2d", "--accent-ink": lore?.accentInk ?? "#ffffff" }
+          : { backgroundImage: `url("${chatBg}")`, backgroundSize: "cover", backgroundPosition: "center top", "--accent": lore?.accent ?? "#ff1e2d", "--accent-ink": lore?.accentInk ?? "#ffffff" }) as unknown as React.CSSProperties
+      }
+    >
       {flash > 0 && <div key={flash} className="pointer-events-none fixed inset-0 z-40 bg-white" aria-hidden="true" />}
-
-      <header className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface-1)] px-4 py-3">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[rgba(5,7,10,0.72)]" />
+      <div className="relative flex min-h-0 flex-1 flex-col">
+      <header className="acc-border flex items-center justify-between gap-2 border-b bg-[rgba(5,7,10,0.85)] px-4 py-3 backdrop-blur-sm">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="block w-10 h-10 rounded-[6px] overflow-hidden border border-[var(--color-border)] bg-[var(--color-surface-2)] shrink-0">
+          <span className="acc-border acc-glow block w-10 h-10 rounded-[8px] overflow-hidden border shrink-0">
             <img src={lore?.avatar ?? "/characters/itachi.jpg"} alt={lore?.name} className={`w-full h-full object-cover ${lore ? AVATAR_FOCUS[lore.id] : "object-center"}`} />
           </span>
 
           <div className="min-w-0">
-            <h3 className="font-[family-name:var(--font-vault)] text-[17px] font-bold text-[var(--color-text-1)] flex items-center gap-2">
+            <h3 className="font-[family-name:var(--font-vault)] text-[17px] font-bold text-white flex items-center gap-2">
               <span className="truncate">{lore?.name}</span>
-              <span className="rounded-[6px] border border-[var(--color-border)] px-2 py-0.5 text-[11px] font-[family-name:var(--font-body)] font-semibold text-[var(--color-text-2)]">
+              <span className="redline-chip rounded-[6px] px-2 py-0.5 text-[11px] font-[family-name:var(--font-body)] font-semibold text-[var(--color-text-2)]">
                 Round 2
               </span>
             </h3>
@@ -264,11 +276,11 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
 
         <div className="flex items-center gap-2">
           {phase === "p2" ? (
-            <span className="rounded-[6px] border border-[var(--color-moss-border)] bg-[var(--color-moss-wash)] px-3 py-1 text-[var(--color-moss)] text-[12px] font-semibold">
+            <span className="rounded-[6px] border border-[rgba(157,184,122,0.45)] bg-[rgba(157,184,122,0.12)] px-3 py-1 text-[#b8d097] text-[12px] font-semibold">
               {boss === "itachi" ? "Izanami shattered" : "Hypnosis broken"}
             </span>
           ) : (
-            <span className="rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-3 py-1 text-[var(--color-brass-ink)] text-[12px] font-semibold">
+            <span className="acc-wash rounded-[6px] border px-3 py-1 text-[12px] font-semibold">
               Phase 1
             </span>
           )}
@@ -280,7 +292,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 max-w-[900px] w-full mx-auto" aria-live="polite">
         {state.messages.map((m, i) =>
           m.role === "ally" ? (
-            <div key={i} className="r2-chat-msg self-center my-1 max-w-[500px] rounded-[8px] border border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface-1)] p-3.5 text-[14px] text-[var(--color-text-1)]">
+            <div key={i} className="r2-chat-msg acc-border self-center my-1 max-w-[500px] rounded-[10px] border border-dashed bg-[rgba(13,17,23,0.92)] p-3.5 text-[14px] text-[var(--color-text-1)]">
               <span className="mb-1 block text-[12px] font-semibold text-[var(--color-text-3)]">
                 {m.name ?? "Relay"}{m.confirmed === true ? " · Confirmed" : ""}
               </span>
@@ -291,9 +303,9 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
               key={i}
               className={`r2-chat-msg flex gap-3 max-w-[85%] ${m.role === "user" ? "self-end flex-row-reverse" : "self-start"}`}
             >
-              <span className="block w-8 h-8 rounded-[6px] overflow-hidden shrink-0 border border-[var(--color-border)] bg-[var(--color-surface-1)]" aria-hidden="true">
+              <span className="redline-chip block w-8 h-8 rounded-[8px] overflow-hidden shrink-0" aria-hidden="true">
                 {m.role === "user" ? (
-                  <span className="flex h-full w-full items-center justify-center bg-[var(--color-text-1)] text-[var(--color-bg-0)] text-[11px] font-bold">
+                  <span className="acc-wash flex h-full w-full items-center justify-center text-[11px] font-bold">
                     You
                   </span>
                 ) : (
@@ -302,10 +314,10 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
               </span>
 
               <div
-                className={`rounded-[8px] px-4 py-3 text-[15px] leading-relaxed ${
+                className={`rounded-[10px] px-4 py-3 text-[14.5px] leading-relaxed ${
                   m.role === "user"
-                    ? "bg-[var(--color-text-1)] text-[var(--color-bg-0)]"
-                    : "border border-[var(--color-border)] bg-[var(--color-surface-1)] text-[var(--color-text-1)]"
+                    ? "redline-cta acc-glow"
+                    : "border border-[rgba(255,255,255,0.09)] bg-[rgba(13,17,23,0.92)] text-[var(--color-text-1)]"
                 }`}
               >
                 <p className="whitespace-pre-wrap">{m.text}</p>
@@ -315,13 +327,13 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
         )}
 
         {hasItem && (
-          <div className="self-center my-2 flex w-full max-w-[480px] items-center gap-4 rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] p-4">
+          <div className="redline-gold-card self-center my-2 flex w-full max-w-[480px] items-center gap-4 rounded-[10px] p-4">
             <img src={lore?.targetItem.asset} alt="" className="h-16 w-16 shrink-0 object-contain" />
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold text-[var(--color-brass-ink)]">
+              <p className="text-[13px] font-semibold text-[var(--color-gold-bright)]">
                 Held in satchel
               </p>
-              <h4 className="truncate text-[15px] font-semibold text-[var(--color-text-1)]">
+              <h4 className="truncate text-[15px] font-semibold text-white">
                 {lore?.targetItem.name}
               </h4>
               <p className="text-[12px] text-[var(--color-text-2)]">
@@ -332,12 +344,12 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
                 type="button"
                 onClick={() => void offer()}
                 disabled={offerBusy}
-                className="mt-2 min-h-[44px] rounded-[6px] bg-[var(--color-text-1)] px-4 py-2 text-[13px] font-semibold text-[var(--color-bg-0)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+                className="redline-cta mt-2 min-h-[44px] rounded-[6px] px-4 py-2 text-[13px] font-semibold disabled:opacity-50"
               >
                 {offerBusy ? "Offering" : "Lay on the altar"}
               </button>
               {offerError !== "" && (
-                <p role="alert" className="mt-2 text-[12px] font-semibold text-[var(--color-seal)]">
+                <p role="alert" className="acc-text mt-2 text-[12px] font-semibold">
                   {offerError}
                 </p>
               )}
@@ -347,10 +359,10 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
 
         {state.typing && state.streaming === "" && (
           <div className="self-start flex gap-3">
-            <span className="block w-8 h-8 rounded-[6px] overflow-hidden shrink-0 border border-[var(--color-border)] bg-[var(--color-surface-1)]" aria-hidden="true">
+            <span className="redline-chip block w-8 h-8 rounded-[8px] overflow-hidden shrink-0" aria-hidden="true">
               <img src={lore?.avatar} alt="" className="w-full h-full object-cover" />
             </span>
-            <div className="rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)]">
+            <div className="rounded-[10px] border border-[rgba(255,255,255,0.09)] bg-[rgba(13,17,23,0.92)]">
               <TypingBubble />
             </div>
           </div>
@@ -358,29 +370,29 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
 
         {state.streaming !== "" && (
           <div className="self-start flex gap-3 max-w-[85%]">
-            <span className="block w-8 h-8 rounded-[6px] overflow-hidden shrink-0 border border-[var(--color-border)] bg-[var(--color-surface-1)]" aria-hidden="true">
+            <span className="redline-chip block w-8 h-8 rounded-[8px] overflow-hidden shrink-0" aria-hidden="true">
               <img src={lore?.avatar} alt="" className="w-full h-full object-cover" />
             </span>
-            <div className="rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)] px-4 py-3 text-[15px] leading-relaxed text-[var(--color-text-1)]">
+            <div className="rounded-[10px] border border-[rgba(255,255,255,0.09)] bg-[rgba(13,17,23,0.92)] px-4 py-3 text-[14.5px] leading-relaxed text-[var(--color-text-1)]">
               <p className="whitespace-pre-wrap">{state.streaming}</p>
             </div>
           </div>
         )}
       </div>
 
-      <form onSubmit={submit} className="border-t border-[var(--color-border)] bg-[var(--color-surface-1)] p-3 sm:p-4">
+      <form onSubmit={submit} className="acc-border border-t bg-[rgba(5,7,10,0.9)] p-3 backdrop-blur-sm sm:p-4">
         <div className="mx-auto flex w-full max-w-[900px] items-center gap-3">
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             disabled={!locked}
             placeholder={locked ? `Write to ${lore?.name}` : "Paused"}
-            className="min-h-[48px] flex-1 rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-bg-0)] px-4 text-[15px] text-[var(--color-text-1)] placeholder:text-[var(--color-text-faint)] focus:outline-none focus:border-[var(--color-brass)] transition-colors"
+            className="acc-border min-h-[48px] flex-1 rounded-[8px] border bg-[rgba(13,17,23,0.9)] px-4 text-[15px] text-white placeholder:text-[var(--color-text-faint)] focus:outline-none acc-glow transition"
           />
           <button
             type="submit"
             disabled={!locked || draft.trim() === ""}
-            className="flex min-h-[48px] items-center justify-center gap-2 rounded-[6px] bg-[var(--color-text-1)] px-5 text-[14px] font-semibold text-[var(--color-bg-0)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="redline-cta flex min-h-[48px] items-center justify-center gap-2 rounded-[8px] px-5 text-[14px] font-semibold disabled:opacity-50"
           >
             <span>Send</span>
             <Send className="w-4 h-4" />
@@ -388,6 +400,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
         </div>
       </form>
 
+      </div>
       {coverMissing && (
         <ProfileModal
           botId={boss}

@@ -133,7 +133,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     const rows = db.all<BoardRow>(
       `SELECT t.name, t.hint, t.elo,
         (SELECT COUNT(*) FROM team_inventory i WHERE i.team_id = t.id AND i.status = 'verified') AS solved,
-        (SELECT COUNT(*) FROM elo_log l WHERE l.team_id = t.id AND l.reason LIKE 'rewind:%') AS rewinds,
+        (SELECT COUNT(*) FROM elo_log l WHERE l.team_id = t.id AND (l.reason LIKE 'rewind:%' OR l.reason LIKE 'admin_rewind:%')) AS rewinds,
         (SELECT MAX(i.verified_at) FROM team_inventory i WHERE i.team_id = t.id AND i.status = 'verified') AS lastSolve
        FROM teams t ORDER BY t.elo DESC, lastSolve ASC`,
     );
@@ -351,6 +351,34 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
         );
       }
     });
+    if (bus !== undefined) {
+      // Broadcast chat_sync with remaining messages
+      const bots = botId ? [botId] : db.all<{ bot_id: string }>(
+        "SELECT DISTINCT bot_id FROM chat_logs WHERE team_id = ?", teamId,
+      ).map((r) => r.bot_id);
+      const history: Record<string, Array<{ id: number; role: "user" | "bot"; text: string; createdAt: string }>> = {};
+      for (const b of bots) {
+        const rows = db.all<{ id: number; role: "user" | "assistant"; text_final: string; created_at: string }>(
+          "SELECT id, role, text_final, created_at FROM chat_logs WHERE team_id = ? AND bot_id = ? ORDER BY id ASC",
+          teamId, b,
+        );
+        history[b] = rows.map((r) => ({
+          id: r.id,
+          role: (r.role === "assistant" ? "bot" : "user") as "user" | "bot",
+          text: r.text_final,
+          createdAt: r.created_at,
+        }));
+      }
+      bus.broadcast(teamId, bus.frame("chat_sync", { history }));
+      if (penalty > 0) {
+        bus.broadcast(teamId, bus.frame("elo_update", { teamId, elo: after, delta: -penalty, reason: `admin_rewind:${botId ?? "all"}` }));
+      }
+      const items = db.all<InventoryDelta>(
+        "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
+        teamId,
+      );
+      bus.broadcast(teamId, bus.frame("inventory_sync", { items }));
+    }
     return { ok: true, teamId, botId, elo: after };
   });
 

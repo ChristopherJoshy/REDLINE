@@ -216,7 +216,7 @@ export default function App(): React.JSX.Element {
       </header>
 
       {/* Main Arena Workspace */}
-      <GatedArena teamId={identity.teamId} locked={!FULLSCREEN_LOCK_ENABLED || locked} />
+      <GatedArena teamId={identity.teamId} displayName={identity.displayName} locked={!FULLSCREEN_LOCK_ENABLED || locked} />
     </main>
   );
 }

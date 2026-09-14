@@ -67,6 +67,7 @@ interface AdminTeamOverview {
   inventory: AdminInventoryItem[];
   solved: number;
   lastActivity: string;
+  locks?: Record<string, { displayName: string; since: string }>;
 }
 
 interface ApiKeyRecord {
@@ -623,6 +624,11 @@ export default function AdminTeams(): React.JSX.Element {
       if (res.ok) {
         notify(`Rewound context for ${rewindConfirmTeam.name} (${rewindBot})`);
         setRewindConfirmTeam(null);
+        const overviewRes = await apiFetch("/api/admin/overview", { headers: { "x-admin-code": adminCode } }).catch(() => null);
+        if (overviewRes && overviewRes.ok) {
+          const data = (await overviewRes.json()) as { teams: AdminTeamOverview[] };
+          setTeams(data.teams);
+        }
       }
     } catch {
       alert("Rewind failed");
@@ -1219,6 +1225,35 @@ export default function AdminTeams(): React.JSX.Element {
                     </div>
                   </div>
 
+                  {/* Live mark occupancy: who holds which mark right now */}
+                  {t.locks && Object.keys(t.locks).length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-3 py-2" aria-live="polite">
+                      <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--color-brass-ink)]">
+                        <Radio className="w-3.5 h-3.5 animate-pulse" aria-hidden="true" />
+                        <span>Live on marks</span>
+                      </span>
+                      {Object.entries(t.locks).map(([botId, lock]) => {
+                        const char = CHARACTERS[botId as keyof typeof CHARACTERS];
+                        return (
+                          <span
+                            key={botId}
+                            title={`${lock.displayName} is talking to ${char?.name ?? botId} since ${lock.since.slice(11, 19)}`}
+                            className="flex items-center gap-1.5 rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-surface-1)] px-2 py-1 text-[12px] font-semibold text-[var(--color-text-1)]"
+                          >
+                            {char?.avatar && (
+                              <span className="block h-5 w-5 overflow-hidden rounded-[4px] border border-[var(--color-border)]">
+                                <img src={char.avatar} alt="" className="h-full w-full object-cover" />
+                              </span>
+                            )}
+                            <span>{char?.name ?? botId}</span>
+                            <span aria-hidden="true" className="text-[var(--color-text-3)]">·</span>
+                            <span className="text-[var(--color-brass-ink)]">{lock.displayName}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   {/* Two Columns: Operator Activity vs Relic Backpack Status */}
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     {/* Left: Operator Contributions & Activity */}
@@ -1248,7 +1283,7 @@ export default function AdminTeams(): React.JSX.Element {
                     <div className="lg:col-span-5 flex flex-col gap-3">
                       <div className="flex items-center justify-between">
                         <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA]">
-                          Relic Solves ({t.inventory.length}/8):
+                          Relic Solves ({t.inventory.filter((i) => i.status !== "locked").length}/8):
                         </span>
                         <span className="text-[11px] font-mono font-bold text-[#10B981]">
                           {t.solved} Verified Solved
@@ -1256,10 +1291,10 @@ export default function AdminTeams(): React.JSX.Element {
                       </div>
 
                       <div className="p-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] min-h-[110px] flex flex-wrap gap-2 items-center">
-                        {t.inventory.length === 0 ? (
+                        {t.inventory.filter((i) => i.status !== "locked").length === 0 ? (
                           <p className="text-[12px] font-mono text-[#A1A1AA]/50 italic mx-auto">No relics solved yet</p>
                         ) : (
-                          t.inventory.map((item, idx) => {
+                          t.inventory.filter((i) => i.status !== "locked").map((item, idx) => {
                             const char = CHARACTERS[item.bot_id as keyof typeof CHARACTERS];
                             const isVerified = item.status === "verified";
                             return (

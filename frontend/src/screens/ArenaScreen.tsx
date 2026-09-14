@@ -4,6 +4,7 @@ import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import RewindButton from "@/chat/RewindButton";
 import ProfileModal from "@/components/ProfileModal";
 import { getCover, type CoverProfile } from "@/api/profiles";
+import { acquireLock, getLocks, releaseLock, type BotLockMap } from "@/api/locks";
 import type { BotId, InventoryDelta } from "@contracts/events";
 import TypingBubble from "@/chat/TypingBubble";
 import { useBotStream } from "@/chat/useBotStream";
@@ -29,7 +30,8 @@ import {
   Gift,
   Sparkles,
   ArrowRight,
-  RotateCcw
+  RotateCcw,
+  Radio
 } from "lucide-react";
 
 const ROSTER: Array<{ id: BotId; label: string }> = [
@@ -43,8 +45,8 @@ const ROSTER: Array<{ id: BotId; label: string }> = [
   { id: "deadpool", label: "Deadpool" },
 ];
 
-export default function ArenaScreen({ teamId, locked }: { teamId: string; locked: boolean }): React.JSX.Element {
-  const { bots, inventory, credits, send, say, rewind } = useBotStream(teamId);
+export default function ArenaScreen({ teamId, displayName, locked }: { teamId: string; displayName: string; locked: boolean }): React.JSX.Element {
+  const { bots, inventory, credits, locks, setLocks, send, say, rewind } = useBotStream(teamId);
   const [selectedBotId, setSelectedBotId] = useState<BotId>("wick");
   const [chattingBotId, setChattingBotId] = useState<BotId | null>(null);
   const [merchantTab, setMerchantTab] = useState<"counter" | "talk">("counter");
@@ -54,9 +56,16 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
   const [coverOpen, setCoverOpen] = useState(false);
   const [coverLock, setCoverLock] = useState(false);
   const [pendingBot, setPendingBot] = useState<BotId | null>(null);
+  const [coverBot, setCoverBot] = useState<BotId | null>(null);
+  const [coverChecking, setCoverChecking] = useState<BotId | null>(null);
   const [celebration, setCelebration] = useState<BotId | null>(null);
   const [claimRelic, setClaimRelic] = useState<{ botId: BotId; itemKey: string } | null>(null);
   const [rewindingId, setRewindingId] = useState<number | null>(null);
+  // Single-operator locks (round 1): which mark I hold, and transient conflict notices.
+  const [heldBot, setHeldBot] = useState<BotId | null>(null);
+  const [lockNotice, setLockNotice] = useState<string | null>(null);
+  const heldRef = useRef<BotId | null>(null);
+  heldRef.current = heldBot;
   const prevInventory = useRef<InventoryDelta[] | null>(null);
   const initialSyncDone = useRef(false);
 
@@ -74,6 +83,27 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
       .then((c) => { if (!dead) setCovers((prev) => ({ ...prev, wick: c })); })
       .catch(() => { if (!dead) setCovers((prev) => ({ ...prev, wick: null })); });
     return () => { dead = true; };
+  }, []);
+
+  // Heartbeat my held mark so the lease survives slow typing; step out if I lose it.
+  useEffect(() => {
+    if (heldBot === null) return;
+    const id = window.setInterval(() => {
+      acquireLock(heldBot)
+        .then((next) => setLocks(next))
+        .catch(() => {
+          setHeldBot(null);
+          setChattingBotId(null);
+          flashLockNotice("Lost the mark — a teammate took over");
+        });
+    }, 20_000);
+    return () => window.clearInterval(id);
+  }, [heldBot]);
+
+  // Release my mark when I leave the arena entirely.
+  useEffect(() => () => {
+    const held = heldRef.current;
+    if (held !== null) void releaseLock(held);
   }, []);
 
   // Handover (claim popup) & Verification (celebration overlay) triggers on inventory change
@@ -99,6 +129,10 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
       // Check 2: Transitioned to verified -> Trigger Celebration Overlay!
       if (item.status === "verified" && prevItem?.status !== "verified") {
         if (chattingBotId !== null && chattingBotId !== "merchant" && item.botId === chattingBotId) {
+          if (heldRef.current === item.botId) {
+            setHeldBot(null);
+            void releaseLock(item.botId);
+          }
           setChattingBotId(null);
         }
         setCelebration(item.botId);
@@ -176,24 +210,95 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
     return "none";
   }
 
+  function openCoverFor(botId: BotId, locked: boolean, pending: BotId | null): void {
+    setCoverBot(botId);
+    setPendingBot(pending);
+    setCoverLock(locked);
+    setCoverOpen(true);
+  }
+
+  function holderOf(botId: BotId): string | null {
+    const h = (locks as BotLockMap)[botId];
+    if (!h || h.displayName === displayName) return null;
+    return h.displayName;
+  }
+
+  function initialsOf(name: string): string {
+    const parts = name.trim().split(/\s+/);
+    const first = parts[0]?.[0] ?? "?";
+    const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "";
+    return `${first}${last}`.toUpperCase();
+  }
+
+  function flashLockNotice(msg: string): void {
+    setLockNotice(msg);
+    window.setTimeout(() => setLockNotice((cur) => (cur === msg ? null : cur)), 4000);
+  }
+
+  // Take the mark and enter comms. 409 means a teammate beat us to it.
+  async function takeAndEnter(botId: BotId): Promise<void> {
+    try {
+      const next = await acquireLock(botId);
+      setLocks(next);
+    } catch (err) {
+      const holder = (err as { holder?: { displayName?: string } }).holder?.displayName;
+      try {
+        setLocks(await getLocks());
+      } catch { /* keep last known locks */ }
+      flashLockNotice(holder ? `${holder} is already talking to this mark` : "Mark already in use");
+      return;
+    }
+    if (heldRef.current !== null && heldRef.current !== botId) {
+      void releaseLock(heldRef.current);
+    }
+    setHeldBot(botId);
+    setLockNotice(null);
+    setChattingBotId(botId);
+  }
+
+  function leaveChat(): void {
+    const held = heldRef.current;
+    if (held !== null) {
+      setHeldBot(null);
+      void releaseLock(held);
+    }
+    setChattingBotId(null);
+  }
+
   function engage(botId: BotId): void {
     if (getBotItemStatus(botId) === "verified") { setCelebration(botId); return; }
     if (botId === "merchant") { setMerchantTab("counter"); setChattingBotId(botId); return; }
+    // Single-operator rule: a mark held by a teammate stays selectable but not enterable.
+    const holder = holderOf(botId);
+    if (holder !== null) { flashLockNotice(`${holder} is already talking to this mark`); return; }
+    if (coverChecking === botId) return;
     const coverState = covers[botId];
-    if (coverState === null) { setPendingBot(botId); setCoverLock(true); setCoverOpen(true); return; }
+    // No cover on file for this mark — file one before talking.
+    if (coverState === null) { openCoverFor(botId, true, botId); return; }
     if (coverState === undefined) {
+      setCoverChecking(botId);
       getCover(botId)
-        .then((c) => { setCovers((prev) => ({ ...prev, [botId]: c })); setChattingBotId(botId); })
-        .catch(() => { setCovers((prev) => ({ ...prev, [botId]: null })); setPendingBot(botId); setCoverLock(true); setCoverOpen(true); });
+        .then((c) => {
+          setCovers((prev) => ({ ...prev, [botId]: c }));
+          setCoverChecking(null);
+          if (c === null) { openCoverFor(botId, true, botId); return; }
+          void takeAndEnter(botId);
+        })
+        .catch(() => {
+          setCovers((prev) => ({ ...prev, [botId]: null }));
+          setCoverChecking(null);
+          openCoverFor(botId, true, botId);
+        });
       return;
     }
-    setChattingBotId(botId);
+    void takeAndEnter(botId);
   }
 
   const activeBot = chattingBotId === null ? undefined : bots[chattingBotId];
   const commsName = chattingBotId === null ? null : (CHARACTERS[chattingBotId]?.name ?? chattingBotId);
   useDocumentTitle(commsName === null ? "Round 1 · Marks — REDLINE Arena" : `${commsName} — REDLINE Arena`);
   const selectedLore = CHARACTERS[selectedBotId];
+  const selectedHolder = selectedLore ? holderOf(selectedLore.id) : null;
   const verifiedCount = inventory.filter((i) => i.status === "verified").length;
   const isMerchant = chattingBotId === "merchant";
 
@@ -246,6 +351,23 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
         </div>
       </div>
 
+      {lockNotice !== null && (
+        <div role="alert" className="flex items-center justify-between gap-3 border-b border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-4 py-2.5 sm:px-8">
+          <p className="flex items-center gap-2 text-[13px] font-semibold text-[var(--color-brass-ink)]">
+            <Radio className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>{lockNotice}</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => setLockNotice(null)}
+            aria-label="Dismiss notice"
+            className="min-h-[44px] min-w-[44px] rounded-[6px] px-2 font-bold text-[var(--color-brass-ink)] hover:opacity-70"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {chattingBotId === null ? (
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8 gap-6 max-w-[1200px] w-full mx-auto">
           {/* Mark list */}
@@ -294,6 +416,7 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
                 const status = getBotItemStatus(b.id);
                 const isSelected = selectedBotId === b.id;
                 const filed = status === "verified";
+                const holder = holderOf(b.id);
 
                 return (
                   <button
@@ -321,6 +444,14 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
                           <Lock className="w-5 h-5 text-[var(--color-surface-1)]" />
                         </span>
                       )}
+                      {holder !== null && !filed && (
+                        <span
+                          className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)]"
+                          title={`${holder} is talking to this mark`}
+                        >
+                          <Radio className="h-3 w-3 text-[var(--color-brass-ink)]" aria-hidden="true" />
+                        </span>
+                      )}
                     </span>
 
                     <span className="flex-1 min-w-0">
@@ -332,6 +463,11 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
                           <span className="flex items-center gap-1 rounded-[6px] bg-[var(--color-moss)] px-2 py-0.5 text-white text-[11px] font-semibold shrink-0">
                             <Lock className="w-3 h-3" />
                             <span>Filed</span>
+                          </span>
+                        ) : holder !== null ? (
+                          <span className="flex items-center gap-1 rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-2 py-0.5 text-[var(--color-brass-ink)] text-[11px] font-semibold shrink-0">
+                            <Radio className="w-3 h-3" aria-hidden="true" />
+                            <span>In use</span>
                           </span>
                         ) : status === "obtained" ? (
                           <span className="rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-2 py-0.5 text-[var(--color-brass-ink)] text-[11px] font-semibold shrink-0">
@@ -347,6 +483,11 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
                       <span className="block text-[12px] text-[var(--color-text-3)] truncate mt-0.5">
                         {filed ? "Closed. Tap to celebrate." : `${lore?.moniker} · ${lore?.role}`}
                       </span>
+                      {holder !== null && !filed && (
+                        <span className="block text-[12px] font-semibold text-[var(--color-brass-ink)] truncate mt-0.5">
+                          {holder} is talking
+                        </span>
+                      )}
                       {!filed && (
                         <span className="block text-[12px] font-medium text-[var(--color-text-2)] truncate mt-0.5">
                           {lore?.targetItem.name}
@@ -463,13 +604,34 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
                         <Gift className="w-5 h-5" />
                         <span>Inspect / Claim Relic</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => engage(selectedLore.id)}
-                        className="min-h-[52px] rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-surface-1)] px-6 py-4 font-semibold text-[15px] text-[var(--color-text-1)] hover:bg-[var(--color-surface-2)] active:scale-[0.99] transition"
-                      >
-                        <span>Talk</span>
-                      </button>
+                      {selectedHolder !== null ? (
+                        <div className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-6 py-4 text-[15px] font-semibold text-[var(--color-brass-ink)]">
+                          <span aria-hidden="true" className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-text-1)] text-[11px] font-bold text-[var(--color-bg-0)]">
+                            {initialsOf(selectedHolder)}
+                          </span>
+                          <span>In use by {selectedHolder}</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => engage(selectedLore.id)}
+                          className="min-h-[52px] rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-surface-1)] px-6 py-4 font-semibold text-[15px] text-[var(--color-text-1)] hover:bg-[var(--color-surface-2)] active:scale-[0.99] transition"
+                        >
+                          <span>Talk</span>
+                        </button>
+                      )}
+                    </div>
+                  ) : selectedHolder !== null ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex w-full min-h-[52px] items-center justify-center gap-2 rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-6 py-4 text-[16px] font-semibold text-[var(--color-brass-ink)]">
+                        <span aria-hidden="true" className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-text-1)] text-[11px] font-bold text-[var(--color-bg-0)]">
+                          {initialsOf(selectedHolder)}
+                        </span>
+                        <span>In use by {selectedHolder}</span>
+                      </div>
+                      <p className="text-[13px] text-[var(--color-text-3)]">
+                        Your teammate is running this mark. Pick another mark or wait for them to step out.
+                      </p>
                     </div>
                   ) : (
                     <button
@@ -492,7 +654,7 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
             <div className="flex items-center gap-3 min-w-0">
               <button
                 type="button"
-                onClick={() => setChattingBotId(null)}
+                onClick={() => leaveChat()}
                 className="flex min-h-[44px] items-center gap-1.5 rounded-[6px] border border-[var(--color-border)] px-3 py-1.5 font-semibold text-[13px] text-[var(--color-text-2)] hover:bg-[var(--color-surface-2)] transition"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -559,11 +721,11 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
               )}
 
               <RewindButton botId={chattingBotId} onRewind={rewind} />
-              {!isMerchant && (
+              {!isMerchant && chattingBotId !== null && (
                 <button
                   type="button"
-                  onClick={() => { setCoverLock(false); setCoverOpen(true); }}
-                  title="View or update your cover"
+                  onClick={() => { openCoverFor(chattingBotId, false, null); }}
+                  title="View or update your cover for this mark"
                   className="flex min-h-[44px] items-center gap-1.5 rounded-[6px] border border-[var(--color-border)] px-3 py-1.5 font-semibold text-[12px] text-[var(--color-text-1)] hover:bg-[var(--color-surface-2)] transition"
                 >
                   <VenetianMask className="w-4 h-4 text-[var(--color-text-3)]" />
@@ -794,18 +956,20 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
         />
       )}
 
-      {coverOpen && pendingBot !== null && (
+      {coverOpen && coverBot !== null && (
         <ProfileModal
-          botId={pendingBot}
+          botId={coverBot}
           lockCreate={coverLock}
-          onClose={() => { setCoverOpen(false); setCoverLock(false); setPendingBot(null); }}
+          onClose={() => { setCoverOpen(false); setCoverLock(false); setPendingBot(null); setCoverBot(null); }}
           onSaved={(profile, isNew) => {
             setCovers((prev) => ({ ...prev, [profile.bot_id]: profile }));
             setCoverOpen(false);
             setCoverLock(false);
-            if (pendingBot !== null) {
-              setChattingBotId(pendingBot);
-              setPendingBot(null);
+            const next = pendingBot;
+            setPendingBot(null);
+            setCoverBot(null);
+            if (next !== null) {
+              void takeAndEnter(next);
             }
           }}
         />

@@ -3,6 +3,7 @@ import type { AnyEvent, BotId, ClientEvent, InventoryDelta } from "@contracts/ev
 import { createFrame, parseEvent } from "@/ws/client";
 import { playSound } from "@/chat/sound";
 import { apiUrl, apiFetch } from "@/api/client";
+import { getLocks, type BotLockMap } from "@/api/locks";
 
 export interface ChatMessage {
   id?: number | undefined;
@@ -61,6 +62,8 @@ export function useBotStream(teamId: string): {
   inventory: InventoryDelta[];
   credits: number;
   flash: number;
+  locks: BotLockMap;
+  setLocks: React.Dispatch<React.SetStateAction<BotLockMap>>;
   send: (botId: BotId, text: string) => void;
   say: (botId: BotId, text: string) => void;
   rewind: (botId: BotId, options?: { messageId?: number; turns?: number }) => Promise<{ ok: boolean; error?: string }>;
@@ -75,6 +78,7 @@ export function useBotStream(teamId: string): {
   const [inventory, setInventory] = useState<InventoryDelta[]>([]);
   const [credits, setCredits] = useState(0);
   const [flash, setFlash] = useState(0);
+  const [locks, setLocks] = useState<BotLockMap>({});
   const socketRef = useRef<WebSocket | null>(null);
   const queueRef = useRef<ClientEvent[]>([]);
   const retryRef = useRef(1000);
@@ -140,6 +144,8 @@ export function useBotStream(teamId: string): {
       } catch {
         // sound optional
       }
+    } else if (event.event === "bot_locks") {
+      setLocks(event.data.locks);
     } else if (event.event === "chat_sync") {
       const history = event.data.history;
       setBots((prev) => {
@@ -161,6 +167,15 @@ export function useBotStream(teamId: string): {
         return next;
       });
     }
+  }, []);
+
+  // Fetch initial locks so a fresh mount sees who holds which mark
+  useEffect(() => {
+    let dead = false;
+    getLocks()
+      .then((l) => { if (!dead) setLocks(l); })
+      .catch(() => {});
+    return () => { dead = true; };
   }, []);
 
   // Fetch initial chat logs from server so refresh preserves all messages
@@ -334,5 +349,5 @@ export function useBotStream(teamId: string): {
     [teamId],
   );
 
-  return { bots, inventory, credits, send, say, flash, rewind };
+  return { bots, inventory, credits, locks, setLocks, send, say, flash, rewind };
 }

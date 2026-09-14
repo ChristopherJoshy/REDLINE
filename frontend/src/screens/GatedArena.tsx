@@ -63,7 +63,7 @@ function PortalGate({ onEnter }: { onEnter: (boss: BotId) => void }): React.JSX.
   );
 }
 
-export default function GatedArena({ teamId, locked }: { teamId: string; locked: boolean }): React.JSX.Element {
+export default function GatedArena({ teamId, displayName, locked }: { teamId: string; displayName: string; locked: boolean }): React.JSX.Element {
   const [gates, setGates] = useState<Gates | null>(null);
   const [boss, setBoss] = useState<BotId | null>(null);
 
@@ -103,7 +103,7 @@ export default function GatedArena({ teamId, locked }: { teamId: string; locked:
           Round 1 has ended. Submissions and chats are frozen.
         </p>
       )}
-      <ArenaScreen teamId={teamId} locked={locked} />
+      <ArenaScreen teamId={teamId} displayName={displayName} locked={locked} />
     </>
   );
 }

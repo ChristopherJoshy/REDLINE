@@ -25,10 +25,16 @@ const root = existsSync(join(__dirname, "..", "package.json"))
 const app = Fastify({ logger: true });
 
 app.addHook("onRequest", async (req, reply) => {
-  // Open CORS: any origin may call the API. Auth travels in headers
-  // (x-session-token / Authorization bearer), never cookies, so no
-  // credentials flag is needed — and a wildcard cannot carry one.
-  reply.header("Access-Control-Allow-Origin", "*");
+  // Open CORS: any origin may call the API. The client sends
+  // credentials:include and auth can fall back to the session cookie,
+  // so echo the request origin with the credentials flag — a wildcard
+  // origin is rejected by browsers on credentialed requests.
+  const origin = req.headers.origin;
+  if (typeof origin === "string" && origin !== "") {
+    reply.header("Access-Control-Allow-Origin", origin);
+    reply.header("Access-Control-Allow-Credentials", "true");
+    reply.header("Vary", "Origin");
+  }
   reply.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
   reply.header(
     "Access-Control-Allow-Headers",

@@ -250,7 +250,7 @@ export default function App(): React.JSX.Element {
           </span>
         </nav>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <GatedArena teamId={identity.teamId} locked={!FULLSCREEN_LOCK_ENABLED || locked} />
+          <GatedArena teamId={identity.teamId} displayName={identity.displayName} locked={!FULLSCREEN_LOCK_ENABLED || locked} />
         </div>
       </div>
       </div>

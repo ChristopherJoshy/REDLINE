@@ -8,10 +8,12 @@ import { openDatabase } from "./db/database.js";
 import { registerTeamRoutes, sessionOf } from "./routes/teams.js";
 import { registerProfileRoutes } from "./routes/profiles.js";
 import { registerAdminRoutes } from "./routes/admin.js";
-import { registerGateRoutes } from "./routes/gates.js";
+import { registerGateRoutes, round2Status, round2Timer, round2Duration, setRound2State } from "./routes/gates.js";
 import { registerRound2Routes } from "./routes/round2.js";
 import { registerMerchantRoutes } from "./routes/merchant.js";
 import { Bus } from "./ws/bus.js";
+import { BotLocks, lockable } from "./chat/locks.js";
+import { registerLockRoutes } from "./routes/locks.js";
 import { handleChatSend } from "./chat/handler.js";
 import { parseCookies, verifySessionToken } from "./auth/codes.js";
 import type { BotId, ClientEvent, InventoryDelta } from "./contracts/events.js";
@@ -23,13 +25,22 @@ const root = existsSync(join(__dirname, "..", "package.json"))
 const app = Fastify({ logger: true });
 
 app.addHook("onRequest", async (req, reply) => {
+  // Open CORS: any origin may call the API. The client sends
+  // credentials:include and auth can fall back to the session cookie,
+  // so echo the request origin with the credentials flag — a wildcard
+  // origin is rejected by browsers on credentialed requests.
   const origin = req.headers.origin;
-  if (origin) {
+  if (typeof origin === "string" && origin !== "") {
     reply.header("Access-Control-Allow-Origin", origin);
     reply.header("Access-Control-Allow-Credentials", "true");
-    reply.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
-    reply.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-session-token, x-admin-code, x-admin-pin, ngrok-skip-browser-warning");
+    reply.header("Vary", "Origin");
   }
+  reply.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
+  reply.header(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, x-session-token, x-admin-code, x-admin-pin, x-settings-pin, ngrok-skip-browser-warning",
+  );
+  reply.header("Access-Control-Max-Age", "86400");
   if (req.method === "OPTIONS") {
     return reply.code(204).send();
   }
@@ -55,12 +66,14 @@ if (existsSync(webRoot)) {
 mkdirSync(join(root, "data"), { recursive: true });
 const db = openDatabase(join(root, "data", "redline.db"), join(__dirname, "db", "schema.sql"));
 const bus = new Bus();
+const locks = new BotLocks();
 registerTeamRoutes(app, db);
 registerProfileRoutes(app, db);
+registerLockRoutes(app, locks, bus);
 registerMerchantRoutes(app, db, bus);
-registerGateRoutes(app, db);
+registerGateRoutes(app, db, bus);
 registerRound2Routes(app, db, bus);
-registerAdminRoutes(app, db, root, bus);
+registerAdminRoutes(app, db, root, bus, locks);
 
 app.post("/api/fullscreen-log", async (req, reply) => {
   const session = sessionOf(req);
@@ -191,11 +204,27 @@ async function boot(): Promise<void> {
           });
         }
         bus.send(socket, bus.frame("chat_sync", { history }));
+        bus.send(socket, bus.frame("bot_locks", { locks: locks.snapshot(session.teamId) }));
       } else if (event.event === "ping") {
         bus.send(socket, bus.frame("pong", {}));
       } else if (event.event === "chat_send") {
         if (event.data.teamId && event.data.teamId !== session.teamId) {
           return;
+        }
+        // Round-1 single-operator rule: a mark held by a teammate rejects other senders.
+        if (lockable(event.data.botId)) {
+          const held = locks.holder(session.teamId, event.data.botId);
+          if (held !== undefined && held.displayName !== session.displayName) {
+            bus.send(
+              socket,
+              bus.frame("bot_error", {
+                botId: event.data.botId,
+                message: `${held.displayName} is already talking to this mark`,
+                retryable: false,
+              }),
+            );
+            return;
+          }
         }
         void handleChatSend(bus, db, session.teamId, event.data.botId, event.data.text, session.displayName);
       }
@@ -204,9 +233,36 @@ async function boot(): Promise<void> {
   setInterval(() => {
     bus.sweep();
     bus.heartbeat((socket) => socket.ping());
+    for (const teamId of locks.sweep()) {
+      bus.broadcast(teamId, bus.frame("bot_locks", { locks: locks.snapshot(teamId) }));
+    }
+    // Round 2 timer transitions
+    tickRound2(db, bus);
   }, PING_MS).unref();
 }
 
 const PING_MS = 25_000;
+
+function tickRound2(db: ReturnType<typeof openDatabase>, bus: Bus): void {
+  const status = round2Status(db);
+  if (status === "off") return;
+  const timer = round2Timer(db);
+  if (!timer) return;
+  const now = Date.now();
+  const endMs = new Date(timer).getTime();
+  if (now >= endMs) {
+    if (status === "countdown") {
+      // Transition to active
+      const dur = round2Duration(db);
+      const activeEnd = new Date(now + dur * 1000).toISOString();
+      setRound2State(db, "active", activeEnd);
+      bus.broadcastAll(bus.frame("round2_start", { durationSecs: dur }));
+    } else {
+      // Active expired
+      setRound2State(db, "off", null);
+      bus.broadcastAll(bus.frame("round2_end", { reason: "expired" }));
+    }
+  }
+}
 
 void boot();

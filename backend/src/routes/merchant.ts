@@ -10,7 +10,7 @@ import { CLUE_COST, CLUE_LABEL, clueFor } from "../bots/merchantClues.js";
 import { applyElo } from "../elo/ratings.js";
 import { bossOf } from "../bots/r2.js";
 import { r2Submit } from "./round2.js";
-import { round1Open } from "./gates.js";
+import { round1Open, round2Status } from "./gates.js";
 
 const ROASTS = [
   "That seal is upside down. The Commander would weep. Try again.",
@@ -39,6 +39,9 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
     const forms = variants(text);
     const boss = bossOf(session.teamId, db);
     if (boss !== undefined) {
+      if (round2Status(db) !== "active") {
+        return reply.code(403).send({ error: "round 2 not active" });
+      }
       return r2Submit(db, bus, session.teamId, boss, text);
     }
 

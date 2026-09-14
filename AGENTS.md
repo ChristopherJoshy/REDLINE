@@ -56,6 +56,10 @@ npm run typecheck      # tsc --noEmit both workspaces — must pass
 npm test               # both workspaces; backend runs on dist/ so build backend first
 npm run build          # both workspaces; backend copies db/schema.sql into dist/
 ```
+- Nearest AGENTS.md wins (root baseline; `frontend/` and `backend/` override).
+- No bot secrets / purple-box content in player bundles. No asset generation (licensed generics only). No public leaderboard route. No `DATABASE_URL`/Supabase/Postgres.
+- Shared WS contracts single-sourced in `backend/src/contracts/events.ts`, imported by frontend. No duplicated schemas.
+- **Push to git and redeploy VPS only after everything is tested well and fully implemented.** Do not push half-done work. `tsc --noEmit` + `npm run build` must pass clean before commit.
 
 | Command | Port / target |
 |---|---|

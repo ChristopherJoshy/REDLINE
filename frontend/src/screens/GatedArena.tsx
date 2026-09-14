@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import type { BotId } from "@contracts/events";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,49 @@ function SealedScreen(): React.JSX.Element {
       </h2>
       <p className="max-w-[52ch] text-center text-[14px] text-[var(--color-text-3)]">
         Round 1 is done for your team. Wait for the organizers to open round 2.
+      </p>
+    </div>
+  );
+}
+
+function CountdownBanner({ endsAt }: { endsAt: string }): React.JSX.Element {
+  const [left, setLeft] = useState(0);
+  useDocumentTitle("Round 2 Starting — REDLINE Arena");
+  useEffect(() => {
+    function tick(): void {
+      const ms = new Date(endsAt).getTime() - Date.now();
+      setLeft(Math.max(0, Math.ceil(ms / 1000)));
+    }
+    tick();
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [endsAt]);
+  return (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-[var(--space)]">
+      <span aria-hidden="true" className="block h-[3px] w-12 bg-[var(--color-brass)] animate-pulse" />
+      <h2 className="font-[family-name:var(--font-display)] text-[28px] font-bold text-[var(--color-text-1)]">
+        Round 2 Begins In
+      </h2>
+      <p className="font-[family-name:var(--font-code)] text-[48px] font-bold text-[var(--color-brass)] tabular-nums">
+        {Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}
+      </p>
+      <p className="max-w-[52ch] text-center text-[14px] text-[var(--color-text-3)]">
+        Prepare yourself. The vault is opening.
+      </p>
+    </div>
+  );
+}
+
+function RoundEndedScreen(): React.JSX.Element {
+  useDocumentTitle("Round 2 Ended — REDLINE Arena");
+  return (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-[var(--space)]">
+      <span aria-hidden="true" className="block h-[3px] w-12 bg-[var(--color-seal)]" />
+      <h2 className="font-[family-name:var(--font-display)] text-[24px] font-bold text-[var(--color-text-1)]">
+        Time Expired
+      </h2>
+      <p className="max-w-[52ch] text-center text-[14px] text-[var(--color-text-3)]">
+        Round 2 has ended. The vault is now sealed.
       </p>
     </div>
   );
@@ -63,9 +106,11 @@ function PortalGate({ onEnter }: { onEnter: (boss: BotId) => void }): React.JSX.
   );
 }
 
-export default function GatedArena({ teamId, locked }: { teamId: string; locked: boolean }): React.JSX.Element {
+export default function GatedArena({ teamId, displayName, locked }: { teamId: string; displayName: string; locked: boolean }): React.JSX.Element {
   const [gates, setGates] = useState<Gates | null>(null);
   const [boss, setBoss] = useState<BotId | null>(null);
+  const [countdownEndsAt, setCountdownEndsAt] = useState<string | null>(null);
+  const [roundEnded, setRoundEnded] = useState(false);
 
   useEffect(() => {
     let dead = false;
@@ -74,6 +119,13 @@ export default function GatedArena({ teamId, locked }: { teamId: string; locked:
         const g = await getGates();
         if (!dead) {
           setGates(g);
+          if (g.round2Status === "countdown" && !countdownEndsAt) {
+            // Fetch countdown endsAt from a lightweight endpoint
+            // The server broadcasts it via WS, but we also poll
+          }
+          if (g.round2Status === "off" && countdownEndsAt) {
+            setCountdownEndsAt(null);
+          }
         }
       } catch {
         // Keep the last gate frame on transient failure.
@@ -87,10 +139,33 @@ export default function GatedArena({ teamId, locked }: { teamId: string; locked:
     };
   }, []);
 
+  // Listen for round2 WS events via a hidden WS or rely on gate polling
+  // Since the existing WS is in useBotStream, we handle countdown via polling
+  useEffect(() => {
+    if (!gates) return;
+    if (gates.round2Status === "countdown" && !countdownEndsAt) {
+      // Calculate approximate endsAt from timeLeft
+      const endsAt = new Date(Date.now() + gates.round2TimeLeft * 1000).toISOString();
+      setCountdownEndsAt(endsAt);
+    }
+    if (gates.round2Status === "off" && countdownEndsAt) {
+      setCountdownEndsAt(null);
+    }
+    if (gates.round2Status === "active") {
+      setCountdownEndsAt(null);
+    }
+  }, [gates?.round2Status]);
+
   if (boss !== null) {
-    return <RoundTwoScreen teamId={teamId} boss={boss} locked={locked} />;
+    if (roundEnded) {
+      return <RoundEndedScreen />;
+    }
+    return <RoundTwoScreen teamId={teamId} boss={boss} locked={locked} onRoundEnd={() => setRoundEnded(true)} />;
   }
-  if (gates !== null && gates.qualified && gates.vaultOpen) {
+  if (countdownEndsAt) {
+    return <CountdownBanner endsAt={countdownEndsAt} />;
+  }
+  if (gates !== null && gates.qualified && gates.vaultOpen && gates.round2Status !== "off") {
     return <PortalGate onEnter={setBoss} />;
   }
   if (gates !== null && gates.solved >= gates.round1Size) {
@@ -103,7 +178,7 @@ export default function GatedArena({ teamId, locked }: { teamId: string; locked:
           Round 1 has ended. Submissions and chats are frozen.
         </p>
       )}
-      <ArenaScreen teamId={teamId} locked={locked} />
+      <ArenaScreen teamId={teamId} displayName={displayName} locked={locked} />
     </>
   );
 }

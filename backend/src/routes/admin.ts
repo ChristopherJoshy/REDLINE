@@ -7,6 +7,7 @@ import { env } from "../env.js";
 import { adminOk } from "../auth/codes.js";
 import { sessionOf } from "./teams.js";
 import type { Bus } from "../ws/bus.js";
+import type { BotLocks, LockMap } from "../chat/locks.js";
 import type { BotId, InventoryDelta, AnnouncementData } from "../contracts/events.js";
 import {
   addApiKey,
@@ -17,6 +18,7 @@ import {
   type LlmProvider,
 } from "../llm/keyPool.js";
 import { tokenTracker } from "../llm/tokenTracker.js";
+import { round2Status, round2TimeLeft, round2Duration } from "./gates.js";
 
 const EXPORT_TABLES = ["elo_log", "chat_logs", "team_inventory"] as const;
 const announcementsHistory: AnnouncementData[] = [];
@@ -35,7 +37,7 @@ interface BoardRow {
   lastSolve: string | null;
 }
 
-export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, root: string, bus?: Bus): void {
+export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, root: string, bus?: Bus, locks?: BotLocks): void {
   registerKeyPoolDb(db);
   tokenTracker.init(db);
 
@@ -165,6 +167,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
         team.id
       );
       const solved = inventory.filter((i) => i.status === "verified").length;
+      const teamLocks: LockMap = locks?.snapshot(team.id) ?? {};
       return {
         ...team,
         members: members.map((m) => ({
@@ -174,10 +177,18 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
         })),
         inventory,
         solved,
+        locks: teamLocks,
         lastActivity: lastMsg ? lastMsg.created_at : team.created_at,
       };
     });
-    return { teams: result };
+    return {
+      teams: result,
+      round2: {
+        status: round2Status(db),
+        timeLeft: round2TimeLeft(db),
+        duration: round2Duration(db),
+      },
+    };
   });
 
   app.get("/api/admin/export.json", async (req, reply) => {

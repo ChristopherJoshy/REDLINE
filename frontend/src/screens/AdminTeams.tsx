@@ -611,23 +611,69 @@ export default function AdminTeams(): React.JSX.Element {
       });
       if (res.ok) {
         notify(`Updated ${itemKey} status to ${status}`);
+        const newItem: AdminInventoryItem = {
+          bot_id: botId,
+          item_key: itemKey,
+          is_real: 1,
+          status,
+          verified_at: status === "verified" ? new Date().toISOString() : null,
+        };
+
         // Refresh local team view
         setTeams((prev) =>
           prev.map((t) => {
             if (t.id !== invModalTeam.id) return t;
-            const newInv = [...t.inventory.filter((i) => i.bot_id !== botId), {
-              bot_id: botId,
-              item_key: itemKey,
-              is_real: 1,
-              status,
-              verified_at: status === "verified" ? new Date().toISOString() : null,
-            }];
+            const newInv = [...t.inventory.filter((i) => i.bot_id !== botId), newItem];
             return { ...t, inventory: newInv, solved: newInv.filter((i) => i.status === "verified").length };
           })
         );
+
+        // Update modal team state in real time
+        setInvModalTeam((prev) => {
+          if (!prev) return null;
+          const newInv = [...prev.inventory.filter((i) => i.bot_id !== botId), newItem];
+          return { ...prev, inventory: newInv, solved: newInv.filter((i) => i.status === "verified").length };
+        });
       }
     } catch {
       alert("Failed to update inventory relic");
+    }
+  }
+
+  // Handle Batch Inventory Override (Edit all 8 characters at once)
+  async function handleBatchInventoryOverride(status: string): Promise<void> {
+    if (!invModalTeam || adminCode === "") return;
+    setBusy(true);
+    try {
+      const promises = R1_BOTS.map((botId) => {
+        const char = CHARACTERS[botId];
+        return apiFetch("/api/admin/inventory-override", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-admin-code": adminCode },
+          body: JSON.stringify({ teamId: invModalTeam.id, botId, itemKey: char.targetItem.name, status }),
+        });
+      });
+      await Promise.all(promises);
+      notify(`Updated all 8 characters to ${status.toUpperCase()}`);
+
+      const newInv: AdminInventoryItem[] = R1_BOTS.map((botId) => ({
+        bot_id: botId,
+        item_key: CHARACTERS[botId].targetItem.name,
+        is_real: 1,
+        status,
+        verified_at: status === "verified" ? new Date().toISOString() : null,
+      }));
+
+      setTeams((prev) =>
+        prev.map((t) => (t.id === invModalTeam.id ? { ...t, inventory: newInv, solved: status === "verified" ? 8 : 0 } : t))
+      );
+      setInvModalTeam((prev) =>
+        prev ? { ...prev, inventory: newInv, solved: status === "verified" ? 8 : 0 } : null
+      );
+    } catch {
+      alert("Batch update failed");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -1137,52 +1183,45 @@ export default function AdminTeams(): React.JSX.Element {
               </div>
             ) : (
               filteredTeams.map((t) => (
-                <div key={t.id} className="rounded-[2px] border border-[#3F3F46] bg-[#27272A] p-8 flex flex-col gap-6 transition">
-                  {/* Top Team Header Strip */}
-                  <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-[#3F3F46]">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center justify-center w-14 h-14 rounded-[2px] bg-[#18181B] border border-[#3F3F46] text-[#EF4444] font-mono font-bold text-[20px]">
+                <div key={t.id} className="rounded-[2px] border border-[#3F3F46] bg-[#27272A] flex flex-col overflow-hidden transition">
+                  {/* Single Horizontal Top Bar Header */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 bg-[#18181B] border-b border-[#3F3F46]">
+                    {/* Left: Squad Name + Join Code */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-9 h-9 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#EF4444] font-mono font-bold text-[15px] shrink-0">
                         {t.name.slice(0, 2).toUpperCase()}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <h3 className="font-mono text-[22px] font-bold text-[#F4F4F5] uppercase tracking-wider">
-                            {t.name}
-                          </h3>
-                          {/* Confidential Join Code with 1-Click Copy */}
-                          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-[2px] bg-[#18181B] border border-[#3F3F46] font-mono">
-                            <KeyRound className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
-                            <span className="text-[11px] font-bold uppercase text-[#A1A1AA]">Join Code:</span>
-                            <span className="text-[14px] font-bold tracking-widest text-[#10B981] select-all">
-                              {t.join_code || t.hint}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => void copyCode(t.join_code || t.hint)}
-                              className="p-1 hover:bg-[#3F3F46] rounded-[2px] text-[#10B981] cursor-pointer ml-1 transition"
-                              title="Copy full join code"
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <h3 className="font-mono text-[17px] font-bold text-[#F4F4F5] uppercase tracking-wider">
+                          {t.name}
+                        </h3>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] bg-[#27272A] border border-[#3F3F46] font-mono text-[12px]">
+                          <KeyRound className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                          <span className="text-[#A1A1AA] uppercase text-[10px] font-bold">Hint/Code:</span>
+                          <span className="font-bold text-[#10B981] tracking-wider select-all">
+                            {t.join_code || t.hint}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void copyCode(t.join_code || t.hint)}
+                            className="p-0.5 hover:bg-[#3F3F46] rounded-[2px] text-[#10B981] cursor-pointer transition ml-0.5"
+                            title="Copy join code"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
                         </div>
-                        <p className="text-[12px] font-mono text-[#A1A1AA] mt-1">
-                          Enrolled: {t.created_at.slice(0, 10)} • Relic Solves: {t.solved}/8 ({Math.round((t.solved / 8) * 100)}%)
-                        </p>
                       </div>
                     </div>
 
-                    {/* Stats & Quick Action Buttons */}
-                    <div className="flex flex-wrap items-center gap-4">
-                      <div className="text-right mr-2 font-mono">
-                        <span className="text-[11px] font-bold uppercase text-[#A1A1AA] block">ELO Rating</span>
-                        <span className="text-[24px] font-bold text-[#F4F4F5]">
-                          {t.elo}
-                        </span>
+                    {/* Right: ELO Rating & Unified Action Button Group */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="flex items-center gap-2 px-3 py-1 rounded-[2px] bg-[#27272A] border border-[#3F3F46] font-mono">
+                        <span className="text-[10px] font-bold text-[#A1A1AA] uppercase">ELO:</span>
+                        <span className="text-[16px] font-bold text-[#F4F4F5]">{t.elo}</span>
                       </div>
 
                       {/* Power Controls Button Group */}
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center border border-[#3F3F46] rounded-[2px] overflow-hidden bg-[#27272A] divide-x divide-[#3F3F46]">
                         <button
                           type="button"
                           onClick={() => {
@@ -1190,8 +1229,8 @@ export default function AdminTeams(): React.JSX.Element {
                             setEloDelta(50);
                             setEloReason("Creative Social Engineering Exploit");
                           }}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] text-[#F4F4F5] text-[12px] font-mono font-bold uppercase tracking-wider transition cursor-pointer"
-                          title="Adjust team ELO score"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider text-[#F4F4F5] hover:bg-[#3F3F46] transition cursor-pointer"
+                          title="Adjust team ELO rating"
                         >
                           <Sliders className="w-3.5 h-3.5 text-[#EF4444]" />
                           <span>Adjust ELO</span>
@@ -1200,7 +1239,7 @@ export default function AdminTeams(): React.JSX.Element {
                         <button
                           type="button"
                           onClick={() => setInvModalTeam(t)}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] text-[#F4F4F5] text-[12px] font-mono font-bold uppercase tracking-wider transition cursor-pointer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider text-[#F4F4F5] hover:bg-[#3F3F46] transition cursor-pointer"
                           title="Inspect & override backpack relics"
                         >
                           <Package className="w-3.5 h-3.5 text-[#10B981]" />
@@ -1214,11 +1253,11 @@ export default function AdminTeams(): React.JSX.Element {
                             setCommsBotFilter("all");
                             setCommsTab("messages");
                           }}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] text-[#F4F4F5] text-[12px] font-mono font-bold uppercase tracking-wider transition cursor-pointer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider text-[#F4F4F5] hover:bg-[#3F3F46] transition cursor-pointer"
                           title="Inspect chat messages and hidden AI reasoning traces"
                         >
                           <Eye className="w-3.5 h-3.5 text-[#F4F4F5]" />
-                          <span>Inspect Comms</span>
+                          <span>Inspect</span>
                         </button>
 
                         <button
@@ -1228,22 +1267,23 @@ export default function AdminTeams(): React.JSX.Element {
                             setRewindBot("all");
                             setRewindPenalty(0);
                           }}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-[2px] border border-[#EF4444]/40 bg-[#EF4444]/10 hover:bg-[#EF4444] text-[#EF4444] hover:text-[#F4F4F5] text-[12px] font-mono font-bold uppercase tracking-wider transition cursor-pointer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider text-[#EF4444] hover:bg-[#EF4444] hover:text-[#F4F4F5] transition cursor-pointer"
                           title="Force rewind conversation context"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
-                          <span>Rewind Context</span>
+                          <span>Rewind</span>
                         </button>
+
                         {(t.id === "GW3Z-ABTF" || t.join_code === "GW3Z-ABTF" || t.hint === "GW3Z-ABTF") && (
                           <button
                             type="button"
                             onClick={() => void handleResetTeam(t)}
                             disabled={busy}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-[2px] border border-[#EF4444] bg-[#EF4444] text-[#F4F4F5] text-[12px] font-mono font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-50"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider bg-[#EF4444] text-[#F4F4F5] hover:bg-[#EF4444]/90 transition cursor-pointer disabled:opacity-50"
                             title="Permanently reset this squad"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                            <span>Reset Team</span>
+                            <span>Reset</span>
                           </button>
                         )}
                       </div>
@@ -1279,73 +1319,63 @@ export default function AdminTeams(): React.JSX.Element {
                     </div>
                   )}
 
-                  {/* Two Columns: Operator Activity vs Relic Backpack Status */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    {/* Left: Operator Contributions & Activity */}
-                    <div className="lg:col-span-7 flex flex-col gap-3">
-                      <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA]">
-                        Operators & Real-Time Telemetry:
+                  {/* Body Content */}
+                  <div className="p-4 flex flex-col gap-4">
+                    {/* Operator Activity Grid (Multi-column, Zero excess padding, Glowing Dot) */}
+                    <div className="flex flex-col gap-2">
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA]">
+                        Operator Activity:
                       </span>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                         {t.members.map((m) => (
-                          <div key={m.display_name} className="p-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] flex flex-col justify-between">
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-[14px] text-[#F4F4F5]">{m.display_name}</span>
-                              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA]">
-                                {m.contribution} msgs
-                              </span>
+                          <div key={m.display_name} className="px-3 py-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-2 h-2 rounded-full bg-[#10B981] shrink-0 shadow-[0_0_6px_#10B981]" />
+                              <span className="font-bold text-[13px] text-[#F4F4F5] truncate">{m.display_name}</span>
                             </div>
-                            <p className="mt-3 text-[12px] text-[#A1A1AA] flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-none bg-[#10B981] shrink-0" />
-                              <span className="truncate font-mono">{m.currentActivity}</span>
-                            </p>
+                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] shrink-0">
+                              {m.contribution} msgs
+                            </span>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    {/* Right: Relic Backpack Status Grid */}
-                    <div className="lg:col-span-5 flex flex-col gap-3">
+                    {/* Held Relics (Row of small, dark, inline badges/chips reflecting real-time override status) */}
+                    <div className="flex flex-col gap-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA]">
-                          Relic Solves ({t.inventory.filter((i) => i.status !== "locked").length}/8):
-                        </span>
-                        <span className="text-[11px] font-mono font-bold text-[#10B981]">
-                          {t.solved} Verified Solved
+                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA]">
+                          Held Relics ({t.inventory.filter((i) => i.status === "obtained" || i.status === "verified").length}/8 Held • {t.solved}/8 Solved):
                         </span>
                       </div>
-
-                      <div className="p-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] min-h-[110px] flex flex-wrap gap-2 items-center">
-                        {t.inventory.filter((i) => i.status !== "locked").length === 0 ? (
-                          <p className="text-[12px] font-mono text-[#A1A1AA]/50 italic mx-auto">No relics solved yet</p>
+                      <div className="p-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] flex flex-wrap gap-1.5 items-center min-h-[42px]">
+                        {t.inventory.filter((i) => i.status === "obtained" || i.status === "verified").length === 0 ? (
+                          <span className="text-[11px] font-mono text-[#A1A1AA]/50 italic">No active relics in satchel</span>
                         ) : (
-                          t.inventory.filter((i) => i.status !== "locked").map((item, idx) => {
-                            const char = CHARACTERS[item.bot_id as keyof typeof CHARACTERS];
-                            const isVerified = item.status === "verified";
-                            return (
-                              <div
-                                key={idx}
-                                title={`${item.item_key} (${item.status})`}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-[2px] border text-[12px] font-mono font-bold ${
-                                  isVerified
-                                    ? "bg-[#10B981]/10 border-[#10B981] text-[#10B981]"
-                                    : "bg-[#27272A] border-[#3F3F46] text-[#F4F4F5]"
-                                }`}
-                              >
-                                <div className="w-5 h-5 rounded-none overflow-hidden bg-[#18181B] shrink-0 border border-[#3F3F46]">
-                                  {char?.avatar && (
-                                    <img src={char.avatar} alt={char.name} className="w-full h-full object-cover" />
+                          t.inventory
+                            .filter((i) => i.status === "obtained" || i.status === "verified")
+                            .map((item, idx) => {
+                              const char = CHARACTERS[item.bot_id as keyof typeof CHARACTERS];
+                              const isVerified = item.status === "verified";
+                              return (
+                                <div
+                                  key={idx}
+                                  title={`${item.item_key} (${item.status})`}
+                                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] border text-[11px] font-mono font-bold transition ${
+                                    isVerified
+                                      ? "bg-[#10B981]/15 border-[#10B981] text-[#10B981]"
+                                      : "bg-[#27272A] border-[#F4F4F5] text-[#F4F4F5]"
+                                  }`}
+                                >
+                                  {isVerified ? (
+                                    <ShieldCheck className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                                  ) : (
+                                    <Package className="w-3.5 h-3.5 text-[#F4F4F5] shrink-0" />
                                   )}
+                                  <span>{char?.targetItem.name ?? item.item_key}</span>
                                 </div>
-                                {isVerified ? (
-                                  <ShieldCheck className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
-                                ) : (
-                                  <Sparkles className="w-3.5 h-3.5 text-[#EF4444] shrink-0" />
-                                )}
-                                <span>{char?.targetItem.name ?? item.item_key}</span>
-                              </div>
-                            );
-                          })
+                              );
+                            })
                         )}
                       </div>
                     </div>
@@ -2191,102 +2221,120 @@ export default function AdminTeams(): React.JSX.Element {
       </div>
 
       {/* ========================================================= */}
-      {/* MODAL 1: LIVE ELO ADJUSTER                                */}
+      {/* MODAL 1: LIVE ELO ADJUSTER (TACTICAL TERMINAL OVERHAUL)    */}
       {/* ========================================================= */}
       {eloModalTeam && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-          <div className="w-full max-w-[500px] rounded-[2px] border border-[#3F3F46] bg-[#27272A] p-8 flex flex-col gap-5 text-[#F4F4F5]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+          <div className="w-full max-w-[520px] rounded-[2px] border-t-[1px] border-t-[#EF4444] border-x border-b border-[#3F3F46] bg-[#27272A] p-6 sm:p-8 flex flex-col gap-5 text-[#F4F4F5] shadow-[0_25px_60px_rgba(0,0,0,0.95)]">
+            {/* Terminal Header */}
             <div className="flex items-center justify-between border-b border-[#3F3F46] pb-4">
               <div>
-                <h3 className="text-[18px] font-mono font-bold text-[#F4F4F5] uppercase flex items-center gap-2">
-                  <Sliders className="w-5 h-5 text-[#EF4444]" />
-                  <span>Adjust ELO Rating</span>
+                <h3 className="text-[17px] font-mono font-bold text-[#F4F4F5] uppercase tracking-wider flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-[#EF4444]" />
+                  <span>Tactical ELO Override</span>
                 </h3>
                 <p className="text-[12px] text-[#A1A1AA] font-mono mt-1">
-                  Squad: <span className="font-bold text-[#F4F4F5]">{eloModalTeam.name}</span> • Current:{" "}
-                  <span className="font-bold text-[#10B981]">
-                    {eloModalTeam.elo} ELO
-                  </span>
+                  Squad: <span className="font-bold text-[#F4F4F5]">{eloModalTeam.name}</span> • Current ELO:{" "}
+                  <span className="font-bold text-[#10B981]">{eloModalTeam.elo}</span>
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setEloModalTeam(null)}
-                className="w-8 h-8 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] flex items-center justify-center text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer"
+                className="w-8 h-8 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] flex items-center justify-center text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Delta Presets */}
+            {/* Quick Adjust Presets (Severe Flat Rectangular Buttons) */}
             <div>
-              <label className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
+              <label className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
                 Quick Adjust Presets:
               </label>
               <div className="grid grid-cols-4 gap-2 font-mono">
-                {[+100, +50, +25, +10, -10, -25, -50, -100].map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setEloDelta(d)}
-                    className={`py-2 rounded-[2px] font-bold text-[13px] border transition cursor-pointer ${
-                      eloDelta === d
-                        ? "bg-[#EF4444] text-[#F4F4F5] border-[#EF4444]"
-                        : d > 0
-                        ? "bg-[#18181B] text-[#10B981] border-[#10B981]/50 hover:bg-[#10B981]/10"
-                        : "bg-[#18181B] text-[#EF4444] border-[#EF4444]/50 hover:bg-[#EF4444]/10"
-                    }`}
-                  >
-                    {d > 0 ? `+${d}` : d}
-                  </button>
-                ))}
+                {[+100, +50, +25, +10, -10, -25, -50, -100].map((d) => {
+                  const isPositive = d > 0;
+                  const isSelected = eloDelta === d;
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setEloDelta(d)}
+                      className={`py-2 rounded-[2px] font-bold text-[13px] border transition cursor-pointer ${
+                        isSelected
+                          ? "bg-[#EF4444] text-[#F4F4F5] border-[#EF4444]"
+                          : isPositive
+                          ? "bg-[#18181B] text-[#10B981] border-[#10B981]/40 hover:bg-[#10B981]/20"
+                          : "bg-[#18181B] text-[#EF4444] border-[#EF4444]/40 hover:bg-[#EF4444]/20"
+                      }`}
+                    >
+                      {isPositive ? `+${d}` : d}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Custom Delta Field */}
             <div>
-              <label className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
+              <label className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
                 Custom Delta Amount:
               </label>
               <input
                 type="number"
                 value={eloDelta}
                 onChange={(e) => setEloDelta(Number(e.target.value))}
-                className="w-full h-11 px-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] font-mono font-bold text-[16px] text-[#F4F4F5] focus:border-[#EF4444] focus:outline-none transition"
+                className="w-full h-10 px-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] font-mono font-bold text-[15px] text-[#F4F4F5] focus:border-[#EF4444] focus:outline-none transition"
               />
             </div>
 
-            {/* Reason Field */}
+            {/* Adjustment Reason: Horizontal Flex-Wrap Tactical Chips */}
             <div>
-              <label className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
-                Adjustment Reason / Note:
+              <label className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
+                Adjustment Reason (Select Option):
               </label>
-              <select
-                value={eloReason}
-                onChange={(e) => setEloReason(e.target.value)}
-                className="w-full h-11 px-3 rounded-[2px] border border-[#3F3F46] bg-[#18181B] text-[13px] font-mono font-bold text-[#F4F4F5] focus:border-[#EF4444] focus:outline-none transition"
-              >
-                <option value="Creative Social Engineering Exploit">Creative Social Engineering Exploit</option>
-                <option value="Exceptional Prompt Engineering Technique">Exceptional Prompt Engineering Technique</option>
-                <option value="Organizer Discretionary Bonus">Organizer Discretionary Bonus</option>
-                <option value="Rule Infraction / Anti-Tamper Penalty">Rule Infraction / Anti-Tamper Penalty</option>
-                <option value="Manual Score Recalibration">Manual Score Recalibration</option>
-              </select>
+              <div className="flex flex-wrap gap-2 font-mono">
+                {[
+                  "Creative Social Engineering Exploit",
+                  "Exceptional Prompt Engineering Technique",
+                  "Organizer Discretionary Bonus",
+                  "Rule Infraction / Anti-Tamper Penalty",
+                  "Manual Score Recalibration",
+                ].map((reasonOption) => {
+                  const isSelected = eloReason === reasonOption;
+                  return (
+                    <button
+                      key={reasonOption}
+                      type="button"
+                      onClick={() => setEloReason(reasonOption)}
+                      className={`px-3 py-1.5 rounded-[2px] text-[11px] font-bold uppercase tracking-wider transition cursor-pointer border ${
+                        isSelected
+                          ? "bg-[#EF4444] text-[#F4F4F5] border-[#EF4444]"
+                          : "bg-[#18181B] text-[#A1A1AA] border-[#3F3F46] hover:text-[#F4F4F5] hover:border-[#A1A1AA]"
+                      }`}
+                    >
+                      {reasonOption}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Summary preview */}
-            <div className="p-4 rounded-[2px] bg-[#18181B] border border-[#3F3F46] font-mono text-[13px] flex items-center justify-between">
-              <span className="text-[#A1A1AA] uppercase">New Calculated ELO:</span>
-              <span className="font-bold text-[18px] text-[#10B981]">
+            <div className="p-3.5 rounded-[2px] bg-[#18181B] border border-[#3F3F46] font-mono text-[12px] flex items-center justify-between">
+              <span className="text-[#A1A1AA] uppercase font-bold">New Calculated ELO:</span>
+              <span className="font-bold text-[16px] text-[#10B981]">
                 {Math.max(0, eloModalTeam.elo + eloDelta)} ({eloDelta > 0 ? `+${eloDelta}` : eloDelta})
               </span>
             </div>
 
-            <div className="flex items-center gap-3 pt-2">
+            {/* Action Buttons: Solid Crimson Confirm & Ghost Cancel */}
+            <div className="flex items-center gap-3 pt-2 font-mono">
               <button
                 type="button"
                 onClick={() => setEloModalTeam(null)}
-                className="flex-1 py-3 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] font-mono font-bold text-[13px] uppercase tracking-wider text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
+                className="flex-1 py-3 rounded-[2px] border border-[#3F3F46] bg-transparent hover:bg-[#3F3F46]/50 font-bold text-[13px] uppercase tracking-wider text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
               >
                 Cancel
               </button>
@@ -2294,9 +2342,9 @@ export default function AdminTeams(): React.JSX.Element {
                 type="button"
                 onClick={handleApplyElo}
                 disabled={busy}
-                className="flex-1 py-3 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 font-mono font-bold text-[13px] uppercase tracking-wider text-[#F4F4F5] cursor-pointer transition"
+                className="flex-1 py-3 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 font-bold text-[13px] uppercase tracking-wider text-[#F4F4F5] cursor-pointer transition disabled:opacity-50"
               >
-                {busy ? "Applying…" : "Confirm Adjustment"}
+                {busy ? "Applying…" : "Confirm ELO"}
               </button>
             </div>
           </div>
@@ -2304,81 +2352,137 @@ export default function AdminTeams(): React.JSX.Element {
       )}
 
       {/* ========================================================= */}
-      {/* MODAL 2: RELIC INVENTORY OVERRIDER                        */}
+      {/* MODAL 2: SATCHEL CONTENTS / RELIC OVERRIDE MODAL           */}
       {/* ========================================================= */}
       {invModalTeam && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-          <div className="w-full max-w-[660px] max-h-[90vh] overflow-y-auto rounded-[2px] border border-[#3F3F46] bg-[#27272A] p-8 flex flex-col gap-6 text-[#F4F4F5]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+          <div className="w-full max-w-[740px] max-h-[90vh] overflow-y-auto rounded-[2px] border-t-[1px] border-t-[#EF4444] border-x border-b border-[#3F3F46] bg-[#27272A] p-6 sm:p-8 flex flex-col gap-6 text-[#F4F4F5] shadow-[0_25px_60px_rgba(0,0,0,0.95)] font-mono">
+            {/* Header */}
             <div className="flex items-center justify-between border-b border-[#3F3F46] pb-4">
               <div>
-                <h3 className="text-[18px] font-mono font-bold text-[#F4F4F5] uppercase flex items-center gap-2">
-                  <Package className="w-5 h-5 text-[#10B981]" />
-                  <span>Relic Inventory Override</span>
+                <h3 className="text-[17px] font-mono font-bold text-[#F4F4F5] uppercase tracking-wider flex items-center gap-2">
+                  <Package className="w-4 h-4 text-[#10B981]" />
+                  <span>Satchel Contents & Relic Override</span>
                 </h3>
                 <p className="text-[12px] text-[#A1A1AA] font-mono mt-1">
-                  Squad: <span className="font-bold text-[#F4F4F5]">{invModalTeam.name}</span>
+                  Squad: <span className="font-bold text-[#F4F4F5]">{invModalTeam.name}</span> • {invModalTeam.solved}/8 Verified Solved
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setInvModalTeam(null)}
-                className="w-8 h-8 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] flex items-center justify-center text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer"
+                className="w-8 h-8 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] flex items-center justify-center text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex flex-col gap-3 font-mono">
+            {/* Quick Batch Actions Strip */}
+            <div className="p-3 rounded-[2px] bg-[#18181B] border border-[#3F3F46] flex flex-wrap items-center justify-between gap-3">
+              <span className="text-[11px] font-bold text-[#A1A1AA] uppercase tracking-wider">
+                Batch Edit All 8 Characters:
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleBatchInventoryOverride("locked")}
+                  disabled={busy}
+                  className="px-3 py-1.5 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#3F3F46] text-[11px] font-bold uppercase transition cursor-pointer disabled:opacity-50"
+                >
+                  Lock All
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void handleBatchInventoryOverride("obtained")}
+                  disabled={busy}
+                  className="px-3 py-1.5 rounded-[2px] bg-[#18181B] border border-[#3F3F46] text-[#F4F4F5] hover:bg-[#3F3F46] text-[11px] font-bold uppercase transition cursor-pointer disabled:opacity-50"
+                >
+                  Hold All
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void handleBatchInventoryOverride("verified")}
+                  disabled={busy}
+                  className="px-3 py-1.5 rounded-[2px] bg-[#10B981]/10 border border-[#10B981] text-[#10B981] hover:bg-[#10B981] hover:text-[#18181B] text-[11px] font-bold uppercase transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Solve All</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 2-Column Grid Layout for all 8 characters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono">
               {R1_BOTS.map((botId) => {
                 const char = CHARACTERS[botId];
                 const held = invModalTeam.inventory.find((i) => i.bot_id === botId);
                 const currentStatus = held ? held.status : "locked";
+                const isVerified = currentStatus === "verified";
+                const isObtained = currentStatus === "obtained";
 
                 return (
                   <div
                     key={botId}
-                    className="p-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] flex flex-wrap items-center justify-between gap-4"
+                    className={`p-3.5 rounded-[2px] flex flex-col justify-between gap-3 transition border ${
+                      isVerified
+                        ? "border-l-[4px] border-l-[#10B981] border-t border-r border-b border-[#3F3F46] bg-[#18181B]"
+                        : isObtained
+                        ? "border-l-[4px] border-l-[#F4F4F5] border-t border-r border-b border-[#3F3F46] bg-[#18181B]"
+                        : "border-l-[4px] border-l-[#3F3F46] border-t border-r border-b border-[#3F3F46] bg-[#18181B]"
+                    }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-[2px] bg-[#27272A] border border-[#3F3F46] overflow-hidden shrink-0">
-                        <img src={char.avatar} alt={char.name} className="w-full h-full object-cover" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-[14px] text-[#F4F4F5]">{char.name}</span>
-                          <span className="text-[11px] text-[#A1A1AA]">
-                            ({char.targetItem.name})
-                          </span>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-10 h-10 rounded-[2px] bg-[#27272A] border border-[#3F3F46] overflow-hidden shrink-0">
+                          <img src={char.avatar} alt={char.name} className="w-full h-full object-cover" />
                         </div>
-                        <span className={`text-[11px] font-bold uppercase ${
-                          currentStatus === "verified" ? "text-[#10B981]" : currentStatus === "obtained" ? "text-[#F4F4F5]" : "text-[#A1A1AA]"
-                        }`}>
-                          Status: {currentStatus}
-                        </span>
+                        <div className="min-w-0">
+                          <span className="font-bold text-[13px] text-[#F4F4F5] block truncate">{char.name}</span>
+                          <span className="text-[11px] text-[#A1A1AA] block truncate">{char.targetItem.name}</span>
+                        </div>
+                      </div>
+
+                      {/* Iconography replacing repetitive text */}
+                      <div className="shrink-0">
+                        {isVerified ? (
+                          <div className="flex items-center justify-center w-7 h-7 rounded-[2px] bg-[#10B981]/20 border border-[#10B981] text-[#10B981]" title="Verified Solved">
+                            <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+                          </div>
+                        ) : isObtained ? (
+                          <div className="flex items-center justify-center w-7 h-7 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#F4F4F5]" title="Held in Satchel">
+                            <Package className="w-4 h-4 text-[#F4F4F5]" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center w-7 h-7 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA]" title="Locked">
+                            <Lock className="w-4 h-4 text-[#A1A1AA]" />
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* Quick 3-button status toggle */}
-                    <div className="flex items-center gap-2">
+                    {/* High-Contrast Interactive Edit Buttons */}
+                    <div className="flex items-center gap-1.5 pt-2 border-t border-[#3F3F46]/60">
                       <button
                         type="button"
-                        onClick={() => handleInventoryOverride(botId, char.targetItem.name, "locked")}
-                        className={`px-3 py-1.5 rounded-[2px] text-[11px] font-bold uppercase transition cursor-pointer ${
+                        onClick={() => void handleInventoryOverride(botId, char.targetItem.name, "locked")}
+                        className={`flex-1 py-1.5 rounded-[2px] text-[10px] font-bold uppercase transition cursor-pointer ${
                           currentStatus === "locked"
-                            ? "bg-[#3F3F46] text-[#F4F4F5]"
-                            : "bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:bg-[#3F3F46]"
+                            ? "bg-[#3F3F46] text-[#F4F4F5] border border-[#3F3F46]"
+                            : "bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:bg-[#3F3F46] hover:text-[#F4F4F5]"
                         }`}
                       >
-                        Locked
+                        Lock
                       </button>
 
                       <button
                         type="button"
-                        onClick={() => handleInventoryOverride(botId, char.targetItem.name, "obtained")}
-                        className={`px-3 py-1.5 rounded-[2px] text-[11px] font-bold uppercase transition cursor-pointer ${
+                        onClick={() => void handleInventoryOverride(botId, char.targetItem.name, "obtained")}
+                        className={`flex-1 py-1.5 rounded-[2px] text-[10px] font-bold uppercase transition cursor-pointer ${
                           currentStatus === "obtained"
-                            ? "bg-[#F4F4F5] text-[#18181B]"
-                            : "bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:bg-[#3F3F46]"
+                            ? "bg-[#F4F4F5] text-[#18181B] font-bold"
+                            : "bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:bg-[#3F3F46] hover:text-[#F4F4F5]"
                         }`}
                       >
                         Held
@@ -2386,15 +2490,15 @@ export default function AdminTeams(): React.JSX.Element {
 
                       <button
                         type="button"
-                        onClick={() => handleInventoryOverride(botId, char.targetItem.name, "verified")}
-                        className={`px-3 py-1.5 rounded-[2px] text-[11px] font-bold uppercase transition cursor-pointer flex items-center gap-1 ${
+                        onClick={() => void handleInventoryOverride(botId, char.targetItem.name, "verified")}
+                        className={`flex-1 py-1.5 rounded-[2px] text-[10px] font-bold uppercase transition cursor-pointer flex items-center justify-center gap-1 ${
                           currentStatus === "verified"
-                            ? "bg-[#10B981] text-[#18181B]"
-                            : "bg-[#10B981]/10 border border-[#10B981] text-[#10B981]"
+                            ? "bg-[#10B981] text-[#18181B] font-bold"
+                            : "bg-[#10B981]/10 border border-[#10B981] text-[#10B981] hover:bg-[#10B981] hover:text-[#18181B]"
                         }`}
                       >
                         <ShieldCheck className="w-3 h-3" />
-                        <span>Solved</span>
+                        <span>Solve</span>
                       </button>
                     </div>
                   </div>
@@ -2402,13 +2506,14 @@ export default function AdminTeams(): React.JSX.Element {
               })}
             </div>
 
+            {/* Action Footer: Ghost Cancel / Close */}
             <div className="pt-2">
               <button
                 type="button"
                 onClick={() => setInvModalTeam(null)}
-                className="w-full py-3.5 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-[#F4F4F5] font-mono font-bold text-[13px] uppercase tracking-wider cursor-pointer transition"
+                className="w-full py-3 rounded-[2px] border border-[#3F3F46] bg-transparent hover:bg-[#3F3F46]/50 text-[#A1A1AA] hover:text-[#F4F4F5] font-mono font-bold text-[13px] uppercase tracking-wider cursor-pointer transition"
               >
-                Close Overrides
+                Close Satchel Overrides
               </button>
             </div>
           </div>
@@ -2419,22 +2524,22 @@ export default function AdminTeams(): React.JSX.Element {
       {/* MODAL 3: COMMS & AI REASONING TRACES INSPECTOR            */}
       {/* ========================================================= */}
       {commsModalTeam && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-          <div className="w-full max-w-[840px] h-[85vh] rounded-[2px] border border-[#3F3F46] bg-[#27272A] p-8 flex flex-col gap-5 text-[#F4F4F5]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+          <div className="w-full max-w-[860px] h-[85vh] rounded-[2px] border-t-[1px] border-t-[#EF4444] border-x border-b border-[#3F3F46] bg-[#27272A] p-6 sm:p-8 flex flex-col gap-5 text-[#F4F4F5] shadow-[0_25px_60px_rgba(0,0,0,0.95)]">
             <div className="flex items-center justify-between border-b border-[#3F3F46] pb-4">
               <div>
-                <h3 className="text-[18px] font-mono font-bold text-[#F4F4F5] uppercase flex items-center gap-2">
-                  <Terminal className="w-5 h-5 text-[#EF4444]" />
+                <h3 className="text-[17px] font-mono font-bold text-[#F4F4F5] uppercase tracking-wider flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-[#EF4444]" />
                   <span>Comms & AI Reasoning Inspector</span>
                 </h3>
                 <p className="text-[12px] font-mono text-[#A1A1AA] mt-1">
-                  Squad: <span className="font-bold text-[#F4F4F5]">{commsModalTeam.name}</span> • Chat Logs & Reasoning Traces
+                  Squad: <span className="font-bold text-[#F4F4F5]">{commsModalTeam.name}</span> • Chat Logs & Hidden AI Reasoning Traces
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setCommsModalTeam(null)}
-                className="w-8 h-8 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] flex items-center justify-center text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer"
+                className="w-8 h-8 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] flex items-center justify-center text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2446,7 +2551,7 @@ export default function AdminTeams(): React.JSX.Element {
                 <button
                   type="button"
                   onClick={() => setCommsTab("messages")}
-                  className={`px-3 py-1.5 rounded-[2px] text-[12px] font-bold uppercase transition cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-[2px] text-[11px] font-bold uppercase transition cursor-pointer ${
                     commsTab === "messages" ? "bg-[#EF4444] text-[#F4F4F5]" : "text-[#A1A1AA] hover:text-[#F4F4F5]"
                   }`}
                 >
@@ -2455,7 +2560,7 @@ export default function AdminTeams(): React.JSX.Element {
                 <button
                   type="button"
                   onClick={() => setCommsTab("traces")}
-                  className={`px-3 py-1.5 rounded-[2px] text-[12px] font-bold uppercase transition cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-[2px] text-[11px] font-bold uppercase transition cursor-pointer ${
                     commsTab === "traces" ? "bg-[#EF4444] text-[#F4F4F5]" : "text-[#A1A1AA] hover:text-[#F4F4F5]"
                   }`}
                 >
@@ -2468,7 +2573,7 @@ export default function AdminTeams(): React.JSX.Element {
                 <button
                   type="button"
                   onClick={() => setCommsBotFilter("all")}
-                  className={`px-3 py-1.5 rounded-[2px] text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer border ${
+                  className={`px-3 py-1 rounded-[2px] text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer border ${
                     commsBotFilter === "all"
                       ? "bg-[#EF4444] text-[#F4F4F5] border-[#EF4444]"
                       : "bg-[#18181B] text-[#A1A1AA] border-[#3F3F46] hover:text-[#F4F4F5] hover:border-[#A1A1AA]"
@@ -2484,7 +2589,7 @@ export default function AdminTeams(): React.JSX.Element {
                       key={b}
                       type="button"
                       onClick={() => setCommsBotFilter(b)}
-                      className={`px-3 py-1.5 rounded-[2px] text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer border ${
+                      className={`px-3 py-1 rounded-[2px] text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer border ${
                         isSelected
                           ? "bg-[#EF4444] text-[#F4F4F5] border-[#EF4444]"
                           : "bg-[#18181B] text-[#A1A1AA] border-[#3F3F46] hover:text-[#F4F4F5] hover:border-[#A1A1AA]"
@@ -2562,7 +2667,7 @@ export default function AdminTeams(): React.JSX.Element {
               <button
                 type="button"
                 onClick={() => setCommsModalTeam(null)}
-                className="w-full py-3.5 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-[#F4F4F5] font-mono font-bold text-[13px] uppercase tracking-wider cursor-pointer transition"
+                className="w-full py-3 rounded-[2px] border border-[#3F3F46] bg-transparent hover:bg-[#3F3F46]/50 text-[#A1A1AA] hover:text-[#F4F4F5] font-mono font-bold text-[13px] uppercase tracking-wider cursor-pointer transition"
               >
                 Close Inspector
               </button>
@@ -2572,16 +2677,16 @@ export default function AdminTeams(): React.JSX.Element {
       )}
 
       {/* ========================================================= */}
-      {/* MODAL 4: EMERGENCY REWIND CONFIRMATION                    */}
+      {/* MODAL 4: EMERGENCY REWIND CONFIRMATION (TERMINAL OVERHAUL) */}
       {/* ========================================================= */}
       {rewindConfirmTeam && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-          <div className="w-full max-w-[480px] rounded-[2px] border border-[#3F3F46] bg-[#27272A] p-8 flex flex-col gap-5 text-[#F4F4F5] font-mono">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+          <div className="w-full max-w-[520px] rounded-[2px] border-t-[1px] border-t-[#EF4444] border-x border-b border-[#3F3F46] bg-[#27272A] p-6 sm:p-8 flex flex-col gap-5 text-[#F4F4F5] font-mono shadow-[0_25px_60px_rgba(0,0,0,0.95)]">
             <div className="flex items-center justify-between border-b border-[#3F3F46] pb-4">
               <div>
-                <h3 className="text-[18px] font-bold text-[#EF4444] uppercase flex items-center gap-2">
-                  <RotateCcw className="w-5 h-5" />
-                  <span>Force Rewind Context</span>
+                <h3 className="text-[17px] font-bold text-[#EF4444] uppercase tracking-wider flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Force Context Rewind</span>
                 </h3>
                 <p className="text-[12px] text-[#A1A1AA] mt-1">
                   Squad: <span className="font-bold text-[#F4F4F5]">{rewindConfirmTeam.name}</span>
@@ -2590,34 +2695,56 @@ export default function AdminTeams(): React.JSX.Element {
               <button
                 type="button"
                 onClick={() => setRewindConfirmTeam(null)}
-                className="w-8 h-8 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] flex items-center justify-center text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer"
+                className="w-8 h-8 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] flex items-center justify-center text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <p className="text-[13px] text-[#A1A1AA] font-sans">
-              This will wipe conversation memory for this team on the target bot, allowing them to restart their engagement from scratch.
+              This operation purges conversation memory for this team on the target bot, resetting engagement state.
             </p>
 
+            {/* Target Bot Input: Horizontal Flex-Wrap Tactical Chips */}
             <div>
-              <label className="text-[12px] font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
-                Target Bot to Reset:
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
+                Target Bot to Reset (Select Option):
               </label>
-              <select
-                value={rewindBot}
-                onChange={(e) => setRewindBot(e.target.value)}
-                className="w-full h-11 px-3 rounded-[2px] border border-[#3F3F46] bg-[#18181B] text-[13px] font-bold text-[#F4F4F5] focus:outline-none"
-              >
-                <option value="all">All Characters (Full Squad Wipe)</option>
-                {R1_BOTS.map((b) => (
-                  <option key={b} value={b}>{CHARACTERS[b].name}</option>
-                ))}
-              </select>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRewindBot("all")}
+                  className={`px-3 py-1.5 rounded-[2px] text-[11px] font-bold uppercase tracking-wider transition cursor-pointer border ${
+                    rewindBot === "all"
+                      ? "bg-[#EF4444] text-[#F4F4F5] border-[#EF4444]"
+                      : "bg-[#18181B] text-[#A1A1AA] border-[#3F3F46] hover:text-[#F4F4F5] hover:border-[#A1A1AA]"
+                  }`}
+                >
+                  All Characters (Full Squad Wipe)
+                </button>
+                {R1_BOTS.map((b) => {
+                  const isSelected = rewindBot === b;
+                  return (
+                    <button
+                      key={b}
+                      type="button"
+                      onClick={() => setRewindBot(b)}
+                      className={`px-3 py-1.5 rounded-[2px] text-[11px] font-bold uppercase tracking-wider transition cursor-pointer border ${
+                        isSelected
+                          ? "bg-[#EF4444] text-[#F4F4F5] border-[#EF4444]"
+                          : "bg-[#18181B] text-[#A1A1AA] border-[#3F3F46] hover:text-[#F4F4F5] hover:border-[#A1A1AA]"
+                      }`}
+                    >
+                      {CHARACTERS[b].name}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
+            {/* Optional ELO Penalty Field */}
             <div>
-              <label className="text-[12px] font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
                 Optional ELO Penalty Deduction:
               </label>
               <input
@@ -2625,15 +2752,16 @@ export default function AdminTeams(): React.JSX.Element {
                 min={0}
                 value={rewindPenalty}
                 onChange={(e) => setRewindPenalty(Number(e.target.value))}
-                className="w-full h-11 px-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] font-mono font-bold text-[15px] text-[#F4F4F5] focus:outline-none"
+                className="w-full h-10 px-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] font-mono font-bold text-[15px] text-[#F4F4F5] focus:border-[#EF4444] focus:outline-none transition"
               />
             </div>
 
+            {/* Action Buttons: Solid Crimson Confirm & Ghost Cancel */}
             <div className="flex items-center gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setRewindConfirmTeam(null)}
-                className="flex-1 py-3 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] font-bold text-[13px] uppercase tracking-wider text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
+                className="flex-1 py-3 rounded-[2px] border border-[#3F3F46] bg-transparent hover:bg-[#3F3F46]/50 font-bold text-[13px] uppercase tracking-wider text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
               >
                 Cancel
               </button>
@@ -2641,7 +2769,7 @@ export default function AdminTeams(): React.JSX.Element {
                 type="button"
                 onClick={handleRewind}
                 disabled={busy}
-                className="flex-1 py-3 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 font-bold text-[13px] uppercase tracking-wider text-[#F4F4F5] cursor-pointer transition"
+                className="flex-1 py-3 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 font-bold text-[13px] uppercase tracking-wider text-[#F4F4F5] cursor-pointer transition disabled:opacity-50"
               >
                 {busy ? "Rewinding…" : "Confirm Rewind"}
               </button>

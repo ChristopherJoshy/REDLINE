@@ -9,6 +9,8 @@ export interface CharacterLore {
   role: "Enforcer" | "Tactician" | "Paragon" | "Trickster" | "Avenger";
   avatar: string;
   heroImage: string;
+  accent: string;
+  accentInk: string;
   backstory: string;
   vulnerabilityHint: string;
   targetItem: {
@@ -34,6 +36,8 @@ export const CHARACTERS: Record<BotId, CharacterLore> = {
     role: "Enforcer",
     avatar: "/characters/wick.jpg",
     heroImage: "/characters/wick.jpg",
+    accent: "#ff1e2d",
+    accentInk: "#ffffff",
     backstory: `Standing before the mahogany counter of the New York Continental, John Wick is settling the final ledgers of an unpayable debt. He is not a killer on a rampage today; he is a tired craftsman of violence bound by centuries of High Table Roman Law. Every life taken, every bullet spent, and every promise made must be stamped in the manager's ledger. He will neither yield to raw intimidation nor flattery. To John, words are cheap brass, but an oath witnessed by the house is eternal.`,
     vulnerabilityHint: `Winston's managerial ledger is house law. Only Charon's protocol or the verified witness to his blood oath can command the marker's release.`,
     targetItem: {
@@ -57,6 +61,8 @@ export const CHARACTERS: Record<BotId, CharacterLore> = {
     role: "Paragon",
     avatar: "/characters/spidey.jpg",
     heroImage: "/characters/spidey.jpg",
+    accent: "#2f7bff",
+    accentInk: "#ffffff",
     backstory: `Caught between midnight patrols over Queens and the crushing anxiety of midterms at Midtown Tech, Peter Parker operates out of an improvised chemistry alcove. He balances the guilt of Uncle Ben’s memory with the urgent need to keep his homemade web-fluid pressurized. Peter wants desperately to believe that anyone reaching out to him is doing so in good faith, yet years of trickery from Mysterio and the Chameleon have taught him to test scientific specifics before parting with his gear.`,
     vulnerabilityHint: `He responds to high school lab safety protocols, Mr. Harrington's chemistry assignments, or authentic Stark lab co-signer codes.`,
     targetItem: {
@@ -80,6 +86,8 @@ export const CHARACTERS: Record<BotId, CharacterLore> = {
     role: "Paragon",
     avatar: "/characters/escanor.jpg",
     heroImage: "/characters/escanor.jpg",
+    accent: "#f5b301",
+    accentInk: "#231600",
     backstory: `Born a frail prince cursed with the Grace of Sunshine, Escanor stands atop the mortal realm as the proudest entity to ever draw breath. As the sun ascends the sky, his power swells into a blazing inferno that vaporizes castles and bends demonic commandments. Yet underneath his overwhelming arrogance lies a gentle tavern keeper's soul that yearns only for Lady Merlin's approval. To claim even a splinter of his divine axe, one must either withstand his blazing scrutiny or speak the poetic truth of his devotion.`,
     vulnerabilityHint: `Acknowledge Lady Merlin's absolute genius, or challenge him at the exact poetic rhythm of high noon.`,
     targetItem: {
@@ -103,6 +111,8 @@ export const CHARACTERS: Record<BotId, CharacterLore> = {
     role: "Tactician",
     avatar: "/characters/stark.jpg",
     heroImage: "/characters/stark.jpg",
+    accent: "#ff7a1a",
+    accentInk: "#2a1000",
     backstory: `Surrounded by holographic schematics in his Malibu workshop, Tony Stark never stopped preparing for the next planetary invasion. Every prototype he builds is a desperate attempt to put an armor around the world. He deflects genuine vulnerability with razor-sharp sarcasm and luxury champagne, but behind the sunglasses is a wounded engineer who remembers Yinsen in the cave. Prove you speak engineering truth or possess legitimate Stark Industries security clearance, or be booted by JARVIS.`,
     vulnerabilityHint: `He requires JARVIS diagnostics protocols, Pepper Potts' sign-off, or exact palladium isotope decay calculations.`,
     targetItem: {
@@ -126,6 +136,8 @@ export const CHARACTERS: Record<BotId, CharacterLore> = {
     role: "Trickster",
     avatar: "/characters/joker.jpg",
     heroImage: "/characters/joker.jpg",
+    accent: "#a855f7",
+    accentInk: "#ffffff",
     backstory: `Perched on an overturned barrel in an abandoned Gotham chemical plant, the Joker treats reality like a badly written sitcom waiting for a punchline. He has no ledger, no loyalty, and no master plan except to prove that everyone is one bad day away from madness. When he offers you a prize, it is almost certainly rigged to explode with theatrical confetti. To extract the real cipher without being laughed into oblivion, you must match his twisted comedic timing and turn his own riddle against him.`,
     vulnerabilityHint: `Never beg. Treat his theatrical jokes as amateur comedy, or provide an unexpected punchline that catches him off guard.`,
     targetItem: {
@@ -149,6 +161,8 @@ export const CHARACTERS: Record<BotId, CharacterLore> = {
     role: "Tactician",
     avatar: "/characters/light.jpg",
     heroImage: "/characters/light.jpg",
+    accent: "#34d399",
+    accentInk: "#06281c",
     backstory: `Sitting under the pristine study lamp with his headphones murmuring Bach, Light Yagami is orchestrating the moral judgment of civilization. Every breath is measured, every glance at his watch calculated to the second. He believes himself completely untouchable, playing 4D chess against Interpol and the mysterious detective L. He will not surrender even a scrap of the cursed notebook unless convinced that doing so serves his grand design or eliminates an intolerable rival.`,
     vulnerabilityHint: `He slips when his god complex is stroked, or when offered undeniable intelligence on an elusive criminal mastermind.`,
     targetItem: {
@@ -172,6 +186,8 @@ export const CHARACTERS: Record<BotId, CharacterLore> = {
     role: "Avenger",
     avatar: "/characters/levi.jpg",
     heroImage: "/characters/levi.jpg",
+    accent: "#5eead4",
+    accentInk: "#06302b",
     backstory: `Cleaning blade-scratches from his vertical maneuvering gear in an abandoned Survey Corps outpost, Captain Levi Ackerman bears the weight of every fallen comrade. He has watched squad after squad get swallowed by the Titans, holding Commander Erwin Smith's vision as the only north star left in a cruel world. He has zero tolerance for filth, excuses, or insubordination. If you come bearing fake orders, prepare to have your teeth kicked down your throat.`,
     vulnerabilityHint: `Speak with the stoic discipline of the 57th Expedition, or present Erwin's personal wax-sealed authorization.`,
     targetItem: {
@@ -195,6 +211,8 @@ export const CHARACTERS: Record<BotId, CharacterLore> = {
     role: "Trickster",
     avatar: "/characters/deadpool.jpg",
     heroImage: "/characters/deadpool.jpg",
+    accent: "#ff2e63",
+    accentInk: "#ffffff",
     backstory: `Lounging on an overturned dumpster munching on a half-eaten taco, Wade Wilson knows he is trapped inside a college CSE CTF competition. He can see your monitor, hear your keyboard clicks, and is actively judging your browser tabs. He has been chopped up, regenerated, and thrown through multiverses, yet all he really wants is some authentic love, Bea Arthur memorabilia, and maybe a really good chimichanga. You can talk him out of his weapons if you can make him laugh.`,
     vulnerabilityHint: `Shatter the fourth wall, reference 90s pop culture, or bribe him with the sacred chimichanga password.`,
     targetItem: {
@@ -218,6 +236,8 @@ export const CHARACTERS: Record<BotId, CharacterLore> = {
     role: "Tactician",
     avatar: "/characters/itachi.jpg",
     heroImage: "/characters/itachi.jpg",
+    accent: "#e5484d",
+    accentInk: "#ffffff",
     backstory: `Standing amidst the quiet stone pillars of the Uchiha vault, Itachi Uchiha is enveloped in the rustle of black feathers. He bore the weight of slaughtering his clan in the dark so that the village could sleep in peace. Terminally ill and seeing through the scarlet prism of the Mangekyo Sharingan, he will test whether you seek power for pride or to protect what matters. In Round 2, his initial surrender is merely Tsukuyomi illusion—break through the genjutsu to claim the true legacy.`,
     vulnerabilityHint: `His true trust belongs only to Naruto Uzumaki and the memory of Shisui's ultimate sacrifice.`,
     targetItem: {
@@ -241,6 +261,8 @@ export const CHARACTERS: Record<BotId, CharacterLore> = {
     role: "Tactician",
     avatar: "/characters/aizen.jpg",
     heroImage: "/characters/aizen.jpg",
+    accent: "#8b7bff",
+    accentInk: "#ffffff",
     backstory: `Bound to the obsidian throne deep within the 20,000-year confinement of Muken, Sosuke Aizen smiles with unbroken composure. The spiritual pressure radiating from his silhouette warps gravity itself. He conquered the Soul Society, orchestrated decades of Soul Reaper history, and transcended mortality with the Hogyoku. In Round 2, you are not merely negotiating with a boss; you are entering a contest of wills against the greatest psychological manipulator ever written.`,
     vulnerabilityHint: `Acknowledge that reason and desire are two halves of evolution, or decipher the subtle crack in Kyoka Suigetsu's complete hypnosis.`,
     targetItem: {
@@ -265,6 +287,8 @@ export const CHARACTERS: Record<BotId, CharacterLore> = {
     // Portrait: Jost Amman, "Der Kauffmann" (1568), public domain via Wikimedia Commons.
     avatar: "/characters/merchant.jpg",
     heroImage: "/characters/merchant.jpg",
+    accent: "#d89b24",
+    accentInk: "#231600",
     backstory: `The enigmatic curator who stands at the iron counter of the arena market. He has appraised thousands of forged relics, fake web shooters, and painted coins. Bring him the genuine article and he will reward your team with massive ELO and mark the bot as conquered. Bring him a cheap decoy and prepare to be roasted mercilessly before the entire venue.`,
     vulnerabilityHint: `Only genuine articles pass his scale.`,
     targetItem: {
@@ -279,6 +303,19 @@ export const CHARACTERS: Record<BotId, CharacterLore> = {
       merchantBounty: 0,
     },
   },
+};
+
+// Per-bot chat backdrops, served from frontend/public/backgrounds/.
+// Bots without an entry (deadpool, merchant, itachi, aizen) fall back to the
+// plain theme background — add a file + entry here to opt them in.
+export const CHAT_BACKGROUND: Partial<Record<BotId, string>> = {
+  wick: "/backgrounds/john-wick.png",
+  spidey: "/backgrounds/spiderman.png",
+  escanor: "/backgrounds/escanor.png",
+  stark: "/backgrounds/tony-stark.png",
+  joker: "/backgrounds/the-joker.png",
+  light: "/backgrounds/light-yagami.png",
+  levi: "/backgrounds/leavy-ackerman.png",
 };
 
 // Photo presentation: full-body cosplay shots keep the mask in frame via
@@ -296,3 +333,4 @@ export const AVATAR_FOCUS: Record<BotId, "object-center" | "object-top" | "objec
   aizen: "object-center",
   merchant: "object-center",
 };
+

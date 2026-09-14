@@ -183,16 +183,16 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
       role="dialog"
       aria-modal="true"
       aria-labelledby="cover-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm sm:p-6"
       onClick={onClose}
     >
       <div
-        className="relative flex w-full max-w-[640px] max-h-[90vh] flex-col overflow-hidden rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-surface-1)]"
+        className="redline-panel relative flex w-full max-w-[640px] max-h-[90vh] flex-col overflow-hidden rounded-[12px]"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
+        <header className="flex items-center justify-between border-b border-[rgba(255,30,45,0.25)] bg-[rgba(5,7,10,0.7)] px-6 py-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-[6px] bg-[var(--color-text-1)] text-[var(--color-bg-0)]">
+            <span className="flex h-10 w-10 items-center justify-center rounded-[8px] border border-[rgba(255,30,45,0.45)] bg-[rgba(255,30,45,0.12)] text-[#ff5b64]">
               <VenetianMask className="w-5 h-5" />
             </span>
             <div>
@@ -274,7 +274,7 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
               <button
                 type="submit"
                 disabled={busy || fields.alias.trim() === ""}
-                className="mt-1 min-h-[48px] rounded-[6px] bg-[var(--color-text-1)] px-6 py-3.5 text-[15px] font-semibold text-[var(--color-bg-0)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+                className="redline-cta mt-1 min-h-[48px] rounded-[8px] px-6 py-3.5 text-[15px] font-semibold disabled:opacity-50"
               >
                 {busy ? (status === "create" ? "Filing..." : "Updating...") : status === "create" ? "File cover" : "Update cover"}
               </button>

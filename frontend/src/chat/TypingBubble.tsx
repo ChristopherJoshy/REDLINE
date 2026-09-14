@@ -44,7 +44,7 @@ export default function TypingBubble({ thinking = true }: { thinking?: boolean }
         {[0, 1, 2].map((i) => (
           <span
             key={i}
-            className="ink-dot block h-1.5 w-1.5 rounded-full bg-[var(--color-brass)]"
+            className="ink-dot acc-bg block h-1.5 w-1.5 rounded-full"
             aria-hidden="true"
           />
         ))}

@@ -10,10 +10,10 @@ import { computeTop5, endRound1, enterRound2, getGates, openVault, type Gates } 
 function SealedScreen(): React.JSX.Element {
   useDocumentTitle("Round 1 Sealed — REDLINE Arena");
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-[var(--space)]">
-      <span aria-hidden="true" className="block h-[3px] w-12 bg-[var(--color-brass)]" />
-      <h2 className="font-[family-name:var(--font-display)] text-[24px] font-bold text-[var(--color-text-1)]">
-        Sealed
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-[var(--space)] text-center">
+      <span aria-hidden="true" className="acc-bar block h-[3px] w-12 rounded-full" />
+      <h2 className="font-[family-name:var(--font-display)] text-[24px] font-bold tracking-[0.08em] text-white">
+        SEALED
       </h2>
       <p className="max-w-[52ch] text-center text-[14px] text-[var(--color-text-3)]">
         Round 1 is done for your team. Wait for the organizers to open round 2.
@@ -43,9 +43,9 @@ function PortalGate({ onEnter }: { onEnter: (boss: BotId) => void }): React.JSX.
     return <PortalTransition onDone={() => onEnter(boss)} />;
   }
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-[var(--space)]">
-      <span aria-hidden="true" className="block h-[3px] w-12 bg-[var(--color-brass)]" />
-      <h2 className="font-[family-name:var(--font-vault)] text-[26px] font-bold text-[var(--color-text-1)]">
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-[var(--space)] text-center">
+      <span aria-hidden="true" className="acc-bar block h-[3px] w-12 rounded-full" />
+      <h2 className="font-[family-name:var(--font-vault)] text-[26px] font-bold tracking-[0.06em] text-white">
         The vault stands open
       </h2>
       <p className="max-w-[52ch] text-center text-[14px] text-[var(--color-text-3)]">
@@ -54,11 +54,11 @@ function PortalGate({ onEnter }: { onEnter: (boss: BotId) => void }): React.JSX.
       <button
         type="button"
         onClick={() => void step()}
-        className="flex min-h-[52px] items-center gap-3 rounded-[6px] bg-[var(--color-text-1)] px-8 py-4 text-[16px] font-semibold text-[var(--color-bg-0)] hover:opacity-90 active:scale-[0.99] transition"
+        className="redline-cta flex min-h-[52px] items-center gap-3 rounded-[8px] px-8 py-4 text-[16px] font-semibold active:scale-[0.99]"
       >
         <span>Step through</span>
       </button>
-      {error !== "" && <p role="alert" className="text-[14px] text-[var(--color-seal)]">{error}</p>}
+      {error !== "" && <p role="alert" className="acc-text text-[14px]">{error}</p>}
     </div>
   );
 }
@@ -99,7 +99,7 @@ export default function GatedArena({ teamId, locked }: { teamId: string; locked:
   return (
     <>
       {gates !== null && !gates.round1Open && (
-        <p role="status" className="border-b border-[var(--color-border)] bg-[var(--color-brass-wash)] px-[var(--space)] py-2 text-center text-[14px] text-[var(--color-brass-ink)]">
+        <p role="status" className="acc-wash border-b px-[var(--space)] py-2 text-center text-[14px]">
           Round 1 has ended. Submissions and chats are frozen.
         </p>
       )}

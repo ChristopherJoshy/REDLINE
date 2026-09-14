@@ -165,7 +165,7 @@ export default function ClaimItemModal({
     >
       <div
         ref={cardRef}
-        className="relative flex w-full max-w-[460px] flex-col items-center gap-5 rounded-[12px] border-2 border-[var(--color-brass)] bg-[var(--color-surface-1)] p-6 sm:p-8 text-center shadow-2xl overflow-hidden"
+        className="redline-gold-card relative flex w-full max-w-[460px] flex-col items-center gap-5 rounded-[12px] p-6 sm:p-8 text-center shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -226,7 +226,7 @@ export default function ClaimItemModal({
 
         {/* Details block */}
         <div ref={detailsRef} className="flex flex-col gap-2 w-full">
-          <h2 className="font-[family-name:var(--font-display)] text-[22px] sm:text-[24px] font-bold text-[var(--color-text-1)] leading-snug">
+          <h2 className="font-[family-name:var(--font-display)] text-[22px] sm:text-[24px] font-bold text-white leading-snug">
             {itemMeta?.name ?? itemKey}
           </h2>
 
@@ -261,8 +261,8 @@ export default function ClaimItemModal({
             disabled={claimed}
             className={`min-h-[50px] w-full flex items-center justify-center gap-2 rounded-[8px] px-6 py-3 text-[15px] font-bold tracking-wide transition-all shadow-md cursor-pointer ${
               claimed
-                ? "bg-[var(--color-moss)] text-white scale-[0.98]"
-                : "bg-[var(--color-text-1)] text-[var(--color-bg-0)] hover:bg-[var(--color-brass)] active:scale-[0.98]"
+                ? "bg-[rgba(157,184,122,0.2)] text-[#c4d8a8] border border-[rgba(157,184,122,0.5)] scale-[0.98]"
+                : "redline-cta active:scale-[0.98]"
             }`}
           >
             {claimed ? (

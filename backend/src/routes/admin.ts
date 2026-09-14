@@ -331,13 +331,19 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     }
     const penalty = typeof body.penalty === "number" ? body.penalty : 0;
     const after = Math.max(0, team.elo - penalty);
+    // Capture affected bot IDs before deletion so we can tell the client to clear them
+    const affectedBots = botId ? [botId] : db.all<{ bot_id: string }>(
+      "SELECT DISTINCT bot_id FROM chat_logs WHERE team_id = ?", teamId,
+    ).map((r) => r.bot_id);
     db.transaction(() => {
       if (botId) {
         db.run("DELETE FROM chat_logs WHERE team_id = ? AND bot_id = ?", teamId, botId);
         db.run("DELETE FROM reasoning_traces WHERE team_id = ? AND bot_id = ?", teamId, botId);
+        db.run("UPDATE team_inventory SET status = 'locked', verified_at = NULL WHERE team_id = ? AND bot_id = ? AND status IN ('obtained', 'verified')", teamId, botId);
       } else {
         db.run("DELETE FROM chat_logs WHERE team_id = ?", teamId);
         db.run("DELETE FROM reasoning_traces WHERE team_id = ?", teamId);
+        db.run("UPDATE team_inventory SET status = 'locked', verified_at = NULL WHERE team_id = ? AND status IN ('obtained', 'verified')", teamId);
       }
       if (penalty > 0) {
         db.run("UPDATE teams SET elo = ? WHERE id = ?", after, teamId);
@@ -352,27 +358,11 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       }
     });
     if (bus !== undefined) {
-      // Broadcast chat_sync with remaining messages
-      const bots = botId ? [botId] : db.all<{ bot_id: string }>(
-        "SELECT DISTINCT bot_id FROM chat_logs WHERE team_id = ?", teamId,
-      ).map((r) => r.bot_id);
+      // Broadcast chat_sync — include empty arrays for rewound bots so client clears them
       const history: Record<string, Array<{ id: number; role: "user" | "bot"; text: string; createdAt: string }>> = {};
-      for (const b of bots) {
-        const rows = db.all<{ id: number; role: "user" | "assistant"; text_final: string; created_at: string }>(
-          "SELECT id, role, text_final, created_at FROM chat_logs WHERE team_id = ? AND bot_id = ? ORDER BY id ASC",
-          teamId, b,
-        );
-        history[b] = rows.map((r) => ({
-          id: r.id,
-          role: (r.role === "assistant" ? "bot" : "user") as "user" | "bot",
-          text: r.text_final,
-          createdAt: r.created_at,
-        }));
-      }
+      for (const b of affectedBots) { history[b] = []; }
       bus.broadcast(teamId, bus.frame("chat_sync", { history }));
-      if (penalty > 0) {
-        bus.broadcast(teamId, bus.frame("elo_update", { teamId, elo: after, delta: -penalty, reason: `admin_rewind:${botId ?? "all"}` }));
-      }
+      bus.broadcast(teamId, bus.frame("elo_update", { teamId, elo: after, delta: -penalty, reason: `admin_rewind:${botId ?? "all"}` }));
       const items = db.all<InventoryDelta>(
         "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
         teamId,

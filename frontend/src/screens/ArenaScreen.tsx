@@ -50,7 +50,7 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
   const [merchantTab, setMerchantTab] = useState<"counter" | "talk">("counter");
   const [draft, setDraft] = useState("");
   const [inventoryOpen, setInventoryOpen] = useState(false);
-  const [cover, setCover] = useState<CoverProfile | null | undefined>(undefined);
+  const [covers, setCovers] = useState<Record<string, CoverProfile | null>>({});
   const [coverOpen, setCoverOpen] = useState(false);
   const [coverLock, setCoverLock] = useState(false);
   const [pendingBot, setPendingBot] = useState<BotId | null>(null);
@@ -70,9 +70,9 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
 
   useEffect(() => {
     let dead = false;
-    getCover()
-      .then((c) => { if (!dead) setCover(c); })
-      .catch(() => { if (!dead) setCover(null); });
+    getCover("wick")
+      .then((c) => { if (!dead) setCovers((prev) => ({ ...prev, wick: c })); })
+      .catch(() => { if (!dead) setCovers((prev) => ({ ...prev, wick: null })); });
     return () => { dead = true; };
   }, []);
 
@@ -179,11 +179,12 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
   function engage(botId: BotId): void {
     if (getBotItemStatus(botId) === "verified") { setCelebration(botId); return; }
     if (botId === "merchant") { setMerchantTab("counter"); setChattingBotId(botId); return; }
-    if (cover === null) { setPendingBot(botId); setCoverLock(true); setCoverOpen(true); return; }
-    if (cover === undefined) {
-      getCover()
-        .then((c) => { setCover(c); setChattingBotId(botId); })
-        .catch(() => { setCover(null); setPendingBot(botId); setCoverLock(true); setCoverOpen(true); });
+    const coverState = covers[botId];
+    if (coverState === null) { setPendingBot(botId); setCoverLock(true); setCoverOpen(true); return; }
+    if (coverState === undefined) {
+      getCover(botId)
+        .then((c) => { setCovers((prev) => ({ ...prev, [botId]: c })); setChattingBotId(botId); })
+        .catch(() => { setCovers((prev) => ({ ...prev, [botId]: null })); setPendingBot(botId); setCoverLock(true); setCoverOpen(true); });
       return;
     }
     setChattingBotId(botId);
@@ -793,12 +794,13 @@ export default function ArenaScreen({ teamId, locked }: { teamId: string; locked
         />
       )}
 
-      {coverOpen && (
+      {coverOpen && pendingBot !== null && (
         <ProfileModal
+          botId={pendingBot}
           lockCreate={coverLock}
           onClose={() => { setCoverOpen(false); setCoverLock(false); setPendingBot(null); }}
           onSaved={(profile, isNew) => {
-            setCover(profile);
+            setCovers((prev) => ({ ...prev, [profile.bot_id]: profile }));
             setCoverOpen(false);
             setCoverLock(false);
             if (pendingBot !== null) {

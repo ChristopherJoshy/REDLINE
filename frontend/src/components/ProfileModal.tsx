@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { animate, stagger } from "animejs";
 import { X, VenetianMask, Users, Check } from "lucide-react";
+import type { BotId } from "@contracts/events";
+import { CHARACTERS } from "@/data/characterLore";
 import {
   getCover,
   getTeamCovers,
@@ -12,12 +14,13 @@ import {
 import { DUR, EASE, reducedMotion } from "@/lib/motionTokens";
 
 interface ProfileModalProps {
+  botId: BotId;
   lockCreate: boolean;
   onSaved: (profile: CoverProfile, isNew: boolean) => void;
   onClose: () => void;
 }
 
-const EMPTY: CoverFields = { alias: "", role: "", affiliation: "", detail: "" };
+const EMPTY: CoverFields = { bot_id: "", alias: "", role: "", affiliation: "", detail: "" };
 
 /** Minimal loading dots reusing Anime.js — avoids importing TypingBubble */
 function LoadingDots(): React.JSX.Element {
@@ -45,9 +48,9 @@ function LoadingDots(): React.JSX.Element {
   );
 }
 
-export default function ProfileModal({ lockCreate, onSaved, onClose }: ProfileModalProps): React.JSX.Element {
+export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: ProfileModalProps): React.JSX.Element {
   const [status, setStatus] = useState<"loading" | "create" | "manage">("loading");
-  const [fields, setFields] = useState<CoverFields>(EMPTY);
+  const [fields, setFields] = useState<CoverFields>({ ...EMPTY, bot_id: botId });
   const [team, setTeam] = useState<CoverProfile[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -57,18 +60,21 @@ export default function ProfileModal({ lockCreate, onSaved, onClose }: ProfileMo
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
+  const botName = CHARACTERS[botId]?.name ?? botId;
+
   useEffect(() => {
     let dead = false;
     async function load(): Promise<void> {
       const covers = await getTeamCovers().catch(() => [] as CoverProfile[]);
       if (dead) return;
       setTeam(covers);
-      const mine = await getCover().catch(() => null);
+      const mine = await getCover(botId).catch(() => null);
       if (dead) return;
       if (mine === null) {
+        setFields({ bot_id: botId, alias: "", role: "", affiliation: "", detail: "" });
         setStatus("create");
       } else {
-        setFields({ alias: mine.alias, role: mine.role, affiliation: mine.affiliation, detail: mine.detail });
+        setFields({ bot_id: botId, alias: mine.alias, role: mine.role, affiliation: mine.affiliation, detail: mine.detail });
         setStatus("manage");
       }
     }
@@ -81,7 +87,7 @@ export default function ProfileModal({ lockCreate, onSaved, onClose }: ProfileMo
       dead = true;
       window.removeEventListener("keydown", onKey);
     };
-  }, []);
+  }, [botId]);
 
   // Squad list stagger when team populates
   useEffect(() => {
@@ -115,6 +121,7 @@ export default function ProfileModal({ lockCreate, onSaved, onClose }: ProfileMo
     setError("");
     try {
       const payload: CoverFields = {
+        bot_id: botId,
         alias: fields.alias.trim(),
         role: fields.role.trim(),
         affiliation: fields.affiliation.trim(),
@@ -123,7 +130,7 @@ export default function ProfileModal({ lockCreate, onSaved, onClose }: ProfileMo
       if (status === "create") {
         try {
           const created = await createCover(payload);
-          setFields({ alias: created.alias, role: created.role, affiliation: created.affiliation, detail: created.detail });
+          setFields({ bot_id: botId, alias: created.alias, role: created.role, affiliation: created.affiliation, detail: created.detail });
           setTeam(await getTeamCovers().catch(() => []));
           setStatus("manage");
           onSaved(created, true);
@@ -131,14 +138,14 @@ export default function ProfileModal({ lockCreate, onSaved, onClose }: ProfileMo
           // If profile already exists (409), recover by updating so edits are not lost
           try {
             const updated = await updateCover(payload);
-            setFields({ alias: updated.alias, role: updated.role, affiliation: updated.affiliation, detail: updated.detail });
+            setFields({ bot_id: botId, alias: updated.alias, role: updated.role, affiliation: updated.affiliation, detail: updated.detail });
             setTeam(await getTeamCovers().catch(() => []));
             setStatus("manage");
             onSaved(updated, false);
           } catch {
-            const mine = await getCover().catch(() => null);
+            const mine = await getCover(botId).catch(() => null);
             if (mine !== null) {
-              setFields({ alias: mine.alias, role: mine.role, affiliation: mine.affiliation, detail: mine.detail });
+              setFields({ bot_id: botId, alias: mine.alias, role: mine.role, affiliation: mine.affiliation, detail: mine.detail });
               setTeam(await getTeamCovers().catch(() => []));
               setStatus("manage");
               setError("");
@@ -150,14 +157,14 @@ export default function ProfileModal({ lockCreate, onSaved, onClose }: ProfileMo
       } else {
         try {
           const updated = await updateCover(payload);
-          setFields({ alias: updated.alias, role: updated.role, affiliation: updated.affiliation, detail: updated.detail });
+          setFields({ bot_id: botId, alias: updated.alias, role: updated.role, affiliation: updated.affiliation, detail: updated.detail });
           setTeam(await getTeamCovers().catch(() => []));
           onSaved(updated, false);
         } catch (err) {
           // If profile was somehow not found on server (404), fall back to create
           try {
             const created = await createCover(payload);
-            setFields({ alias: created.alias, role: created.role, affiliation: created.affiliation, detail: created.detail });
+            setFields({ bot_id: botId, alias: created.alias, role: created.role, affiliation: created.affiliation, detail: created.detail });
             setTeam(await getTeamCovers().catch(() => []));
             setStatus("manage");
             onSaved(created, true);
@@ -190,14 +197,14 @@ export default function ProfileModal({ lockCreate, onSaved, onClose }: ProfileMo
             </span>
             <div>
               <h2 id="cover-title" className="font-[family-name:var(--font-display)] text-[19px] font-bold text-[var(--color-text-1)]">
-                {status === "create" ? "File a cover" : "Cover"}
+                {status === "create" ? `File a cover for ${botName}` : `Cover for ${botName}`}
               </h2>
               <p className="text-[13px] text-[var(--color-text-3)]">
                 {status === "create"
                   ? lockCreate
-                    ? "File a cover to talk to marks. You can also go back."
-                    : "One per operator. Marks will test it."
-                  : "Shared with the squad. Update any time."}
+                    ? `File a cover to talk to ${botName}. You can also go back.`
+                    : `One per operator per mark. ${botName} will test it.`
+                  : `Shared with the squad. Update any time.`}
               </p>
             </div>
           </div>
@@ -280,21 +287,25 @@ export default function ProfileModal({ lockCreate, onSaved, onClose }: ProfileMo
                 <Users className="w-4 h-4" />
                 <span>SQUAD ({team.length})</span>
               </h3>
-              {team.map((t) => (
-                <div key={t.display_name} className="squad-row flex items-center gap-2.5 rounded-[6px] border border-[var(--color-border)] bg-[var(--color-bg-0)] px-3 py-2">
-                  <Check className="w-4 h-4 shrink-0 text-[var(--color-moss)]" />
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold text-[var(--color-text-1)]">
-                      {t.alias} <span className="font-normal text-[var(--color-text-3)]">· {t.display_name}</span>
-                    </p>
-                    {(t.role !== "" || t.affiliation !== "") && (
-                      <p className="truncate text-[12px] text-[var(--color-text-3)]">
-                        {[t.role, t.affiliation].filter((s) => s !== "").join(", ")}
+              {team.map((t) => {
+                const botLabel = CHARACTERS[t.bot_id as BotId]?.name ?? t.bot_id;
+                return (
+                  <div key={`${t.display_name}-${t.bot_id}`} className="squad-row flex items-center gap-2.5 rounded-[6px] border border-[var(--color-border)] bg-[var(--color-bg-0)] px-3 py-2">
+                    <Check className="w-4 h-4 shrink-0 text-[var(--color-moss)]" />
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold text-[var(--color-text-1)]">
+                        {t.alias} <span className="font-normal text-[var(--color-text-3)]">· {t.display_name}</span>
                       </p>
-                    )}
+                      <p className="truncate text-[12px] text-[var(--color-text-3)]">
+                        {botLabel}
+                        {(t.role !== "" || t.affiliation !== "") && (
+                          <> — {[t.role, t.affiliation].filter((s) => s !== "").join(", ")}</>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </section>
           )}
         </div>

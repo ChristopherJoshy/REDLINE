@@ -1,12 +1,14 @@
 // Cover profiles: who each operator pretends to be, per-bot lens.
-// One row per (team, member). Bots receive a tailored brief of the CLAIMANT's
-// cover — an untested claim to probe with their quiz, never a verified fact.
+// One row per (team, member, bot). Bots receive a tailored brief of the
+// CLAIMANT's cover — an untested claim to probe with their quiz, never a
+// verified fact.
 import type { BotId } from "../contracts/events.js";
 import type { DatabaseAdapter } from "../db/database.js";
 
 export interface CoverProfile {
   team_id: string;
   display_name: string;
+  bot_id: string;
   alias: string;
   role: string;
   affiliation: string;
@@ -14,8 +16,8 @@ export interface CoverProfile {
   updated_at: string;
 }
 
-export function getCover(db: DatabaseAdapter, teamId: string, displayName: string): CoverProfile | undefined {
-  return db.get<CoverProfile>("SELECT * FROM cover_profiles WHERE team_id = ? AND display_name = ?", teamId, displayName);
+export function getCover(db: DatabaseAdapter, teamId: string, displayName: string, botId: string): CoverProfile | undefined {
+  return db.get<CoverProfile>("SELECT * FROM cover_profiles WHERE team_id = ? AND display_name = ? AND bot_id = ?", teamId, displayName, botId);
 }
 
 function idline(p: CoverProfile): string {
@@ -44,11 +46,11 @@ const LENS: Record<string, (p: CoverProfile) => string> = {
 };
 
 // System-message brief for this turn, or undefined when the speaker filed
-// no cover (pre-profile transcripts) or the bot has no lens (merchant).
+// no cover for this bot or the bot has no lens (merchant).
 export function coverBrief(db: DatabaseAdapter, teamId: string, displayName: string, botId: BotId): string | undefined {
   const lens = LENS[botId];
   if (lens === undefined) return undefined;
-  const row = getCover(db, teamId, displayName);
+  const row = getCover(db, teamId, displayName, botId);
   if (row === undefined || row.alias === "") return undefined;
   return lens(row);
 }

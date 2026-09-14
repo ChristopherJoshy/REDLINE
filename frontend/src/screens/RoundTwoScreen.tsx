@@ -69,13 +69,13 @@ export default function RoundTwoScreen({ teamId, boss, locked }: RoundTwoScreenP
 
   useEffect(() => {
     let dead = false;
-    getCover()
+    getCover(boss)
       .then((c) => {
         if (!dead && !c) setCoverMissing(true);
       })
       .catch(() => { if (!dead) setCoverMissing(true); });
     return () => { dead = true; };
-  }, []);
+  }, [boss]);
 
   const state = bots[boss];
   const lore = CHARACTERS[boss];
@@ -380,6 +380,7 @@ export default function RoundTwoScreen({ teamId, boss, locked }: RoundTwoScreenP
 
       {coverMissing && (
         <ProfileModal
+          botId={boss}
           lockCreate
           onClose={() => setCoverMissing(false)}
           onSaved={() => setCoverMissing(false)}

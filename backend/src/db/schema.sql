@@ -125,10 +125,11 @@ CREATE TABLE IF NOT EXISTS api_keys (
 CREATE TABLE IF NOT EXISTS cover_profiles (
   team_id TEXT NOT NULL REFERENCES teams(id),
   display_name TEXT NOT NULL,
+  bot_id TEXT NOT NULL DEFAULT '*',
   alias TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT '',
   affiliation TEXT NOT NULL DEFAULT '',
   detail TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  PRIMARY KEY (team_id, display_name)
+  PRIMARY KEY (team_id, display_name, bot_id)
 );

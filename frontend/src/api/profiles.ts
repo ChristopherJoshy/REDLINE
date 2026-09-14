@@ -3,6 +3,7 @@ import { apiFetch } from "./client";
 export interface CoverProfile {
   team_id: string;
   display_name: string;
+  bot_id: string;
   alias: string;
   role: string;
   affiliation: string;
@@ -11,6 +12,7 @@ export interface CoverProfile {
 }
 
 export interface CoverFields {
+  bot_id: string;
   alias: string;
   role: string;
   affiliation: string;
@@ -25,9 +27,9 @@ async function read<T>(res: Response): Promise<T> {
   return data;
 }
 
-// Own cover; returns null when none filed yet.
-export async function getCover(): Promise<CoverProfile | null> {
-  const res = await apiFetch("/api/profile");
+// Own cover for a specific bot; returns null when none filed yet.
+export async function getCover(botId: string): Promise<CoverProfile | null> {
+  const res = await apiFetch(`/api/profile?bot_id=${encodeURIComponent(botId)}`);
   if (!res.ok) return null;
   const data = (await res.json()) as { profile: CoverProfile | null };
   return data.profile ?? null;
@@ -40,7 +42,7 @@ export async function getTeamCovers(): Promise<CoverProfile[]> {
   return data.profiles;
 }
 
-// Create ONCE — server 409s when a row already exists.
+// Create ONCE per bot — server 409s when a row already exists.
 export async function createCover(fields: CoverFields): Promise<CoverProfile> {
   const res = await apiFetch("/api/profile", {
     method: "POST",

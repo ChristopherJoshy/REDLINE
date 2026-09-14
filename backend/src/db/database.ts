@@ -56,6 +56,12 @@ export function openDatabase(path: string, schemaPath: string): DatabaseAdapter 
   } catch {
     // column already exists
   }
+  try {
+    driver.exec("ALTER TABLE cover_profiles ADD COLUMN bot_id TEXT NOT NULL DEFAULT '*';");
+  } catch {
+    // column already exists
+  }
+  driver.exec("DELETE FROM cover_profiles WHERE bot_id = '*';");
   return {
     exec: (sql) => driver.exec(sql),
     run: (sql, ...params) => {

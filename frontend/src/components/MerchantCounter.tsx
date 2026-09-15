@@ -146,8 +146,9 @@ export default function MerchantCounter({
   }
 
   return (
-    <div className="flex h-full w-full items-start justify-center p-4 sm:p-8 overflow-y-auto min-h-0 bg-[#06080a]">
-      <div className="w-full max-w-[860px] rounded-[10px] border border-white/5 bg-[#090b0e] shadow-2xl flex flex-col">
+    <div className="flex h-full w-full items-start justify-center p-4 sm:p-8 overflow-y-auto min-h-0 bg-transparent">
+      <div className="w-full max-w-[860px] rounded-[10px] border border-white/10 bg-[#090b0e]/60 backdrop-blur-xl shadow-2xl flex flex-col relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#090b0e]/50 pointer-events-none" />
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/5 px-6 py-5">
           <div className="flex items-center gap-3">

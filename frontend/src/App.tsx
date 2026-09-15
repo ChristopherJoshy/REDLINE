@@ -43,18 +43,13 @@ export default function App(): React.JSX.Element {
     }
     function handleEloUpdate(e: Event) {
       const custom = e as CustomEvent<{ teamId: string; elo: number; delta: number; reason: string }>;
-      if (identity && custom.detail.teamId === identity.teamId) {
-        setIdentity((prev) => prev ? { ...prev, elo: custom.detail.elo } : prev);
-      }
+      setIdentity((prev) => prev && custom.detail.teamId === prev.teamId ? { ...prev, elo: custom.detail.elo } : prev);
     }
-    window.addEventListener("arena:announcement", handleAnnouncement);
-    window.addEventListener("arena:elo_update", handleEloUpdate);
     function handleAccent(e: Event) {
       const custom = e as CustomEvent<{ accent?: string; ink?: string }>;
       if (typeof custom.detail.accent === "string") setShellAccent(custom.detail.accent);
       if (typeof custom.detail.ink === "string") setShellAccentInk(custom.detail.ink);
     }
-    window.addEventListener("arena:accent", handleAccent);
     function handleCredits(e: Event) {
       const custom = e as CustomEvent<number>;
       if (typeof custom.detail === "number") setCredits(custom.detail);
@@ -65,6 +60,9 @@ export default function App(): React.JSX.Element {
         setHideNav(custom.detail.hidden);
       }
     }
+    window.addEventListener("arena:announcement", handleAnnouncement);
+    window.addEventListener("arena:elo_update", handleEloUpdate);
+    window.addEventListener("arena:accent", handleAccent);
     window.addEventListener("arena:credits", handleCredits);
     window.addEventListener("arena:nav_visibility", handleNavVis);
     return () => {
@@ -74,7 +72,7 @@ export default function App(): React.JSX.Element {
       window.removeEventListener("arena:credits", handleCredits);
       window.removeEventListener("arena:nav_visibility", handleNavVis);
     };
-  }, [identity]);
+  }, []); // No dependencies needed
   // ELO badge pulse on value change
   useEffect(() => {
     if (!identity?.elo) return;
@@ -98,7 +96,7 @@ export default function App(): React.JSX.Element {
       duration: DUR.panel,
       ease: EASE.out,
     });
-  }, [announcement?.id]);
+  }, [announcement]);
 
   useEffect(() => {
     apiFetch("/api/announcements")
@@ -149,11 +147,9 @@ export default function App(): React.JSX.Element {
         onIdentified={(res) => {
           if (res) {
             setIdentity(res);
-            if (res.elo) setCredits(res.elo);
           } else {
             void me().then((m) => {
               setIdentity(m);
-              if (m?.elo) setCredits(m.elo);
             });
           }
         }}
@@ -260,7 +256,7 @@ export default function App(): React.JSX.Element {
             className="flex items-center gap-2 rounded-[6px] border border-[rgba(216,155,36,0.3)] bg-[rgba(216,155,36,0.1)] px-3 py-1.5 font-[family-name:var(--font-code)] text-[12px] font-bold text-[var(--color-gold-bright)] shadow-[0_0_12px_rgba(216,155,36,0.15)] hover:bg-[rgba(216,155,36,0.2)] transition cursor-pointer"
           >
             <Coins className="h-3.5 w-3.5" />
-            <span>{credits !== null ? credits : (identity.elo ?? 928)}</span>
+            <span>{credits !== null ? credits : 0}</span>
           </button>
 
           <ProfileDropdown identity={identity} credits={credits} logout={logout} setIdentity={setIdentity} />
@@ -384,7 +380,7 @@ function ProfileDropdown({ identity, credits, logout, setIdentity }: any) {
           
           <div className="flex items-center justify-between px-3 py-2">
             <span className="flex items-center gap-2 text-[12px] text-[var(--color-text-2)]"><Coins className="h-3.5 w-3.5 text-[var(--color-gold-bright)]" /> Coins</span>
-            <span className="font-bold text-[12px] text-[var(--color-gold-bright)]">{credits !== null ? credits : (identity.elo ?? 928)}</span>
+            <span className="font-bold text-[12px] text-[var(--color-gold-bright)]">{credits !== null ? credits : 0}</span>
           </div>
 
           <div className="h-[1px] bg-white/10 my-1 w-full" />

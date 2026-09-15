@@ -163,7 +163,7 @@ export default function EnterScreen({ onIdentified }: { onIdentified: (res?: Ide
       {/* Background Image */}
       <div
         className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: "url('/backgrounds/login-uiwork.png')" }}
+        style={{ backgroundImage: "url('/backgrounds/logintheme2.png')" }}
       />
 
 

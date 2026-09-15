@@ -227,7 +227,7 @@ export default function GatedArena({ teamId, displayName, locked }: { teamId: st
     if (roundEnded || !round2Active) {
       return <RoundEndedScreen />;
     }
-    return <RoundTwoScreen teamId={teamId} boss={boss} locked={locked && round2Active} onRoundEnd={() => setRoundEnded(true)} />;
+    return <RoundTwoScreen teamId={teamId} boss={boss} locked={locked && round2Active} onRoundEnd={() => setRoundEnded(true)} onBack={() => setBoss(null)} />;
   }
   if (gates !== null && gates.round2Status !== "off" && !gates.qualified) {
     return <SealedScreen message="Sorry, you are not selected to move to Round 2." />;

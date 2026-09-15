@@ -21,7 +21,7 @@ import BossCutscene from "@/portal/BossCutscene";
 import { getCover } from "@/api/profiles";
 import { submitItem } from "@/api/merchant";
 import { apiFetch } from "@/api/client";
-import { ShoppingBag, Volume2, VolumeX, ArrowDown, CheckCircle2, Shield, Pause, Play } from "lucide-react";
+import { ShoppingBag, Volume2, VolumeX, ArrowDown, CheckCircle2, Shield, Pause, Play, ArrowLeft } from "lucide-react";
 import { DUR, reducedMotion } from "@/lib/motionTokens";
 
 interface RoundTwoScreenProps {
@@ -29,6 +29,7 @@ interface RoundTwoScreenProps {
   boss: BotId;
   locked: boolean;
   onRoundEnd?: () => void;
+  onBack?: () => void;
 }
 
 type Reveal = "arrival" | "open";
@@ -37,7 +38,7 @@ function readPref(key: string, fallback: string): string {
   try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
 }
 
-export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: RoundTwoScreenProps): React.JSX.Element {
+export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBack }: RoundTwoScreenProps): React.JSX.Element {
   const { bots, send, flash, inventory, hasSyncedInventory, credits, rewind } = useBotStream(teamId);
   const [reveal, setReveal] = useState<Reveal>(() => {
     try { return sessionStorage.getItem(`redline:r2-intro:${teamId}:${boss}`) === "1" ? "open" : "arrival"; } catch { return "arrival"; }
@@ -299,6 +300,11 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
             <span className="rounded-[6px] border border-moss-border bg-moss-wash px-3 py-1 text-moss text-[12px] font-semibold">
               <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />{boss === "itachi" ? "Izanami shattered" : "Hypnosis broken"}
             </span>
+          )}
+          {onBack && (
+            <button type="button" onClick={onBack} aria-label="Back to Contacts" className="flex min-h-[44px] items-center gap-2 rounded-[6px] border border-white/15 px-3 text-xs text-white/80 hover:border-white/40">
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
           )}
           <RewindButton botId={boss} onRewind={rewind} />
           <button type="button" aria-pressed={motionOff} aria-label={motionOff ? "Enable effects" : "Reduce effects"} disabled={systemReduced} onClick={() => setMotionPaused((value) => !value)} className="flex min-h-[44px] items-center gap-2 border border-white/15 px-3 text-xs text-text-2 disabled:opacity-60">

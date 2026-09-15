@@ -10,6 +10,16 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          three: ["three"]
+        }
+      }
+    }
+  },
   server: {
     port: 5173,
     proxy: {

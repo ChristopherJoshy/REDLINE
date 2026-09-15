@@ -8,7 +8,7 @@ import FullscreenLock from "@/shell/FullscreenLock";
 import AntiTamper from "@/shell/AntiTamper";
 import { me, logout, type IdentifyResult } from "@/api/teams";
 import { apiFetch } from "@/api/client";
-import { Users, User, Trophy, LogOut, Shield, Coins } from "lucide-react";
+import { Users, User, Trophy, LogOut, Shield, Coins, Sun, Bell, ChevronDown } from "lucide-react";
 import { DUR, EASE, reducedMotion } from "@/lib/motionTokens";
 
 // Fullscreen enforcement kill-switch: false = off for now, true = re-enable.
@@ -197,8 +197,8 @@ export default function App(): React.JSX.Element {
       )}
 
       {!hideNav && (
-        <header className="acc-border sticky top-0 z-30 flex min-h-[58px] items-center justify-between gap-3 border-b bg-[rgba(5,7,10,0.85)] px-4 backdrop-blur-md sm:px-6">
-        {/* Left: REDLINE CTF ARENA + 4-line mini ticker */}
+                <header className="acc-border sticky top-0 z-30 flex min-h-[58px] items-center justify-between gap-3 border-b bg-[rgba(5,7,10,0.85)] px-4 backdrop-blur-md sm:px-6">
+        {/* Left: REDLINE CTF ARENA + 3-line mini ticker */}
         <div className="flex items-center gap-3.5">
           <div className="flex flex-col leading-none">
             <div className="flex items-center gap-1.5">
@@ -210,35 +210,27 @@ export default function App(): React.JSX.Element {
               CTF ARENA
             </span>
           </div>
-          <div className="hidden sm:block h-6 w-[1px] bg-white/10" />
-          <div className="hidden lg:flex flex-col text-[7.5px] font-bold tracking-[0.24em] leading-[1.1] text-[var(--color-text-faint)] font-[family-name:var(--font-code)]">
+          <div className="hidden sm:block h-[32px] w-[1px] bg-white/10 mx-2" />
+          <div className="hidden lg:flex flex-col text-[7px] font-bold tracking-[0.24em] leading-[1.3] text-[var(--color-text-faint)] font-[family-name:var(--font-code)]">
             <span>PEOPLE</span>
-            <span>MANIPULATION</span>
-            <span>INFORMATION</span>
-            <span>POWER</span>
+            <span>MANIPULATE.</span>
+            <span>WE BREAK SYSTEMS.</span>
           </div>
         </div>
 
-        {/* Center: ARENA / LEADERBOARD / INTEL / ABOUT tabs + Quote */}
-        <div className="hidden md:flex items-center gap-6">
-          <nav className="flex items-center gap-1.5" aria-label="Command Center">
+        {/* Center: ARENA / ABOUT tabs */}
+        <div className="hidden md:flex flex-1 items-center justify-center">
+          <nav className="flex items-center gap-6" aria-label="Command Center">
             <button
               type="button"
               onClick={() => setActiveTab("arena")}
               className={`relative px-4 py-4 text-[11px] font-[family-name:var(--font-code)] font-bold tracking-[0.25em] transition-colors ${
                 activeTab === "arena"
-                  ? "text-white after:absolute after:bottom-0 after:left-2 after:right-2 after:h-[2px] after:bg-[#ff1e2d] after:shadow-[0_0_10px_rgba(255,30,45,0.8)]"
+                  ? "text-[#ff1e2d] after:absolute after:bottom-0 after:left-2 after:right-2 after:h-[2px] after:bg-[#ff1e2d] after:shadow-[0_0_10px_rgba(255,30,45,0.8)]"
                   : "text-[var(--color-text-3)] hover:text-white"
               }`}
             >
               ARENA
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowLeaderboard(true)}
-              className="relative px-4 py-4 text-[11px] font-[family-name:var(--font-code)] font-bold tracking-[0.25em] text-[var(--color-text-3)] hover:text-white transition-colors"
-            >
-              LEADERBOARD
             </button>
 
             <button
@@ -249,47 +241,31 @@ export default function App(): React.JSX.Element {
               ABOUT
             </button>
           </nav>
-          <span className="hidden xl:inline-block text-[10.5px] font-[family-name:var(--font-code)] tracking-[0.16em] text-[var(--color-text-faint)]">
-            “PEOPLE MANIPULATE. WE BREAK SYSTEMS.”
-          </span>
         </div>
 
-        {/* Right: Vanguard | Ghost | Credits | Leave */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 rounded-[6px] border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[12px] font-semibold text-white backdrop-blur-sm">
-            <User className="h-3.5 w-3.5 text-[var(--color-text-3)]" />
-            <span className="tracking-[0.06em]">{identity.teamName || "VANGUARD"}</span>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-1.5 rounded-[6px] border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-2)] backdrop-blur-sm">
-            <Shield className="h-3.5 w-3.5 text-[var(--color-text-3)]" />
-            <span className="tracking-[0.06em]">GHOST</span>
-          </div>
+        {/* Right: Icons + Credits + Profile Dropdown */}
+        <div className="flex items-center gap-4">
+          <button className="hidden sm:block text-[var(--color-text-3)] hover:text-white transition-colors cursor-pointer" aria-label="Toggle Theme">
+            <Sun className="h-4 w-4" />
+          </button>
+          <button className="hidden sm:block relative text-[var(--color-text-3)] hover:text-white transition-colors cursor-pointer" aria-label="Notifications">
+            <Bell className="h-4 w-4" />
+            <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-[#ff1e2d] shadow-[0_0_5px_rgba(255,30,45,0.8)]" />
+          </button>
+          
+          <div className="hidden sm:block h-6 w-[1px] bg-white/10 mx-1" />
 
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent("arena:open_satchel"))}
             title="Open Satchel & Credits"
-            className="flex items-center gap-1.5 rounded-[6px] border border-[rgba(216,155,36,0.45)] bg-[rgba(216,155,36,0.12)] px-3 py-1.5 font-[family-name:var(--font-code)] text-[12px] font-bold text-[var(--color-gold-bright)] shadow-[0_0_12px_rgba(216,155,36,0.15)] hover:bg-[rgba(216,155,36,0.2)] transition cursor-pointer"
+            className="flex items-center gap-2 rounded-[6px] border border-[rgba(216,155,36,0.3)] bg-[rgba(216,155,36,0.1)] px-3 py-1.5 font-[family-name:var(--font-code)] text-[12px] font-bold text-[var(--color-gold-bright)] shadow-[0_0_12px_rgba(216,155,36,0.15)] hover:bg-[rgba(216,155,36,0.2)] transition cursor-pointer"
           >
             <Coins className="h-3.5 w-3.5" />
             <span>{credits !== null ? credits : (identity.elo ?? 928)}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={async () => {
-              if (!confirm("Are you sure you want to leave the arena?")) return;
-              try { await logout(); } catch { /* ignore */ }
-              setIdentity(null);
-              window.location.reload();
-            }}
-            className="flex items-center gap-1.5 rounded-[6px] border border-[#ff1e2d] bg-[#ff1e2d]/15 px-3 py-1.5 text-[12px] font-bold text-white shadow-[0_0_15px_rgba(255,30,45,0.3)] hover:bg-[#ff1e2d]/25 transition cursor-pointer"
-            title="Log out and leave arena"
-          >
-            <LogOut className="h-3.5 w-3.5 text-[#ff1e2d]" />
-            <span className="tracking-[0.08em]">LEAVE</span>
-          </button>
+          <ProfileDropdown identity={identity} credits={credits} logout={logout} setIdentity={setIdentity} />
         </div>
       </header>
       )}
@@ -369,5 +345,70 @@ export default function App(): React.JSX.Element {
       )}
       </div>
     </main>
+  );
+}
+
+function ProfileDropdown({ identity, credits, logout, setIdentity }: any) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button 
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 cursor-pointer text-[var(--color-text-3)] hover:text-white transition-colors ml-1"
+      >
+        <div className="flex items-center justify-center w-7 h-7 rounded-full border border-white/20 bg-white/5 font-bold text-[12px] text-white">
+          {identity.teamName ? identity.teamName.charAt(0).toUpperCase() : "V"}
+        </div>
+        <ChevronDown className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-[calc(100%+12px)] w-56 rounded-[8px] border border-white/10 bg-[rgba(10,14,20,0.95)] backdrop-blur-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] p-2 z-50 flex flex-col gap-1 origin-top-right">
+          <div className="px-3 py-2 border-b border-white/10 mb-1">
+            <p className="font-bold text-[13px] text-white truncate">{identity.teamName || "Vanguard"}</p>
+            <p className="font-[family-name:var(--font-code)] text-[10px] text-[var(--color-text-3)] mt-0.5">Operative</p>
+          </div>
+          
+          <div className="flex items-center justify-between px-3 py-2">
+            <span className="flex items-center gap-2 text-[12px] text-[var(--color-text-2)]"><Trophy className="h-3.5 w-3.5 text-blue-400" /> ELO</span>
+            <span className="font-bold text-[12px] text-blue-400">{identity.elo ?? 928}</span>
+          </div>
+          
+          <div className="flex items-center justify-between px-3 py-2">
+            <span className="flex items-center gap-2 text-[12px] text-[var(--color-text-2)]"><Coins className="h-3.5 w-3.5 text-[var(--color-gold-bright)]" /> Coins</span>
+            <span className="font-bold text-[12px] text-[var(--color-gold-bright)]">{credits !== null ? credits : (identity.elo ?? 928)}</span>
+          </div>
+
+          <div className="h-[1px] bg-white/10 my-1 w-full" />
+          
+          <button
+            type="button"
+            onClick={async () => {
+              if (!confirm("Are you sure you want to leave the arena?")) return;
+              try { await logout(); } catch { /* ignore */ }
+              setIdentity(null);
+              window.location.reload();
+            }}
+            className="flex items-center gap-2 px-3 py-2 rounded-[6px] text-[12px] font-bold text-[#ff1e2d] hover:bg-[#ff1e2d]/15 transition-colors text-left cursor-pointer"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span>LOGOUT</span>
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

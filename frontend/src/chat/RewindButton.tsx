@@ -84,7 +84,7 @@ export default function RewindButton({ botId, onRewind }: RewindButtonProps): Re
       )}
 
       {menuOpen && phase === "idle" && (
-        <div className="absolute right-0 top-full mt-1 w-56 rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-surface-1)] p-1.5  z-50 animate-in fade-in zoom-in-95">
+        <div className="absolute right-0 top-full mt-1 w-56 rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-surface-1)] p-1.5 shadow-xl z-50 animate-in fade-in zoom-in-95">
           <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-3)]">
             Cost: 1 ELO
           </div>

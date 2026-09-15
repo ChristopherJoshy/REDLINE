@@ -1,40 +1,40 @@
 @import "./fonts.css";
 @import "tailwindcss";
 
-/* REDLINE's original black-and-signal-red arena palette. */
+/* REDLINE Arena — Dark CTF Command Center. Near-black grounds, red accent, gold rewards. */
 @theme inline {
-  --color-bg-0: #05070A;
-  --color-bg-1: #090D12;
-  --color-surface-1: #0D1117;
-  --color-surface-2: #11161D;
+  --color-bg-0: #05070a;
+  --color-bg-1: #090d12;
+  --color-surface-1: #0d1117;
+  --color-surface-2: #11161d;
   --color-surface-3: #182028;
-  --color-border: #FFFFFF14;
-  --color-border-strong: #FF1E2D59;
-  --color-text-1: #F5F5F5;
-  --color-text-2: #D7D9DE;
-  --color-text-3: #A7ADB7;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 30, 45, 0.35);
+  --color-text-1: #f5f5f5;
+  --color-text-2: #d7d9de;
+  --color-text-3: #a7adb7;
   --color-text-faint: #707782;
-  --color-brass: #FF1E2D;
-  --color-brass-ink: #FFFFFF;
-  --color-brass-wash: #FF1E2D1F;
-  --color-seal: #FF1E2D;
-  --color-seal-wash: #FF1E2D1F;
-  --color-moss: #9DB87A;
-  --color-moss-wash: #9DB87A1A;
-  --color-moss-border: #9DB87A59;
-  --color-redline: #FF1E2D;
-  --color-redline-soft: #B20F21;
-  --color-redline-dim: #FF1E2D1F;
-  --color-gold: #D89B24;
-  --color-gold-bright: #F2B632;
-  --color-gold-wash: #D89B241F;
-  --color-gold-border: #D89B2459;
-  --color-cyan: #79D5E8;
-  --color-green: #9DB87A;
-  --color-portal-950: #05070A;
-  --color-portal-700: #171D27;
-  --color-portal-400: #FF1E2D;
-  --color-vault-p2: #311116;
+  --color-brass: #ff1e2d;
+  --color-brass-ink: #ffffff;
+  --color-brass-wash: rgba(255, 30, 45, 0.12);
+  --color-seal: #ff1e2d;
+  --color-seal-wash: rgba(255, 30, 45, 0.12);
+  --color-moss: #9db87a;
+  --color-moss-wash: rgba(157, 184, 122, 0.1);
+  --color-moss-border: rgba(157, 184, 122, 0.35);
+  --color-redline: #ff1e2d;
+  --color-redline-soft: #e50914;
+  --color-redline-dim: rgba(255, 30, 45, 0.25);
+  --color-gold: #d89b24;
+  --color-gold-bright: #f2b632;
+  --color-gold-wash: rgba(216, 155, 36, 0.12);
+  --color-gold-border: rgba(216, 155, 36, 0.45);
+  --color-cyan: #8ab4d6;
+  --color-green: #9db87a;
+  --color-portal-950: #05070a;
+  --color-portal-700: #a7adb7;
+  --color-portal-400: #ff1e2d;
+  --color-vault-p2: #090d12;
   --font-display: "Cinzel", Georgia, serif;
   --font-body: "Inter", system-ui, sans-serif;
   --font-code: "JetBrains Mono", ui-monospace, monospace;
@@ -48,19 +48,7 @@
   --space: clamp(0.75rem, 2vw, 1.5rem);
 }
 
-:root {
-  --motion-enabled: 1;
-  --accent: var(--color-redline);
-  --accent-ink: #ffffff;
-  --accent-deep: var(--color-redline-soft);
-  --accent-soft: var(--color-redline);
-  --accent-wash: var(--color-redline-dim);
-  --accent-border: var(--color-border-strong);
-  --accent-glow: transparent;
-}
-
 body {
-  margin: 0;
   background: var(--color-bg-0);
   color: var(--color-text-1);
   font-family: var(--font-body);
@@ -69,84 +57,327 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-button, input, textarea, select { font: inherit; }
-button:not(:disabled) { cursor: pointer; }
-button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
-:focus-visible { outline: 2px solid var(--color-brass); outline-offset: 3px; }
-input, textarea, select { border-radius: 6px; }
-textarea { resize: vertical; }
-h1, h2, h3 { text-wrap: balance; }
-p { overflow-wrap: anywhere; }
-input:disabled, textarea:disabled { cursor: not-allowed; }
-::selection { background: var(--color-brass-wash); color: var(--color-text-1); }
+/* Entry gate: cyberpunk red-black theme. */
+.dark-cinematic {
+  --color-bg-0: #0a0a0a;
+  --color-bg-1: #111111;
+  --color-surface-1: #1a1a1a;
+  --color-surface-2: #222222;
+  --color-surface-3: #2a2a2a;
+  --color-border: #333333;
+  --color-border-strong: #dc2626;
+  --color-text-1: #ffffff;
+  --color-text-2: #e5e5e5;
+  --color-text-3: #a3a3a3;
+  --color-text-faint: #525252;
+  --color-redline: #dc2626;
+  --color-redline-soft: #ef4444;
+  --color-redline-dim: rgba(220, 38, 38, 0.15);
+  --color-seal: #dc2626;
+  --color-seal-wash: rgba(220, 38, 38, 0.15);
+  --color-brass: #dc2626;
+  --color-brass-ink: #ffffff;
+  --color-brass-wash: rgba(220, 38, 38, 0.2);
+  background-color: #0a0a0a;
+  color: #ffffff;
+}
 
-/* Shared aliases keep the existing components on the same flat surface system. */
-.redline-bg { background-image: url("/backgrounds/login-uiwork.png"); background-position: center; background-size: cover; background-attachment: fixed; }
-.bot-theme { background: var(--color-bg-0); }
-.redline-veil { background: linear-gradient(180deg, #05070AD1, #05070AE0), radial-gradient(1200px 500px at 50% -10%, var(--accent-glow), transparent 60%); }
-.redline-panel, .redline-chip, .redline-carousel-card, .board-panel {
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+@keyframes troll-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
 }
-.redline-selected, .redline-carousel-card-selected, .redline-carousel-merchant-selected {
-  border-color: var(--color-brass);
-  background: var(--color-brass-wash);
+
+.animate-troll {
+  animation: troll-shake var(--dur-ui) var(--ease-out) 2;
+  border-color: var(--color-seal);
 }
-.redline-gold-card, .redline-carousel-merchant {
-  border: 1px solid var(--color-border-strong);
-  background: var(--color-brass-wash);
+
+.portal-fallback {
+  background: var(--color-surface-3);
 }
-.redline-cta, .redline-primary-cta { background: linear-gradient(180deg, var(--accent), var(--accent-deep)); border: 1px solid var(--accent); box-shadow: 0 0 24px var(--accent-glow), inset 0 1px #FFFFFF26; color: var(--accent-ink); transition: transform var(--dur-ui) var(--ease-out), box-shadow var(--dur-ui) var(--ease-out), filter var(--dur-ui) var(--ease-out); }
-.redline-cta:hover:not(:disabled), .redline-primary-cta:hover:not(:disabled) { filter: brightness(1.12); box-shadow: 0 0 32px var(--accent-glow), inset 0 1px #FFFFFF33; transform: translateY(-1px); }
-.redline-cta:active:not(:disabled), .redline-primary-cta:active:not(:disabled) { transform: scale(0.99); }
-.redline-cta :is(span, svg), .redline-primary-cta :is(span, svg) { color: inherit; }
-.mark-card { transition: transform var(--dur-ui) var(--ease-out); }
-.mark-card:hover { border-color: var(--color-brass); }
-.mark-card:active { transform: scale(0.98); }
-.redline-scroll { scrollbar-width: thin; scrollbar-color: var(--color-border-strong) transparent; }
-.redline-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-.redline-scroll::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 6px; }
-.redline-scroll::-webkit-scrollbar-track { background: transparent; }
-.acc-text, .acc-text-strong { color: var(--color-brass); }
-.acc-bg, .acc-bar { background: var(--color-brass); }
-.acc-border { border-color: var(--color-border-strong); }
-.acc-wash { background: var(--color-brass-wash); border-color: var(--color-border-strong); color: var(--color-brass-ink); }
-.acc-glow { box-shadow: none; }
-.portal-fallback { background: var(--color-surface-3); }
-.writing-mode-vertical { writing-mode: vertical-rl; text-orientation: mixed; }
-.chat-msg { min-width: 0; }
-.chat-msg > div { min-width: 0; }
-.chat-msg .whitespace-pre-wrap { overflow-wrap: anywhere; }
-.board-title { color: var(--color-text-1); }
-.board-row:hover { background: var(--color-surface-2); }
-.dark-cinematic { background: var(--color-text-1); color: var(--color-bg-0); }
-.arena-atmosphere {
-  opacity: 0.18;
-  filter: grayscale(0.55) sepia(0.2) contrast(1.12);
-  mix-blend-mode: screen;
-  object-position: center;
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-.boss-stage-itachi .arena-atmosphere {
-  opacity: 0.2;
-  filter: grayscale(0.9) sepia(0.25) contrast(1.2);
-  object-position: center 35%;
+
+.rise-in {
+  animation: rise-in 500ms var(--ease-out) both;
 }
-.boss-stage-aizen .arena-atmosphere {
-  opacity: 0.18;
-  filter: grayscale(0.5) sepia(0.3) contrast(1.1);
-  object-position: center 42%;
+
+/* Writing mode for vertical text */
+.writing-mode-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
 }
-.round-status-shell {
-  background-image: linear-gradient(rgb(5 7 10 / 0.68), rgb(5 7 10 / 0.9)), url("/backgrounds/login-uiwork.png");
-  background-position: center;
-  background-size: cover;
+
+/* Scanline effect */
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
 }
-@keyframes rise-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-.rise-in { animation: rise-in 500ms var(--ease-out) both; }
-@keyframes troll-shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
-.animate-troll { animation: troll-shake var(--dur-ui) var(--ease-out) 2; border-color: var(--color-seal); }
+
+/* Glitch effect for REDLINE text */
+@keyframes glitch {
+  0%, 100% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+}
+
+/* Glow pulse animation */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(220, 38, 38, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(220, 38, 38, 0.6); }
+}
+
+/* --motion-enabled: readable by JS via getComputedStyle to detect reduced-motion preference */
+:root {
+  --motion-enabled: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  :root { --motion-enabled: 0; }
-  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  :root {
+    --motion-enabled: 0;
+  }
+
+  /* CSS-driven animations only — Anime.js uses reducedMotion() from motionTokens.ts */
+  .animate-troll,
+  .rise-in {
+    animation: none;
+  }
+}
+
+/* REDLINE CTF Command Center utilities */
+.redline-bg {
+  background-image: url("/backgrounds/login-uiwork.png");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+.redline-veil {
+  background:
+    linear-gradient(180deg, rgba(5, 7, 10, 0.82) 0%, rgba(5, 7, 10, 0.88) 100%),
+    radial-gradient(1200px 500px at 50% -10%, var(--accent-glow), transparent 60%);
+}
+
+.redline-panel {
+  background: linear-gradient(180deg, rgba(17, 22, 29, 0.78), rgba(9, 13, 18, 0.82));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(6px);
+}
+
+.redline-selected {
+  border-color: var(--accent-border) !important;
+  background: linear-gradient(180deg, var(--accent-wash), rgba(13, 17, 23, 0.72)) !important;
+  box-shadow: 0 0 0 1px var(--accent-border), 0 0 24px var(--accent-glow);
+  backdrop-filter: blur(6px);
+}
+
+.redline-gold-card {
+  border: 1px solid rgba(216, 155, 36, 0.45) !important;
+  background: linear-gradient(180deg, rgba(216, 155, 36, 0.1), rgba(9, 13, 18, 0.94)) !important;
+  box-shadow: 0 0 24px rgba(216, 155, 36, 0.12);
+}
+
+.redline-cta {
+  background: linear-gradient(180deg, var(--accent), var(--accent-deep));
+  box-shadow: 0 0 24px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  color: var(--accent-ink);
+  transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out), filter 180ms var(--ease-out);
+}
+
+.redline-cta:hover {
+  filter: brightness(1.12);
+  box-shadow: 0 0 32px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.redline-cta:active {
+  transform: scale(0.99);
+}
+
+.redline-chip {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.mark-card {
+  transition: border-color 180ms var(--ease-out), background 180ms var(--ease-out), box-shadow 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+
+.mark-card:hover {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.redline-scroll::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.redline-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}
+
+.redline-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-glow);
+}
+
+.redline-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:root {
+  --accent: #ff1e2d;
+  --accent-ink: #ffffff;
+}
+
+* {
+  --accent-deep: color-mix(in srgb, var(--accent) 55%, black);
+  --accent-soft: color-mix(in srgb, var(--accent) 55%, white);
+  --accent-wash: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-border: color-mix(in srgb, var(--accent) 45%, transparent);
+  --accent-glow: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.acc-text { color: var(--accent-soft); }
+.acc-text-strong { color: var(--accent); }
+.acc-bg { background-color: var(--accent); }
+.acc-border { border-color: var(--accent-border) !important; }
+.acc-wash { background-color: var(--accent-wash); border-color: var(--accent-border); color: var(--accent-soft); }
+.acc-bar { background: linear-gradient(180deg, var(--accent), var(--accent-deep)); box-shadow: 0 0 12px var(--accent-glow); }
+.acc-glow { box-shadow: 0 0 24px var(--accent-glow); }
+
+/* 1:1 Carousel Card Neon & Angled Border Styling */
+.redline-carousel-card {
+  position: relative;
+  background: rgba(10, 13, 18, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  backdrop-filter: blur(8px);
+}
+
+.redline-carousel-card:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(18, 24, 33, 0.85);
+  transform: translateY(-2px);
+}
+
+.redline-carousel-card-selected {
+  position: relative;
+  background: linear-gradient(180deg, rgba(255, 30, 45, 0.22) 0%, rgba(13, 17, 23, 0.92) 100%) !important;
+  border: 1.5px solid #ff1e2d !important;
+  box-shadow: 0 0 24px rgba(255, 30, 45, 0.45), inset 0 0 15px rgba(255, 30, 45, 0.15) !important;
+  transform: translateY(-4px) scale(1.02);
+}
+
+.redline-carousel-card-selected::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 15%;
+  right: 15%;
+  height: 2px;
+  background: #ff1e2d;
+  box-shadow: 0 0 12px #ff1e2d, 0 0 20px #ff1e2d;
+  border-radius: 9999px;
+}
+
+.redline-carousel-merchant {
+  position: relative;
+  background: rgba(20, 16, 10, 0.8);
+  border: 1px solid rgba(216, 155, 36, 0.4);
+  backdrop-filter: blur(8px);
+}
+
+.redline-carousel-merchant:hover {
+  border-color: rgba(216, 155, 36, 0.7);
+  background: rgba(28, 22, 12, 0.9);
+  transform: translateY(-2px);
+}
+
+.redline-carousel-merchant-selected {
+  position: relative;
+  background: linear-gradient(180deg, rgba(216, 155, 36, 0.25) 0%, rgba(18, 14, 8, 0.94) 100%) !important;
+  border: 1.5px solid #f2b632 !important;
+  box-shadow: 0 0 24px rgba(216, 155, 36, 0.45), inset 0 0 15px rgba(216, 155, 36, 0.2) !important;
+  transform: translateY(-4px) scale(1.02);
+}
+
+.redline-carousel-merchant-selected::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 15%;
+  right: 15%;
+  height: 2px;
+  background: #f2b632;
+  box-shadow: 0 0 12px #f2b632, 0 0 20px #f2b632;
+  border-radius: 9999px;
+}
+
+/* Red CTA Button (matching Image 1 & 2) */
+.redline-primary-cta {
+  background: linear-gradient(90deg, #b91c1c 0%, #ff1e2d 50%, #dc2626 100%);
+  border: 1px solid rgba(255, 100, 100, 0.5);
+  box-shadow: 0 0 25px rgba(255, 30, 45, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.redline-primary-cta:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 0 35px rgba(255, 30, 45, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.redline-primary-cta:active {
+  transform: scale(0.99);
+}
+
+
+/* Leaderboard — temporal nexus arena skin */
+.board-panel {
+  background: linear-gradient(180deg, rgba(9, 5, 6, 0.93), rgba(18, 7, 7, 0.88));
+  border: 1px solid rgba(225, 6, 0, 0.38);
+  clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px);
+  box-shadow: 0 0 60px rgba(225, 6, 0, 0.12), inset 0 0 48px rgba(225, 6, 0, 0.06);
+  backdrop-filter: blur(8px);
+}
+
+.board-title {
+  text-shadow: 0 0 28px rgba(255, 26, 20, 0.5), 0 2px 14px rgba(0, 0, 0, 0.9);
+}
+
+.board-row {
+  transition: transform 200ms var(--ease-out), border-color 200ms var(--ease-out), background 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
+}
+
+.board-row:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 59, 48, 0.65);
+  box-shadow: 0 6px 24px rgba(225, 6, 0, 0.22);
+}
+
+@keyframes champion-pulse {
+  0%, 100% { box-shadow: 0 0 18px rgba(225, 6, 0, 0.35), inset 0 0 14px rgba(225, 6, 0, 0.12); }
+  50% { box-shadow: 0 0 34px rgba(225, 6, 0, 0.55), inset 0 0 20px rgba(225, 6, 0, 0.2); }
+}
+
+.board-champion {
+  animation: champion-pulse 3.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-champion {
+    animation: none;
+  }
+  .board-row:hover {
+    transform: none;
+  }
 }

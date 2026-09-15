@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AnyEvent, BotId, InventoryDelta } from "@contracts/events";
-import { createFrame, parseEvent, wsUrl } from "@/ws/client";
+import type { AnyEvent, BotId, ClientEvent, InventoryDelta } from "@contracts/events";
+import { createFrame, parseEvent } from "@/ws/client";
 import { playSound } from "@/chat/sound";
 import { apiUrl, apiFetch } from "@/api/client";
 import { getLocks, type BotLockMap } from "@/api/locks";
@@ -22,17 +22,50 @@ interface BotState {
 
 const ROSTER: BotId[] = ["wick", "spidey", "escanor", "stark", "joker", "light", "levi", "deadpool", "itachi", "aizen", "merchant"];
 
+function wsUrl(): string {
+  let url = "";
+  const envWs = import.meta.env.VITE_WS_URL;
+  if (typeof envWs === "string" && envWs.trim() !== "") {
+    url = envWs.trim();
+  } else {
+    const envApi = import.meta.env.VITE_API_URL;
+    if (typeof envApi === "string" && envApi.trim() !== "") {
+      try {
+        const u = new URL(envApi);
+        const proto = u.protocol === "https:" ? "wss:" : "ws:";
+        url = `${proto}//${u.host}/ws`;
+      } catch {
+        // ignore invalid URL
+      }
+    }
+  }
+  if (!url) {
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    url = `${proto}//${window.location.host}/ws`;
+  }
 
-export function useBotStream(teamId: string, round: "r1" | "r2" = "r1"): {
+  try {
+    const token = localStorage.getItem("redline_session_token");
+    if (token) {
+      const parsed = new URL(url);
+      parsed.searchParams.set("token", token);
+      return parsed.toString();
+    }
+  } catch {
+    // LocalStorage might be restricted
+  }
+  return url;
+}
+
+export function useBotStream(teamId: string): {
   bots: Record<BotId, BotState>;
   inventory: InventoryDelta[];
   hasSyncedInventory: boolean;
   credits: number;
   flash: number;
   locks: BotLockMap;
-  connected: boolean;
   setLocks: React.Dispatch<React.SetStateAction<BotLockMap>>;
-  send: (botId: BotId, text: string) => boolean;
+  send: (botId: BotId, text: string) => void;
   say: (botId: BotId, text: string) => void;
   rewind: (botId: BotId, options?: { messageId?: number; turns?: number }) => Promise<{ ok: boolean; error?: string }>;
 } {
@@ -48,20 +81,12 @@ export function useBotStream(teamId: string, round: "r1" | "r2" = "r1"): {
   const [credits, setCredits] = useState(0);
   const [flash, setFlash] = useState(0);
   const [locks, setLocks] = useState<BotLockMap>({});
-  const [connected, setConnected] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
-  const transportRef = useRef<"ws" | "sse" | null>(null);
+  const queueRef = useRef<ClientEvent[]>([]);
   const retryRef = useRef(1000);
   const lastSoundRef = useRef<string | null>(null);
-  const seenFramesRef = useRef(new Set<string>());
 
   const apply = useCallback((event: AnyEvent) => {
-    if (seenFramesRef.current.has(event.id)) return;
-    seenFramesRef.current.add(event.id);
-    if (seenFramesRef.current.size > 500) {
-      const oldest = seenFramesRef.current.values().next().value;
-      if (oldest !== undefined) seenFramesRef.current.delete(oldest);
-    }
     if (event.event === "bot_typing") {
       const { botId, typing } = event.data;
       setBots((prev) => ({ ...prev, [botId]: { ...prev[botId], typing } }));
@@ -125,7 +150,6 @@ export function useBotStream(teamId: string, round: "r1" | "r2" = "r1"): {
     } else if (event.event === "bot_locks") {
       setLocks(event.data.locks);
     } else if (event.event === "chat_sync") {
-      setConnected(transportRef.current !== null);
       const history = event.data.history;
       setBots((prev) => {
         const next = { ...prev };
@@ -167,6 +191,39 @@ export function useBotStream(teamId: string, round: "r1" | "r2" = "r1"): {
     return () => { dead = true; };
   }, []);
 
+  // Fetch initial chat logs from server so refresh preserves all messages
+  useEffect(() => {
+    let dead = false;
+    apiFetch("/api/chat/history")
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json() as Promise<{ history?: Partial<Record<BotId, Array<{ id?: number; role: "user" | "bot"; text: string; createdAt?: string }>>> }>;
+      })
+      .then((data) => {
+        if (dead || !data || !data.history) return;
+        setBots((prev) => {
+          const next = { ...prev };
+          for (const [botId, msgs] of Object.entries(data.history ?? {})) {
+            const bId = botId as BotId;
+            if (next[bId] && msgs && msgs.length > 0) {
+              next[bId] = {
+                ...next[bId],
+                messages: msgs.map((m) => ({
+                  id: m.id,
+                  role: m.role,
+                  text: m.text,
+                  createdAt: m.createdAt,
+                })),
+              };
+            }
+          }
+          return next;
+        });
+      })
+      .catch(() => {});
+    return () => { dead = true; };
+  }, []);
+
   useEffect(() => {
     let dead = false;
     let retryTimer: number | undefined;
@@ -185,20 +242,7 @@ export function useBotStream(teamId: string, round: "r1" | "r2" = "r1"): {
         } catch {
           last = "";
         }
-        const streamUrl = new URL(apiUrl("/api/stream"), window.location.href);
-        if (last !== "") streamUrl.searchParams.set("lastEventId", last);
-        try {
-          const token = window.localStorage.getItem("redline_session_token");
-          if (token) streamUrl.searchParams.set("token", token);
-        } catch { /* Cookie authentication remains available. */ }
-        source = new EventSource(streamUrl.toString(), { withCredentials: true });
-        source.onopen = () => { transportRef.current = "sse"; };
-        source.onerror = () => {
-          if (transportRef.current === "sse") {
-            transportRef.current = null;
-            setConnected(false);
-          }
-        };
+        source = new EventSource(apiUrl(last === "" ? "/api/stream" : `/api/stream?lastEventId=${encodeURIComponent(last)}`));
         source.onmessage = (e: MessageEvent<string>) => {
           try {
             apply(parseEvent(e.data));
@@ -214,14 +258,18 @@ export function useBotStream(teamId: string, round: "r1" | "r2" = "r1"): {
         retryRef.current = 1000;
         source?.close();
         source = undefined;
-        transportRef.current = "ws";
         let last = "";
         try {
           last = window.localStorage.getItem("redline_last_event") ?? "";
         } catch {
           last = "";
         }
-        socket.send(JSON.stringify(createFrame("hello", { teamId, round, ...(last === "" ? {} : { lastEventId: last }) })));
+        socket.send(JSON.stringify(createFrame("hello", { teamId, round: "r1", ...(last === "" ? {} : { lastEventId: last }) })));
+        const queued = queueRef.current;
+        queueRef.current = [];
+        for (const frame of queued) {
+          socket.send(JSON.stringify(frame));
+        }
       };
       socket.onmessage = (e: MessageEvent<string>) => {
         try {
@@ -237,11 +285,6 @@ export function useBotStream(teamId: string, round: "r1" | "r2" = "r1"): {
         if (dead) {
           return;
         }
-        if (transportRef.current !== "sse") {
-          transportRef.current = null;
-          setConnected(false);
-          setBots((prev) => Object.fromEntries(Object.entries(prev).map(([id, state]) => [id, { ...state, typing: false, streaming: "" }])) as Record<BotId, BotState>);
-        }
         failures += 1;
         const wait = Math.min(retryRef.current * (1 + Math.random() * 0.25), 30_000);
         retryRef.current = Math.min(retryRef.current * 2, 30_000);
@@ -256,60 +299,20 @@ export function useBotStream(teamId: string, round: "r1" | "r2" = "r1"): {
       source?.close();
       socketRef.current?.close();
     };
-  }, [teamId, round, apply]);
-
-  useEffect(() => {
-    function sendPresence(): void {
-      const socket = socketRef.current;
-      if (socket?.readyState !== WebSocket.OPEN) return;
-      socket.send(JSON.stringify(createFrame("visibility_change", {
-        status: document.hidden ? "away" : "online",
-      })));
-    }
-    function reportViolation(event: Event): void {
-      const detail = (event as CustomEvent<{ type?: unknown }>).detail;
-      const type = detail?.type;
-      if (type !== "fullscreen_exit" && type !== "tab_switch" && type !== "copy_paste" && type !== "right_click") return;
-      const socket = socketRef.current;
-      if (socket?.readyState !== WebSocket.OPEN) return;
-      socket.send(JSON.stringify(createFrame("security_violation", { type })));
-    }
-    document.addEventListener("visibilitychange", sendPresence);
-    window.addEventListener("arena:security_violation", reportViolation);
-    return () => {
-      document.removeEventListener("visibilitychange", sendPresence);
-      window.removeEventListener("arena:security_violation", reportViolation);
-    };
-  }, []);
+  }, [teamId, apply]);
 
   const send = useCallback(
     (botId: BotId, text: string) => {
-      const socket = socketRef.current;
-      if (!connected || transportRef.current === null) return false;
       const frame = createFrame("chat_send", { teamId, botId, text });
-      if (transportRef.current === "ws") {
-        if (socket === null || socket.readyState !== WebSocket.OPEN) return false;
+      setBots((prev) => ({ ...prev, [botId]: { ...prev[botId], messages: [...prev[botId].messages, { role: "user", text }] } }));
+      const socket = socketRef.current;
+      if (socket !== null && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify(frame));
       } else {
-        void apiFetch("/api/chat/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ botId, text }),
-        }).then(async (response) => {
-          if (response.ok) return;
-          const data = await response.json() as { error?: string };
-          throw new Error(data.error ?? "Message could not be sent. Try again.");
-        }).catch((error: unknown) => {
-          setBots((prev) => ({ ...prev, [botId]: {
-            ...prev[botId], typing: false, streaming: "",
-            messages: [...prev[botId].messages, { role: "bot", text: error instanceof Error ? error.message : "Connection lost. Try sending your message again." }],
-          } }));
-        });
+        queueRef.current.push(frame);
       }
-      setBots((prev) => ({ ...prev, [botId]: { ...prev[botId], typing: true, messages: [...prev[botId].messages, { role: "user", text }] } }));
-      return true;
     },
-    [teamId, connected],
+    [teamId],
   );
 
   // Local merchant-desk notes: deterministic counter receipts land in the
@@ -359,5 +362,5 @@ export function useBotStream(teamId: string, round: "r1" | "r2" = "r1"): {
     [teamId],
   );
 
-  return { bots, inventory, hasSyncedInventory, credits, flash, locks, connected, setLocks, send, say, rewind };
+  return { bots, inventory, hasSyncedInventory, credits, flash, locks, setLocks, send, say, rewind };
 }

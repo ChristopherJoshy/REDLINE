@@ -13,22 +13,20 @@ import CelebrationOverlay from "@/components/CelebrationOverlay";
 import { getCover } from "@/api/profiles";
 import { submitItem } from "@/api/merchant";
 import { apiFetch } from "@/api/client";
-import { Clock3, Eye, Send, ShieldCheck } from "lucide-react";
+import { Send } from "lucide-react";
 import { DUR, EASE, reducedMotion } from "@/lib/motionTokens";
-import { formatClock } from "@/lib/useRoundClock";
 
 interface RoundTwoScreenProps {
   teamId: string;
   boss: BotId;
   locked: boolean;
-  secondsRemaining: number;
   onRoundEnd?: () => void;
 }
 
 type Reveal = "blackout" | "sigil" | "open";
 
-export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining, onRoundEnd }: RoundTwoScreenProps): React.JSX.Element {
-  const { bots, send, connected, inventory, rewind } = useBotStream(teamId, "r2");
+export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: RoundTwoScreenProps): React.JSX.Element {
+  const { bots, send, flash, inventory, rewind } = useBotStream(teamId);
   const [reveal, setReveal] = useState<Reveal>("blackout");
   const [draft, setDraft] = useState("");
   const [phase, setPhase] = useState<"p1" | "p2">("p1");
@@ -72,10 +70,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining,
     setOfferBusy(true);
     setOfferError("");
     try {
-      const result = await submitItem(item.itemKey);
-      if (result.result === "dissolve" || result.result === "troll") {
-        setOfferError(result.line);
-      }
+      await submitItem(item.itemKey);
     } catch (err) {
       setOfferError(err instanceof Error ? err.message : "Offering failed");
     } finally {
@@ -99,7 +94,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining,
   useDocumentTitle(`Round 2 · ${lore?.name ?? boss} — REDLINE Arena`);
   const bossAudio = boss === "itachi" ? "/sounds/itachi/crow-caw.mp3" : "/sounds/aizen/entry-yokoso-full.mp3";
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent("arena:accent", { detail: { accent: lore?.accent ?? "var(--color-brass)", ink: lore?.accentInk ?? "var(--color-bg-0)" } }));
+    window.dispatchEvent(new CustomEvent("arena:accent", { detail: { accent: lore?.accent ?? "#ff1e2d", ink: lore?.accentInk ?? "#ffffff" } }));
   }, [boss, lore?.accent, lore?.accentInk]);
 
   // Reveal sequence with Anime.js sigil choreography
@@ -203,15 +198,16 @@ export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining,
   function submit(e: React.FormEvent): void {
     e.preventDefault();
     const text = draft.trim();
-    if (text === "" || !locked || state.typing || state.streaming !== "") return;
+    if (text === "" || !locked) return;
     unlockAudio();
-    if (send(boss, text)) setDraft("");
+    send(boss, text);
+    setDraft("");
   }
 
   if (reveal !== "open") {
     return (
       <div
-        className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 bg-[var(--color-bg-0)] p-6 text-center select-none"
+        className="dark-cinematic flex min-h-0 flex-1 flex-col items-center justify-center gap-5 bg-[var(--color-bg-0)] p-6 text-center select-none"
         role="status"
         aria-label="Boss reveal"
       >
@@ -220,7 +216,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining,
             <div
               ref={sigilPortraitRef}
               className="w-28 h-28 rounded-[8px] overflow-hidden border border-[var(--color-border-strong)]"
-              style={{ opacity: reducedMotion() ? 1 : 0 }}
+              style={{ opacity: 0 }}
             >
               <img
                 src={lore?.avatar ?? "/characters/itachi.jpg"}
@@ -231,14 +227,14 @@ export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining,
             <h2
               ref={sigilNameRef}
               className="font-[family-name:var(--font-vault)] text-[24px] font-bold text-[var(--color-text-1)]"
-              style={{ opacity: reducedMotion() ? 1 : 0 }}
+              style={{ opacity: 0 }}
             >
               {lore?.name}
             </h2>
             <span
               ref={sigilCaptionRef}
               className="font-[family-name:var(--font-code)] text-[12px] tracking-[0.25em] text-[var(--color-text-3)]"
-              style={{ opacity: reducedMotion() ? 1 : 0 }}
+              style={{ opacity: 0 }}
             >
               ROUND 2
             </span>
@@ -249,20 +245,28 @@ export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining,
   }
 
   return (
-    <div className={`bot-theme boss-stage boss-stage-${boss} relative flex min-h-0 flex-1 flex-col overflow-hidden`}>
-      <img aria-hidden="true" src={chatBg} className="arena-atmosphere pointer-events-none absolute inset-0 h-full w-full object-cover" />
+    <div
+      className="bot-theme relative flex flex-col flex-1 min-h-0"
+      style={
+        (chatBg === undefined
+          ? { "--accent": lore?.accent ?? "#ff1e2d", "--accent-ink": lore?.accentInk ?? "#ffffff" }
+          : { backgroundImage: `url("${chatBg}")`, backgroundSize: "cover", backgroundPosition: "center top", "--accent": lore?.accent ?? "#ff1e2d", "--accent-ink": lore?.accentInk ?? "#ffffff" }) as unknown as React.CSSProperties
+      }
+    >
+      {flash > 0 && <div key={flash} className="pointer-events-none fixed inset-0 z-40 bg-white" aria-hidden="true" />}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[rgba(5,7,10,0.72)]" />
       <div className="relative flex min-h-0 flex-1 flex-col">
-      <header className="acc-border flex flex-wrap items-center justify-between gap-3 border-b bg-surface-1/95 px-4 py-3 sm:px-6">
+      <header className="acc-border flex items-center justify-between gap-2 border-b bg-[rgba(5,7,10,0.85)] px-4 py-3 backdrop-blur-sm">
         <div className="flex items-center gap-3 min-w-0">
           <span className="acc-border acc-glow block w-10 h-10 rounded-[8px] overflow-hidden border shrink-0">
             <img src={lore?.avatar ?? "/characters/itachi.jpg"} alt={lore?.name} className={`w-full h-full object-cover ${lore ? AVATAR_FOCUS[lore.id] : "object-center"}`} />
           </span>
 
           <div className="min-w-0">
-            <h3 className="font-[family-name:var(--font-vault)] text-[17px] font-bold text-text-1 flex items-center gap-2">
+            <h3 className="font-[family-name:var(--font-vault)] text-[17px] font-bold text-white flex items-center gap-2">
               <span className="truncate">{lore?.name}</span>
               <span className="redline-chip rounded-[6px] px-2 py-0.5 text-[11px] font-[family-name:var(--font-body)] font-semibold text-[var(--color-text-2)]">
-                Vault encounter
+                Round 2
               </span>
             </h3>
             <p className="text-[12px] text-[var(--color-text-3)] truncate">
@@ -272,17 +276,13 @@ export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining,
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="flex min-h-[36px] items-center gap-2 rounded-[6px] border border-border-strong bg-surface-2 px-3 font-mono text-xs font-semibold tabular-nums text-text-1" role="timer" aria-label={`${secondsRemaining} seconds remaining in Round 2`}>
-            <Clock3 size={15} aria-hidden="true" />{formatClock(secondsRemaining)}
-          </span>
           {phase === "p2" ? (
-            <span className="hidden min-h-[36px] items-center gap-2 rounded-[6px] border border-moss-border bg-moss-wash px-3 text-moss text-[12px] font-semibold sm:flex">
-              <ShieldCheck size={15} aria-hidden="true" />
-              {boss === "itachi" ? "Illusion broken" : "Hypnosis broken"}
+            <span className="rounded-[6px] border border-[rgba(157,184,122,0.45)] bg-[rgba(157,184,122,0.12)] px-3 py-1 text-[#b8d097] text-[12px] font-semibold">
+              {boss === "itachi" ? "Izanami shattered" : "Hypnosis broken"}
             </span>
           ) : (
-            <span className="hidden min-h-[36px] items-center gap-2 rounded-[6px] border px-3 text-[12px] font-semibold acc-wash sm:flex">
-              <Eye size={15} aria-hidden="true" />Phase 1
+            <span className="acc-wash rounded-[6px] border px-3 py-1 text-[12px] font-semibold">
+              Phase 1
             </span>
           )}
           <RewindButton botId={boss} onRewind={rewind} />
@@ -290,10 +290,10 @@ export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining,
       </header>
 
       {/* Chat Messages Feed */}
-      <div className="redline-scroll flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 max-w-[900px] w-full mx-auto" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 max-w-[900px] w-full mx-auto" aria-live="polite">
         {state.messages.map((m, i) =>
           m.role === "ally" ? (
-            <div key={i} className="r2-chat-msg acc-border self-center my-1 max-w-[500px] rounded-[8px] border border-dashed bg-surface-1 p-3.5 text-[14px] text-[var(--color-text-1)]">
+            <div key={i} className="r2-chat-msg acc-border self-center my-1 max-w-[500px] rounded-[10px] border border-dashed bg-[rgba(13,17,23,0.92)] p-3.5 text-[14px] text-[var(--color-text-1)]">
               <span className="mb-1 block text-[12px] font-semibold text-[var(--color-text-3)]">
                 {m.name ?? "Relay"}{m.confirmed === true ? " · Confirmed" : ""}
               </span>
@@ -315,10 +315,10 @@ export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining,
               </span>
 
               <div
-                className={`rounded-[8px] px-4 py-3 text-[14.5px] leading-relaxed ${
+                className={`rounded-[10px] px-4 py-3 text-[14.5px] leading-relaxed ${
                   m.role === "user"
                     ? "redline-cta acc-glow"
-                    : "border border-border bg-surface-1 text-[var(--color-text-1)]"
+                    : "border border-[rgba(255,255,255,0.09)] bg-[rgba(13,17,23,0.92)] text-[var(--color-text-1)]"
                 }`}
               >
                 <p className="whitespace-pre-wrap">
@@ -329,7 +329,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining,
                       text={m.text}
                       isStreaming={false}
                       animateOnMount={i === state.messages.length - 1}
-                      accentColor={lore?.accent ?? "var(--color-brass)"}
+                      accentColor={lore?.accent ?? "#ff1e2d"}
                     />
                   )}
                 </p>
@@ -339,13 +339,13 @@ export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining,
         )}
 
         {hasItem && (
-          <div className="redline-gold-card self-center my-2 flex w-full max-w-[480px] items-center gap-4 rounded-[8px] p-4">
+          <div className="redline-gold-card self-center my-2 flex w-full max-w-[480px] items-center gap-4 rounded-[10px] p-4">
             <img src={lore?.targetItem.asset} alt="" className="h-16 w-16 shrink-0 object-contain" />
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold text-[var(--color-gold-bright)]">
                 Held in satchel
               </p>
-              <h4 className="truncate text-[15px] font-semibold text-text-1">
+              <h4 className="truncate text-[15px] font-semibold text-white">
                 {lore?.targetItem.name}
               </h4>
               <p className="text-[12px] text-[var(--color-text-2)]">
@@ -374,8 +374,8 @@ export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining,
             <span className="redline-chip block w-8 h-8 rounded-[8px] overflow-hidden shrink-0" aria-hidden="true">
               <img src={lore?.avatar} alt="" className="w-full h-full object-cover" />
             </span>
-            <div className="rounded-[8px] overflow-hidden">
-              <TypingBubble accentColor={lore?.accent ?? "var(--color-brass)"} />
+            <div className="rounded-[10px] overflow-hidden">
+              <TypingBubble accentColor={lore?.accent ?? "#ff1e2d"} />
             </div>
           </div>
         )}
@@ -385,12 +385,12 @@ export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining,
             <span className="redline-chip block w-8 h-8 rounded-[8px] overflow-hidden shrink-0" aria-hidden="true">
               <img src={lore?.avatar} alt="" className="w-full h-full object-cover" />
             </span>
-            <div className="rounded-[8px] border border-border bg-surface-1 px-4 py-3 text-[14.5px] leading-relaxed text-[var(--color-text-1)]">
+            <div className="rounded-[10px] border border-[rgba(255,255,255,0.09)] bg-[rgba(13,17,23,0.92)] px-4 py-3 text-[14.5px] leading-relaxed text-[var(--color-text-1)]">
               <p className="whitespace-pre-wrap">
                 <MatrixText
                   text={state.streaming}
                   isStreaming={true}
-                  accentColor={lore?.accent ?? "var(--color-brass)"}
+                  accentColor={lore?.accent ?? "#ff1e2d"}
                 />
               </p>
             </div>
@@ -398,24 +398,21 @@ export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining,
         )}
       </div>
 
-      <form onSubmit={submit} className="acc-border border-t bg-surface-1/95 p-3 sm:p-4">
-        <p role="status" className="mx-auto mb-2 max-w-[900px] text-xs text-text-3">{!connected ? "Reconnecting… Your draft is safe." : !locked ? "Resume fullscreen to continue." : state.typing ? "Waiting for a reply. You can prepare your next message." : "Messages are shared with your team."}</p>
+      <form onSubmit={submit} className="acc-border border-t bg-[rgba(5,7,10,0.9)] p-3 backdrop-blur-sm sm:p-4">
         <div className="mx-auto flex w-full max-w-[900px] items-center gap-3">
           <input
-            aria-label="Message"
-            maxLength={4000}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             disabled={!locked}
             placeholder={locked ? `Write to ${lore?.name}` : "Paused"}
-            className="acc-border min-h-[48px] flex-1 rounded-[8px] border bg-surface-1 px-4 text-[15px] text-text-1 placeholder:text-[var(--color-text-faint)] focus:outline-none acc-glow transition"
+            className="acc-border min-h-[48px] flex-1 rounded-[8px] border bg-[rgba(13,17,23,0.9)] px-4 text-[15px] text-white placeholder:text-[var(--color-text-faint)] focus:outline-none acc-glow transition"
           />
           <button
             type="submit"
-            disabled={!connected || !locked || draft.trim() === "" || state.typing || state.streaming !== ""}
+            disabled={!locked || draft.trim() === ""}
             className="redline-cta flex min-h-[48px] items-center justify-center gap-2 rounded-[8px] px-5 text-[14px] font-semibold disabled:opacity-50"
           >
-            <span>{state.typing ? "Replying…" : "Send"}</span>
+            <span>Send</span>
             <Send className="w-4 h-4" />
           </button>
         </div>

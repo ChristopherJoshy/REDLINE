@@ -82,8 +82,8 @@ function NameAvatar({ name, hasFiled }: { name: string; hasFiled: boolean }): Re
     <span
       className={`flex h-8 w-8 shrink-0 items-center justify-center text-[12px] font-bold tracking-wide transition-colors border ${
         hasFiled
-          ? "bg-surface-1 text-brass border-border"
-          : "bg-surface-2 text-text-1 border-border"
+          ? "bg-[rgba(255,30,45,0.15)] text-[#ff5b64] border-[rgba(255,30,45,0.35)]"
+          : "bg-white/5 text-white/35 border-white/10"
       }`}
     >
       {initials || "?"}
@@ -263,7 +263,7 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
     }
   }
 
-  const inputClass = "h-[44px] w-full border-0 border-b border-border bg-transparent px-0 text-[14px] text-text-1 placeholder:text-text-1 focus:outline-none focus:border-border transition-colors font-mono";
+  const inputClass = "h-[44px] w-full border-0 border-b border-white/15 bg-transparent px-0 text-[14px] text-white placeholder:text-white/25 focus:outline-none focus:border-white/50 transition-colors font-mono";
   const strengthLabel = strength < 50 ? "WEAK — add a name" : strength < 85 ? "MODERATE — add detail" : "STRONG — ready to transmit";
 
   return (
@@ -271,30 +271,31 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
       role="dialog"
       aria-modal="true"
       aria-labelledby="cover-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-surface-1 p-3  sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-6"
       onMouseDown={() => { if (!required) onClose(); }}
     >
       <div
-        className="relative flex w-full max-w-[920px] max-h-[90dvh] flex-col overflow-hidden bg-surface-1 border border-border"
+        className="relative flex w-full max-w-[920px] max-h-[90vh] flex-col overflow-hidden bg-[#050709] border border-white/10"
+        style={{ boxShadow: "0 0 0 1px rgba(255,30,45,0.12), 0 32px 80px rgba(0,0,0,0.85)" }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <header className="relative flex items-center justify-between border-b border-border px-6 py-4 bg-surface-1">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-brass-wash" />
+        <header className="relative flex items-center justify-between border-b border-white/8 px-6 py-4 bg-[rgba(255,30,45,0.03)]">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#ff1e2d]" />
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center border border-border bg-surface-1 text-brass">
+            <span className="flex h-9 w-9 items-center justify-center border border-[rgba(255,30,45,0.4)] bg-[rgba(255,30,45,0.07)] text-[#ff5b64]">
               <VenetianMask className="w-4 h-4" />
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <h2 id="cover-title" className="font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.22em] text-text-1 uppercase">
+                <h2 id="cover-title" className="font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.22em] text-white/40 uppercase">
                   {status === "create" ? "NEW DOSSIER" : "DOSSIER ON FILE"}
                 </h2>
-                <span className="font-[family-name:var(--font-code)] text-[9px] text-brass tracking-widest">// {botId.toUpperCase()}</span>
+                <span className="font-[family-name:var(--font-code)] text-[9px] text-[#ff1e2d]/50 tracking-widest">// {botId.toUpperCase()}</span>
               </div>
-              <p className="text-[17px] font-bold text-text-1 mt-0.5">
+              <p className="text-[17px] font-bold text-white mt-0.5">
                 {botName}
-                {lore?.moniker && <span className="text-text-1 font-normal text-[14px] ml-2">· {lore.moniker}</span>}
+                {lore?.moniker && <span className="text-white/30 font-normal text-[14px] ml-2">· {lore.moniker}</span>}
               </p>
             </div>
           </div>
@@ -303,7 +304,7 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="flex h-9 w-9 items-center justify-center text-text-1 hover:text-text-1 hover:bg-surface-2 transition-colors"
+              className="flex h-9 w-9 items-center justify-center text-white/25 hover:text-white hover:bg-white/5 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -318,7 +319,7 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
               <div className="flex flex-1 items-center justify-center py-16">
                 <div className="flex gap-1.5">
                   {[0, 1, 2].map((i) => (
-                    <span key={i} className="h-1.5 w-1.5 rounded-full bg-surface-2 animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />
+                    <span key={i} className="h-1.5 w-1.5 rounded-full bg-white/20 animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />
                   ))}
                 </div>
               </div>
@@ -326,18 +327,18 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
               <form onSubmit={(e) => void submit(e)} className="flex flex-col">
                 {/* Hero image strip */}
                 {lore?.heroImage && (
-                  <div className="relative h-[130px] overflow-hidden border-b border-border">
+                  <div className="relative h-[130px] overflow-hidden border-b border-white/8">
                     <img src={lore.heroImage} alt={botName} className="w-full h-full object-cover object-top" style={{ filter: "brightness(0.35) contrast(1.1)" }} />
-                    <div className="absolute inset-0 bg-surface-1   " />
-                    <div className="absolute inset-0 bg-surface-1   " />
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#050709] via-[#050709]/55 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#050709] via-transparent to-transparent" />
                     <div className="absolute bottom-3 left-6">
-                      <p className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.22em] text-brass uppercase">Target Mark</p>
-                      <p className="text-[19px] font-bold text-text-1 leading-tight">{botName}</p>
-                      {lore.tagline && <p className="text-[11px] text-text-1 italic mt-0.5">{lore.tagline}</p>}
+                      <p className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.22em] text-[#ff1e2d]/60 uppercase">Target Mark</p>
+                      <p className="text-[19px] font-bold text-white leading-tight">{botName}</p>
+                      {lore.tagline && <p className="text-[11px] text-white/35 italic mt-0.5">{lore.tagline}</p>}
                     </div>
-                    <div className="absolute top-3 right-4 flex items-center gap-1.5 px-2 py-1 border border-border bg-surface-1 ">
-                      <Shield className="w-3 h-3 text-text-1" />
-                      <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.15em] text-text-1 uppercase">{lore.difficulty}</span>
+                    <div className="absolute top-3 right-4 flex items-center gap-1.5 px-2 py-1 border border-white/12 bg-black/60 backdrop-blur-sm">
+                      <Shield className="w-3 h-3 text-white/35" />
+                      <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.15em] text-white/35 uppercase">{lore.difficulty}</span>
                     </div>
                   </div>
                 )}
@@ -346,28 +347,28 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
                   {/* Cover Identity */}
                   <div className="flex flex-col gap-4">
                     <div className="flex items-center gap-2">
-                      <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.25em] text-brass uppercase">01 / Cover Identity</span>
-                      <div className="flex-1 h-px bg-surface-2" />
+                      <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.25em] text-[#ff1e2d]/60 uppercase">01 / Cover Identity</span>
+                      <div className="flex-1 h-px bg-white/8" />
                     </div>
                     <label className="flex flex-col gap-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.15em] text-text-1 uppercase">Cover Name *</span>
-                        <span className="font-[family-name:var(--font-code)] text-[9px] text-text-1">{fields.alias.trim().length}/{MAX_ALIAS}</span>
+                        <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.15em] text-white/35 uppercase">Cover Name *</span>
+                        <span className="font-[family-name:var(--font-code)] text-[9px] text-white/18">{fields.alias.trim().length}/{MAX_ALIAS}</span>
                       </div>
                       <input ref={firstInputRef} value={fields.alias} onChange={(e) => setField("alias", e.target.value)} maxLength={MAX_ALIAS} placeholder="e.g. Charon Reyes" className={inputClass} />
                     </label>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <label className="flex flex-col gap-1">
                         <div className="flex items-center justify-between">
-                          <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.15em] text-text-1 uppercase">Role</span>
-                          <span className="font-[family-name:var(--font-code)] text-[9px] text-text-1">{fields.role.trim().length}/{MAX_ROLE}</span>
+                          <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.15em] text-white/35 uppercase">Role</span>
+                          <span className="font-[family-name:var(--font-code)] text-[9px] text-white/18">{fields.role.trim().length}/{MAX_ROLE}</span>
                         </div>
                         <input value={fields.role} onChange={(e) => setField("role", e.target.value)} maxLength={MAX_ROLE} placeholder="e.g. Night auditor" className={inputClass} />
                       </label>
                       <label className="flex flex-col gap-1">
                         <div className="flex items-center justify-between">
-                          <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.15em] text-text-1 uppercase">Affiliation</span>
-                          <span className="font-[family-name:var(--font-code)] text-[9px] text-text-1">{fields.affiliation.trim().length}/{MAX_AFFIL}</span>
+                          <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.15em] text-white/35 uppercase">Affiliation</span>
+                          <span className="font-[family-name:var(--font-code)] text-[9px] text-white/18">{fields.affiliation.trim().length}/{MAX_AFFIL}</span>
                         </div>
                         <input value={fields.affiliation} onChange={(e) => setField("affiliation", e.target.value)} maxLength={MAX_AFFIL} placeholder="e.g. Continental, Osaka branch" className={inputClass} />
                       </label>
@@ -377,33 +378,33 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
                   {/* Cover Story */}
                   <div className="flex flex-col gap-4">
                     <div className="flex items-center gap-2">
-                      <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.25em] text-brass uppercase">02 / Cover Story</span>
-                      <div className="flex-1 h-px bg-surface-2" />
+                      <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.25em] text-[#ff1e2d]/60 uppercase">02 / Cover Story</span>
+                      <div className="flex-1 h-px bg-white/8" />
                     </div>
                     <label className="flex flex-col gap-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.15em] text-text-1 uppercase">Story for the mark</span>
-                        <span className="font-[family-name:var(--font-code)] text-[9px] text-text-1">{fields.detail.trim().length}/{MAX_DETAIL}</span>
+                        <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.15em] text-white/35 uppercase">Story for the mark</span>
+                        <span className="font-[family-name:var(--font-code)] text-[9px] text-white/18">{fields.detail.trim().length}/{MAX_DETAIL}</span>
                       </div>
-                      <textarea value={fields.detail} onChange={(e) => setField("detail", e.target.value)} maxLength={MAX_DETAIL} rows={3} placeholder="e.g. Auditing the Osaka ledger after the blackout." className="w-full resize-none border-0 border-b border-border bg-transparent px-0 py-2 text-[14px] text-text-1 placeholder:text-text-1 focus:outline-none focus:border-border transition-colors font-mono" />
+                      <textarea value={fields.detail} onChange={(e) => setField("detail", e.target.value)} maxLength={MAX_DETAIL} rows={3} placeholder="e.g. Auditing the Osaka ledger after the blackout." className="w-full resize-none border-0 border-b border-white/15 bg-transparent px-0 py-2 text-[14px] text-white placeholder:text-white/25 focus:outline-none focus:border-white/40 transition-colors font-mono" />
                     </label>
                   </div>
 
                   {/* Preview */}
-                  <div className="flex flex-col gap-2 border border-border bg-surface-2/[0.015] p-3">
+                  <div className="flex flex-col gap-2 border border-white/8 bg-white/[0.015] p-3">
                     <div className="flex items-center gap-1.5">
-                      <FileText className="w-3 h-3 text-text-1" />
-                      <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.2em] text-text-1 uppercase">How {botName} Files You</span>
+                      <FileText className="w-3 h-3 text-white/25" />
+                      <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.2em] text-white/25 uppercase">How {botName} Files You</span>
                     </div>
-                    <p className="text-[13px] text-text-1 italic leading-relaxed font-mono">{previewLine(botId, fields)}</p>
+                    <p className="text-[13px] text-white/55 italic leading-relaxed font-mono">{previewLine(botId, fields)}</p>
                   </div>
 
                   {/* Templates */}
                   <div className="flex flex-col gap-2">
-                    <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.2em] text-text-1 uppercase">Quick Templates</span>
+                    <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.2em] text-white/22 uppercase">Quick Templates</span>
                     <div className="flex gap-2 flex-wrap">
                       {TEMPLATES.map((t) => (
-                        <button key={t.label} type="button" onClick={() => applyTemplate(t)} className="px-3 py-1.5 border border-border bg-surface-2/[0.025] text-[11px] text-text-1 font-mono tracking-wide hover:border-border hover:text-text-1 hover:bg-surface-1 transition-all">
+                        <button key={t.label} type="button" onClick={() => applyTemplate(t)} className="px-3 py-1.5 border border-white/10 bg-white/[0.025] text-[11px] text-white/45 font-mono tracking-wide hover:border-[rgba(255,30,45,0.35)] hover:text-white/75 hover:bg-[rgba(255,30,45,0.05)] transition-all">
                           {t.label}
                         </button>
                       ))}
@@ -412,7 +413,7 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
 
                   {/* Error */}
                   {error !== "" && (
-                    <p role="alert" className="border border-border bg-surface-1 px-3 py-2 text-[12px] font-mono text-brass">
+                    <p role="alert" className="border border-[rgba(255,30,45,0.35)] bg-[rgba(255,30,45,0.07)] px-3 py-2 text-[12px] font-mono text-[#ff5b64]">
                       {error}
                     </p>
                   )}
@@ -421,7 +422,8 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
                   <button
                     type="submit"
                     disabled={busy || fields.alias.trim() === ""}
-                    className="relative mt-2 flex min-h-[52px] w-full items-center justify-center gap-2 overflow-hidden bg-brass-wash text-[13px] font-bold tracking-[0.15em] text-text-1 uppercase disabled:opacity-40 transition-all hover:bg-brass-wash active:scale-[0.99]"
+                    className="relative mt-2 flex min-h-[52px] w-full items-center justify-center gap-2 overflow-hidden bg-[#ff1e2d] text-[13px] font-bold tracking-[0.15em] text-white uppercase disabled:opacity-40 transition-all hover:bg-[#e01020] active:scale-[0.99]"
+                    style={{ boxShadow: "0 0 30px rgba(255,30,45,0.2), inset 0 1px 0 rgba(255,255,255,0.1)" }}
                   >
                     {busy
                       ? (status === "create" ? "TRANSMITTING..." : "UPDATING...")
@@ -435,60 +437,60 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
           </div>
 
           {/* RIGHT: Intel Panel */}
-          <aside className="flex w-full md:w-[280px] md:max-w-[280px] shrink-0 flex-col border-t md:border-t-0 md:border-l border-border bg-surface-1 overflow-y-auto redline-scroll">
+          <aside className="flex w-full md:w-[280px] md:max-w-[280px] shrink-0 flex-col border-t md:border-t-0 md:border-l border-white/8 bg-[rgba(255,255,255,0.01)] overflow-y-auto redline-scroll">
             {/* Filing Brief */}
-            <section className="flex flex-col gap-2 border-b border-border p-5">
+            <section className="flex flex-col gap-2 border-b border-white/8 p-5">
               <div className="flex items-center gap-1.5">
-                <ShieldAlert className="w-3.5 h-3.5 text-text-1" />
-                <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.2em] text-text-1 uppercase">Filing Brief</span>
+                <ShieldAlert className="w-3.5 h-3.5 text-white/25" />
+                <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.2em] text-white/25 uppercase">Filing Brief</span>
               </div>
-              <p className="text-[13px] text-text-1 leading-relaxed">{botBrief}</p>
+              <p className="text-[13px] text-white/50 leading-relaxed">{botBrief}</p>
             </section>
 
             {/* Dossier Strength */}
-            <section className="flex flex-col gap-3 border-b border-border p-5">
+            <section className="flex flex-col gap-3 border-b border-white/8 p-5">
               <div className="flex items-center justify-between">
-                <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.2em] text-text-1 uppercase">Dossier Strength</span>
-                <span className="font-[family-name:var(--font-code)] text-[10px] text-brass">{strength}%</span>
+                <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.2em] text-white/25 uppercase">Dossier Strength</span>
+                <span className="font-[family-name:var(--font-code)] text-[10px] text-[#ff1e2d]/60">{strength}%</span>
               </div>
-              <div className="h-1 w-full bg-surface-2 overflow-hidden" role="progressbar" aria-valuenow={strength} aria-valuemin={0} aria-valuemax={100}>
-                <div className="h-full bg-brass-wash " style={{ width: `${strength}%` }} />
+              <div className="h-1 w-full bg-white/8 overflow-hidden" role="progressbar" aria-valuenow={strength} aria-valuemin={0} aria-valuemax={100}>
+                <div className="h-full bg-[#ff1e2d] transition-[width] duration-500" style={{ width: `${strength}%`, boxShadow: strength > 50 ? "0 0 8px rgba(255,30,45,0.5)" : "none" }} />
               </div>
-              <p className="font-[family-name:var(--font-code)] text-[10px] text-text-1">{strengthLabel}</p>
+              <p className="font-[family-name:var(--font-code)] text-[10px] text-white/25">{strengthLabel}</p>
             </section>
 
             {/* Squad Intel */}
             <section ref={squadRef} className="flex flex-col gap-3 p-5">
               <div className="flex items-center gap-1.5">
-                <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.2em] text-text-1 uppercase">Squad Intel</span>
-                <span className="font-[family-name:var(--font-code)] text-[9px] text-brass">// {botName.toUpperCase()}</span>
+                <span className="font-[family-name:var(--font-code)] text-[9px] tracking-[0.2em] text-white/25 uppercase">Squad Intel</span>
+                <span className="font-[family-name:var(--font-code)] text-[9px] text-[#ff1e2d]/40">// {botName.toUpperCase()}</span>
               </div>
               {allMembers.length === 0 ? (
-                <p className="text-[12px] text-text-1 font-mono">No team data yet.</p>
+                <p className="text-[12px] text-white/22 font-mono">No team data yet.</p>
               ) : (
                 <div className="flex flex-col gap-0">
                   {allMembers.map((memberName) => {
                     const filed = filedForBot.get(memberName);
                     const hasFiled = filed !== undefined;
                     return (
-                      <div key={memberName} className="squad-row flex items-center gap-2.5 py-2.5 border-b border-border">
+                      <div key={memberName} className="squad-row flex items-center gap-2.5 py-2.5 border-b border-white/5">
                         <NameAvatar name={memberName} hasFiled={hasFiled} />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-semibold text-text-1">{memberName}</p>
+                          <p className="truncate text-[13px] font-semibold text-white/65">{memberName}</p>
                           {hasFiled ? (
-                            <p className="truncate text-[11px] text-text-1 font-mono">
+                            <p className="truncate text-[11px] text-white/30 font-mono">
                               {filed.alias}{filed.role ? ` · ${filed.role}` : ""}
                             </p>
                           ) : (
-                            <p className="text-[11px] text-text-1 font-mono">— not filed</p>
+                            <p className="text-[11px] text-white/18 font-mono">— not filed</p>
                           )}
                         </div>
                         {hasFiled ? (
-                          <span className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 border border-border bg-surface-1 text-[8px] font-bold tracking-[0.12em] text-brass font-mono">
+                          <span className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 border border-[rgba(255,30,45,0.28)] bg-[rgba(255,30,45,0.07)] text-[8px] font-bold tracking-[0.12em] text-[#ff5b64] font-mono">
                             <Check className="w-2.5 h-2.5" />FILED
                           </span>
                         ) : (
-                          <span className="shrink-0 px-1.5 py-0.5 border border-border text-[8px] font-bold tracking-[0.12em] text-text-1 font-mono">
+                          <span className="shrink-0 px-1.5 py-0.5 border border-white/8 text-[8px] font-bold tracking-[0.12em] text-white/18 font-mono">
                             PENDING
                           </span>
                         )}

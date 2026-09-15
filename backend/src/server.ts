@@ -145,6 +145,8 @@ async function boot(): Promise<void> {
   void env.zenApiKey;
   void env.joinCodePepper;
 
+  app.addHook("onClose", async () => { clearInterval(roundEvents); wss.close(); db.close(); });
+
   await app.listen({ port: env.port, host: "0.0.0.0" });
   const wss = new WebSocketServer({ server: app.server });
   wss.on("connection", (socket, req) => {
@@ -269,7 +271,6 @@ async function boot(): Promise<void> {
     }
   }, 250);
   roundEvents.unref();
-  app.addHook("onClose", async () => { clearInterval(roundEvents); wss.close(); db.close(); });
 }
 
 const PING_MS = 25_000;

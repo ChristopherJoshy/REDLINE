@@ -2,9 +2,8 @@ import type { BotId } from "@contracts/events";
 import { apiFetch } from "./client";
 
 export type SubmitResult =
-  | { result: "verified"; botId: BotId; already?: true; eloDelta?: number; baseEloDelta?: number; speedBonus?: number; completionRank?: number; elapsedSecs?: number; credits?: number; soundId?: string }
-  | { result: "dissolve"; botId: BotId; line: string }
-  | { result: "troll"; botId?: BotId; line: string; soundId?: string };
+  | { result: "verified"; botId: BotId; already?: true; eloDelta?: number; credits?: number; soundId: string }
+  | { result: "troll"; botId?: BotId; line: string; soundId: string };
 
 export interface MerchantState {
   credits: number;

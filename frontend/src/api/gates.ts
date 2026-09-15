@@ -1,7 +1,9 @@
 import { apiFetch } from "./client";
-import type { RoundNumber, RoundSnapshot } from "@contracts/rounds";
 
-export interface Gates extends RoundSnapshot {
+export interface Gates {
+  serverNow: string;
+  round1: RoundState;
+  round2: RoundState;
   round1Open: boolean;
   vaultOpen: boolean;
   qualified: boolean;
@@ -11,13 +13,11 @@ export interface Gates extends RoundSnapshot {
   round2TimeLeft: number;
 }
 
-function isRoundState(value: unknown): boolean {
-  if (value === null || typeof value !== "object") return false;
-  const state = value as { status?: unknown; startsAt?: unknown; endsAt?: unknown; durationSecs?: unknown };
-  return (state.status === "not_started" || state.status === "countdown" || state.status === "active" || state.status === "ended")
-    && (typeof state.startsAt === "string" || state.startsAt === null)
-    && (typeof state.endsAt === "string" || state.endsAt === null)
-    && typeof state.durationSecs === "number";
+export interface RoundState {
+  status: "not_started" | "countdown" | "active" | "ended";
+  startsAt: string | null;
+  endsAt: string | null;
+  durationSecs: number;
 }
 
 export async function getGates(): Promise<Gates> {
@@ -25,11 +25,7 @@ export async function getGates(): Promise<Gates> {
   if (!res.ok) {
     throw new Error("no gates");
   }
-  const data = await res.json() as Partial<Gates>;
-  if (!isRoundState(data.round1) || !isRoundState(data.round2) || typeof data.serverNow !== "string") {
-    throw new Error("The event server is running an incompatible round-status protocol.");
-  }
-  return data as Gates;
+  return (await res.json()) as Gates;
 }
 
 async function adminPost(path: string, code: string, body?: Record<string, unknown>): Promise<unknown> {
@@ -41,20 +37,9 @@ async function adminPost(path: string, code: string, body?: Record<string, unkno
   const res = await apiFetch(path, init);
   const data = (await res.json()) as unknown;
   if (!res.ok) {
-    throw new Error((data as { error?: string }).error ?? "Could not update round.");
+    throw new Error("admin failed");
   }
   return data;
-}
-
-export async function getAdminRounds(code: string): Promise<RoundSnapshot> {
-  const res = await apiFetch("/api/admin/rounds", { headers: { "x-admin-code": code } });
-  if (!res.ok) throw new Error("Could not load round controls.");
-  return await res.json() as RoundSnapshot;
-}
-
-export function controlRound(code: string, round: RoundNumber, action: "start" | "stop" | "extend", body?: Record<string, unknown>): Promise<RoundSnapshot> {
-  const path = action === "stop" && round === 1 ? "end-round1" : `${action}-round${round}`;
-  return adminPost(`/api/admin/${path}`, code, body) as Promise<RoundSnapshot>;
 }
 
 export function endRound1(code: string): Promise<unknown> {

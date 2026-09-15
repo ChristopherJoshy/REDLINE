@@ -1,1 +1,58 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none" role="img" aria-labelledby="title"><title id="title">Sealed mission order</title><g stroke="#4A3A0C" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M28 42h104v79H28z" fill="#EFE6C8"/><path d="m29 43 51 39 51-39M28 120l37-43m67 43L95 77"/><path d="m35 36 87-7 4 13H35z" fill="#FBF8EE"/><circle cx="80" cy="84" r="20" fill="#6E5514"/><path d="m72 98-5 31 13-8 11 9-3-32" fill="#A8976B"/><circle cx="80" cy="84" r="15" fill="#6E5514"/><path d="m80 95-1-23m0 11-10-10m10 17-12-10m14 1 10-10m-10 17 12-10" stroke="#EFE6C8"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <radialGradient id="scoutBg" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#064E3B" />
+      <stop offset="50%" stop-color="#062F24" />
+      <stop offset="85%" stop-color="#021711" />
+      <stop offset="100%" stop-color="#010A07" />
+    </radialGradient>
+    <linearGradient id="parchmentRoll" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#D97706" />
+      <stop offset="15%" stop-color="#FEF3C7" />
+      <stop offset="50%" stop-color="#FFFBEB" />
+      <stop offset="85%" stop-color="#FDE68A" />
+      <stop offset="100%" stop-color="#B45309" />
+    </linearGradient>
+    <radialGradient id="crimsonWax" cx="45%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#F87171" />
+      <stop offset="35%" stop-color="#DC2626" />
+      <stop offset="70%" stop-color="#991B1B" />
+      <stop offset="100%" stop-color="#450A0A" />
+    </radialGradient>
+    <filter id="waxShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.8" />
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="96" fill="url(#scoutBg)" stroke="#10B981" stroke-width="4" />
+  <rect x="12" y="12" width="488" height="488" rx="84" fill="none" stroke="#34D399" stroke-opacity="0.3" stroke-width="2" />
+
+  <!-- Rolled Scroll Body -->
+  <g transform="rotate(-18, 256, 256)">
+    <!-- Scroll Cylinder -->
+    <rect x="80" y="210" width="352" height="92" rx="14" fill="url(#parchmentRoll)" stroke="#78350F" stroke-width="5" filter="url(#waxShadow)" />
+    <ellipse cx="80" cy="256" rx="18" ry="46" fill="#D97706" stroke="#78350F" stroke-width="4" />
+    <ellipse cx="432" cy="256" rx="18" ry="46" fill="url(#parchmentRoll)" stroke="#78350F" stroke-width="4" />
+
+    <!-- Leather Tie Ribbon -->
+    <rect x="236" y="200" width="40" height="112" rx="6" fill="#451A03" stroke="#260C03" stroke-width="3" />
+    <line x1="244" y1="200" x2="244" y2="312" stroke="#B45309" stroke-width="2" stroke-dasharray="6 4" />
+    <line x1="268" y1="200" x2="268" y2="312" stroke="#B45309" stroke-width="2" stroke-dasharray="6 4" />
+
+    <!-- Ornate Wax Seal -->
+    <g transform="translate(256, 256)" filter="url(#waxShadow)">
+      <circle cx="0" cy="0" r="56" fill="url(#crimsonWax)" stroke="#450A0A" stroke-width="4" />
+      <!-- Cracked / Drips around seal -->
+      <circle cx="-42" cy="-20" r="14" fill="url(#crimsonWax)" />
+      <circle cx="45" cy="18" r="12" fill="url(#crimsonWax)" />
+      <circle cx="10" cy="46" r="16" fill="url(#crimsonWax)" />
+
+      <!-- Wings of Freedom Emblem Inset -->
+      <circle cx="0" cy="0" r="42" fill="none" stroke="#FEF2F2" stroke-width="2.5" />
+      <!-- Left Blue Wing Silhouette -->
+      <path d="M-6 -26 C -18 -12, -26 8, -6 26 C -12 12, -14 -6, -6 -26 Z" fill="#3B82F6" stroke="#1E3A8A" stroke-width="1.5" />
+      <!-- Right White Wing Silhouette -->
+      <path d="M6 -26 C 18 -12, 26 8, 6 26 C 12 12, 14 -6, 6 -26 Z" fill="#FFFFFF" stroke="#64748B" stroke-width="1.5" />
+    </g>
+  </g>
+</svg>

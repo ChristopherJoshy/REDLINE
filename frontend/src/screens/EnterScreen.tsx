@@ -132,23 +132,18 @@ export default function EnterScreen({ onIdentified }: { onIdentified: (res?: Ide
     };
   }, []);
 
-  // Seat availability is intentionally public only after a valid team code.
-  // Polling avoids opening an unauthenticated WebSocket before identity selection.
+  // Poll active seats every 3s once we have a teamId
   useEffect(() => {
     if (joined === null) return;
     const { teamId } = joined;
     let dead = false;
     async function poll(): Promise<void> {
-      try {
-        const active = await getActiveMembers(teamId);
-        if (!dead) setActiveMembers(active);
-      } catch {
-        // Keep the last known seat list during a transient connection failure.
-      }
+      const active = await getActiveMembers(teamId);
+      if (!dead) setActiveMembers(active);
     }
     void poll();
-    const timer = window.setInterval(() => { void poll(); }, 3000);
-    return () => { dead = true; window.clearInterval(timer); };
+    const t = window.setInterval(() => { void poll(); }, 3000);
+    return () => { dead = true; window.clearInterval(t); };
   }, [joined]);
 
   async function submitCode(e: React.FormEvent): Promise<void> {

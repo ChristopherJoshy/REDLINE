@@ -183,13 +183,13 @@ export default function CelebrationOverlay({ botId, onClose }: { botId: BotId; o
       role="dialog"
       aria-modal="true"
       aria-label={`${lore?.name ?? botId} filed`}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-surface-1 p-4 "
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
       style={{ opacity: 0 }}
       onClick={handleClose}
     >
       <div
         ref={cardRef}
-        className="redline-panel flex w-full max-w-[440px] flex-col items-center gap-4 rounded-[8px] border-border p-8 text-center "
+        className="redline-panel flex w-full max-w-[440px] flex-col items-center gap-4 rounded-[12px] border-[rgba(157,184,122,0.4)] p-8 text-center shadow-[0_0_40px_rgba(157,184,122,0.15)]"
         style={{ opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
       >

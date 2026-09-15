@@ -156,7 +156,7 @@ export default function ClaimItemModal({
       role="dialog"
       aria-modal="true"
       aria-label={`Relic yielded: ${itemMeta?.name ?? itemKey}`}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-surface-1 p-4 "
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === backdropRef.current) {
           onClaim();
@@ -165,7 +165,7 @@ export default function ClaimItemModal({
     >
       <div
         ref={cardRef}
-        className="redline-gold-card relative flex w-full max-w-[460px] flex-col items-center gap-5 rounded-[8px] p-6 sm:p-8 text-center  overflow-hidden"
+        className="redline-gold-card relative flex w-full max-w-[460px] flex-col items-center gap-5 rounded-[12px] p-6 sm:p-8 text-center shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -214,19 +214,19 @@ export default function ClaimItemModal({
             ref={relicGlowRef}
             className="absolute inset-0 m-auto w-28 h-28 rounded-full bg-[var(--color-brass-wash)] opacity-70 blur-md pointer-events-none"
           />
-          <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center p-3 rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-surface-2)] hover:scale-105 transition-transform duration-200">
+          <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center p-3 rounded-[10px] border border-[var(--color-border-strong)] bg-[var(--color-surface-2)] hover:scale-105 transition-transform duration-200">
             <img
               ref={itemImgRef}
               src={itemMeta?.asset ?? "/items/wick_medallion.svg"}
               alt={itemMeta?.name ?? itemKey}
-              className="w-full h-full object-contain "
+              className="w-full h-full object-contain drop-shadow-md"
             />
           </div>
         </div>
 
         {/* Details block */}
         <div ref={detailsRef} className="flex flex-col gap-2 w-full">
-          <h2 className="font-[family-name:var(--font-display)] text-[22px] sm:text-[24px] font-bold text-text-1 leading-snug">
+          <h2 className="font-[family-name:var(--font-display)] text-[22px] sm:text-[24px] font-bold text-white leading-snug">
             {itemMeta?.name ?? itemKey}
           </h2>
 
@@ -259,9 +259,9 @@ export default function ClaimItemModal({
             onClick={handleClaim}
             autoFocus
             disabled={claimed}
-            className={`min-h-[50px] w-full flex items-center justify-center gap-2 rounded-[8px] px-6 py-3 text-[15px] font-bold tracking-wide transition-all  cursor-pointer ${
+            className={`min-h-[50px] w-full flex items-center justify-center gap-2 rounded-[8px] px-6 py-3 text-[15px] font-bold tracking-wide transition-all shadow-md cursor-pointer ${
               claimed
-                ? "bg-surface-1 text-moss border border-border scale-[0.98]"
+                ? "bg-[rgba(157,184,122,0.2)] text-[#c4d8a8] border border-[rgba(157,184,122,0.5)] scale-[0.98]"
                 : "redline-cta active:scale-[0.98]"
             }`}
           >

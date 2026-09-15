@@ -60,6 +60,7 @@ function wsUrl(): string {
 export function useBotStream(teamId: string): {
   bots: Record<BotId, BotState>;
   inventory: InventoryDelta[];
+  hasSyncedInventory: boolean;
   credits: number;
   flash: number;
   locks: BotLockMap;
@@ -76,6 +77,7 @@ export function useBotStream(teamId: string): {
     return out;
   });
   const [inventory, setInventory] = useState<InventoryDelta[]>([]);
+  const [hasSyncedInventory, setHasSyncedInventory] = useState(false);
   const [credits, setCredits] = useState(0);
   const [flash, setFlash] = useState(0);
   const [locks, setLocks] = useState<BotLockMap>({});
@@ -119,6 +121,7 @@ export function useBotStream(teamId: string): {
       }
     } else if (event.event === "inventory_sync") {
       setInventory(event.data.items);
+      setHasSyncedInventory(true);
       if (typeof event.data.credits === "number") setCredits(event.data.credits);
     } else if (event.event === "ally_msg") {
       const { botId, displayName, text, confirmed } = event.data;
@@ -357,5 +360,5 @@ export function useBotStream(teamId: string): {
     [teamId],
   );
 
-  return { bots, inventory, credits, locks, setLocks, send, say, flash, rewind };
+  return { bots, inventory, hasSyncedInventory, credits, flash, locks, setLocks, send, say, rewind };
 }

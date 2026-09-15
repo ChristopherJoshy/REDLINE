@@ -65,7 +65,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
     return () => el.removeEventListener("wheel", handleWheel);
   }, []);
 
-  const { bots, inventory, credits, locks, setLocks, send, say, rewind } = useBotStream(teamId);
+  const { bots, inventory, hasSyncedInventory, credits, locks, setLocks, send, say, rewind } = useBotStream(teamId);
   const [selectedBotId, setSelectedBotId] = useState<BotId>("wick");
   const [chattingBotId, setChattingBotId] = useState<BotId | null>(null);
   const [merchantTab, setMerchantTab] = useState<"counter" | "talk">("counter");
@@ -98,35 +98,44 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
   function selectNext(): void {
     const curIdx = ROSTER.findIndex((r) => r.id === selectedBotId);
     const nextIdx = (curIdx + 1) % ROSTER.length;
-    const nextBot = ROSTER[nextIdx];
-    if (nextBot) setSelectedBotId(nextBot.id);
+    setSelectedBotId(ROSTER[nextIdx]?.id ?? "wick");
   }
-
   function selectPrev(): void {
     const curIdx = ROSTER.findIndex((r) => r.id === selectedBotId);
     const prevIdx = (curIdx - 1 + ROSTER.length) % ROSTER.length;
-    const prevBot = ROSTER[prevIdx];
-    if (prevBot) setSelectedBotId(prevBot.id);
+    setSelectedBotId(ROSTER[prevIdx]?.id ?? "wick");
   }
 
-  // Keyboard navigation: Left/Right arrows cycle marks; numbers 1-9 select directly
+  // Keyboard navigation & Esc to close chat
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (chattingBotId !== null) return;
+      if (e.key === "Escape" && chattingBotId !== null) {
+        if (chattingBotId !== "merchant" && heldBot !== null) {
+          setHeldBot(null);
+          void releaseLock(chattingBotId);
+        }
+        setChattingBotId(null);
+        return;
+      }
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === "ArrowRight") {
-        selectNext();
-      } else if (e.key === "ArrowLeft") {
-        selectPrev();
-      } else if (e.key >= "1" && e.key <= "9") {
-        const idx = parseInt(e.key, 10) - 1;
-        const target = ROSTER[idx];
-        if (target) setSelectedBotId(target.id);
+      // If NOT chatting and no modals open, cycle arrows
+      if (chattingBotId === null && !inventoryOpen && !coverOpen && !claimRelic && !celebration) {
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          selectNext();
+        } else if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          selectPrev();
+        } else if (e.key >= "1" && e.key <= "9") {
+          const idx = parseInt(e.key, 10) - 1;
+          const target = ROSTER[idx];
+          if (target) setSelectedBotId(target.id);
+        }
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [chattingBotId, selectedBotId]);
+  }, [chattingBotId, selectedBotId, inventoryOpen, coverOpen, claimRelic, celebration, heldBot]);
 
   // Sync credits to App header & listen for satchel modal triggers
   useEffect(() => {
@@ -176,6 +185,8 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
 
   // Handover (claim popup) & Verification (celebration overlay) triggers on inventory change
   useEffect(() => {
+    if (!hasSyncedInventory) return;
+    
     const prev = prevInventory.current;
 
     // Ignore the first inventory sync on page load/refresh so existing filed/held relics don't pop up

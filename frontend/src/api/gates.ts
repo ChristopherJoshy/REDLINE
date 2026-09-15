@@ -9,7 +9,7 @@ export interface Gates {
   qualified: boolean;
   solved: number;
   round1Size: number;
-  round2Status: "off" | "countdown" | "active";
+  round2Status: "off" | "countdown" | "active" | "paused";
   round2TimeLeft: number;
 }
 

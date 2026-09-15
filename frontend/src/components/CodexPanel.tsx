@@ -77,7 +77,7 @@ export default function CodexPanel(): React.JSX.Element {
   const [error, setError] = useState<string>("");
   const [now, setNow] = useState<number>(() => Date.now());
   const [busy, setBusy] = useState<"connect" | "reset" | "refresh" | "logout" | "restart" | null>(null);
-  const [connecting, setConnecting] = useState<{ authUrl: string; loginId?: string | undefined } | null>(null);
+  const [connecting, setConnecting] = useState<{ authUrl: string; userCode: string; loginId?: string | undefined } | null>(null);
   const [confirmReset, setConfirmReset] = useState<boolean>(false);
   const [resultMsg, setResultMsg] = useState<string>("");
   const abortRef = useRef<AbortController | null>(null);
@@ -92,6 +92,7 @@ export default function CodexPanel(): React.JSX.Element {
       const s = viaRefresh ? await refreshCodex() : await getCodexStatus(ctrl.signal);
       if (!mountedRef.current || ctrl.signal.aborted) return;
       setStatus(s);
+      if (s.account.connected) setConnecting(null);
       setPanelState("ready");
     } catch (err) {
       if (!mountedRef.current || ctrl.signal.aborted) return;
@@ -105,7 +106,7 @@ export default function CodexPanel(): React.JSX.Element {
     void load(false);
     const poll = setInterval(() => {
       if (document.visibilityState === "visible" && !document.hidden) void load(false);
-    }, 20000);
+    }, connecting ? 3000 : 20000);
     const tick = setInterval(() => setNow(Date.now()), 1000);
     return () => {
       mountedRef.current = false;
@@ -113,15 +114,14 @@ export default function CodexPanel(): React.JSX.Element {
       clearInterval(tick);
       abortRef.current?.abort();
     };
-  }, [load]);
+  }, [load, !!connecting]);
 
   async function handleConnect(): Promise<void> {
     setBusy("connect");
     setResultMsg("");
     try {
       const out = await startCodexConnect();
-      setConnecting({ authUrl: out.authUrl, loginId: out.loginId });
-      window.open(out.authUrl, "_blank", "noopener,noreferrer");
+      setConnecting({ authUrl: out.authUrl, userCode: out.userCode, loginId: out.loginId });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Connect failed");
     } finally {
@@ -168,6 +168,8 @@ export default function CodexPanel(): React.JSX.Element {
       await codexLogout();
       setConnecting(null);
       await load(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Disconnect failed");
     } finally {
       setBusy(null);
     }
@@ -176,8 +178,11 @@ export default function CodexPanel(): React.JSX.Element {
   async function handleRestart(): Promise<void> {
     setBusy("restart");
     try {
-      await codexRestart();
+      const result = await codexRestart();
+      if (!result.ok) throw new Error(result.error ?? "Restart failed");
       await load(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Restart failed");
     } finally {
       setBusy(null);
     }
@@ -226,10 +231,12 @@ export default function CodexPanel(): React.JSX.Element {
           <p className="font-mono text-[13px] text-[#A1A1AA]">Codex not connected. Gameplay continues on Groq/Zen fallback.</p>
           {connecting ? (
             <div className="flex flex-col gap-2">
-              <p className="font-mono text-[12px] text-[#F4F4F5]">Waiting for ChatGPT authorization… Complete login in the opened tab, then refresh.</p>
+              <p className="text-sm text-text-2">Open the authorization page and enter this one-time code. This connects the game server. Status updates automatically.</p>
+              <code className="select-all py-3 font-mono text-3xl tracking-widest text-text-1">{connecting.userCode}</code>
+              <p className="text-xs text-text-3">If asked, enable device-code login in ChatGPT security settings. If the code expires, cancel and start again.</p>
               <div className="flex flex-wrap gap-2">
                 <a href={connecting.authUrl} target="_blank" rel="noreferrer" className="flex min-h-[44px] items-center gap-2 rounded-[2px] bg-[#EF4444] px-5 py-2.5 font-mono text-[13px] font-bold uppercase tracking-wider text-[#F4F4F5]">
-                  Re-open Auth URL
+                  Authorize game server
                 </a>
                 <button type="button" onClick={() => void handleCancelConnect()} className="flex min-h-[44px] items-center rounded-[2px] border border-[#3F3F46] bg-[#27272A] px-5 py-2.5 font-mono text-[13px] font-bold uppercase tracking-wider text-[#A1A1AA] hover:text-[#F4F4F5]">
                   Cancel

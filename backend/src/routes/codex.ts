@@ -1,7 +1,7 @@
-// Public Codex admin routes (no x-admin-code / settings-pin by requirement).
-// The admin panel page itself is the gate; these endpoints never return secrets.
-// Body validation + single-flight reset lock + server-generated idempotency keys.
+// Account controls are authenticated on the server, including status reads.
 import { randomUUID } from "node:crypto";
+import { adminOk } from "../auth/codes.js";
+import { env } from "../env.js";
 import type { FastifyInstance } from "fastify";
 import { CodexError } from "../llm/codex/protocol.js";
 import { sharedAppServer } from "../llm/codex/appServer.js";
@@ -43,6 +43,14 @@ export function codexHealthSummary(): Record<string, unknown> {
 }
 
 export function registerCodexRoutes(app: FastifyInstance): void {
+  app.addHook("onRequest", async (req, reply) => {
+    if (!req.url.split("?")[0]?.startsWith("/api/codex/")) return;
+    const code = req.headers["x-admin-code"];
+    if (!adminOk(Array.isArray(code) ? code[0] : code, env.adminCode)) {
+      return reply.code(401).send({ error: "unauthorized" });
+    }
+    reply.header("Cache-Control", "no-store");
+  });
   const server = sharedAppServer();
 
   app.get("/api/codex/status", async () => {
@@ -54,19 +62,17 @@ export function registerCodexRoutes(app: FastifyInstance): void {
   });
 
   app.post("/api/codex/connect/start", async (req, reply) => {
-    const body = asRecord(req.body) ?? {};
-    const useHosted = body["useHostedLoginSuccessPage"];
     try {
       const res = (await server.call("account/login/start", {
-        type: "chatgpt",
-        ...(typeof useHosted === "boolean" ? { useHostedLoginSuccessPage: useHosted } : {}),
+        type: "chatgptDeviceCode",
       })) as unknown;
       const rec = asRecord(res) ?? {};
-      const authUrl = typeof rec["authUrl"] === "string" ? (rec["authUrl"] as string) : typeof rec["url"] === "string" ? (rec["url"] as string) : undefined;
+      const authUrl = typeof rec["verificationUrl"] === "string" ? rec["verificationUrl"] : undefined;
+      const userCode = typeof rec["userCode"] === "string" ? rec["userCode"] : undefined;
       const loginId = typeof rec["loginId"] === "string" ? (rec["loginId"] as string) : typeof rec["id"] === "string" ? (rec["id"] as string) : undefined;
-      if (!authUrl) return reply.code(502).send({ error: "login start did not return authUrl" });
+      if (!authUrl || !userCode || !loginId || new URL(authUrl).origin !== "https://auth.openai.com") return reply.code(502).send({ error: "The backend Codex CLI did not return a valid device login. Update the CLI and retry." });
       clearCodexBreaker();
-      return { authUrl, ...(loginId ? { loginId } : {}) };
+      return { authUrl, userCode, loginId };
     } catch (err) {
       if (err instanceof CodexError && (err.kind === "binary_missing" || err.kind === "process_unavailable" || err.kind === "transport_closed")) {
         return reply.code(503).send({ error: "codex runtime unavailable", kind: err.kind });
@@ -86,11 +92,11 @@ export function registerCodexRoutes(app: FastifyInstance): void {
     return { ok: true as const };
   });
 
-  app.post("/api/codex/logout", async () => {
+  app.post("/api/codex/logout", async (_req, reply) => {
     try {
       await server.call("account/logout", {});
     } catch {
-      // best effort
+      return reply.code(502).send({ error: "Disconnect failed. Refresh account status before retrying." });
     }
     clearCodexBreaker();
     return { ok: true as const };

@@ -1,4 +1,10 @@
-import { apiFetch, apiUrl } from "./client";
+import { apiFetch } from "./client";
+
+function codexFetch(path: string, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  try { headers.set("x-admin-code", localStorage.getItem("redline_admin_code") ?? ""); } catch { /* Server rejects missing credentials. */ }
+  return apiFetch(path, { ...init, headers });
+}
 
 export interface CodexUsageWindow {
   usedPercent: number;
@@ -30,23 +36,23 @@ async function parseJson<T>(res: Response): Promise<T> {
 }
 
 export function getCodexStatus(signal?: AbortSignal): Promise<CodexStatus> {
-  return apiFetch(apiUrl("/api/codex/status"), signal ? { signal } : undefined).then((r) => parseJson<CodexStatus>(r));
+  return codexFetch("/api/codex/status", signal ? { signal } : undefined).then((r) => parseJson<CodexStatus>(r));
 }
 
 export function refreshCodex(): Promise<CodexStatus> {
-  return apiFetch(apiUrl("/api/codex/refresh"), { method: "POST" }).then((r) => parseJson<CodexStatus>(r));
+  return codexFetch("/api/codex/refresh", { method: "POST" }).then((r) => parseJson<CodexStatus>(r));
 }
 
-export function startCodexConnect(): Promise<{ authUrl: string; loginId?: string }> {
-  return apiFetch(apiUrl("/api/codex/connect/start"), {
+export function startCodexConnect(): Promise<{ authUrl: string; userCode: string; loginId?: string }> {
+  return codexFetch("/api/codex/connect/start", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
-  }).then((r) => parseJson<{ authUrl: string; loginId?: string }>(r));
+  }).then((r) => parseJson<{ authUrl: string; userCode: string; loginId?: string }>(r));
 }
 
 export function cancelCodexConnect(loginId?: string): Promise<{ ok: boolean }> {
-  return apiFetch(apiUrl("/api/codex/connect/cancel"), {
+  return codexFetch("/api/codex/connect/cancel", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(loginId ? { loginId } : {}),
@@ -54,15 +60,15 @@ export function cancelCodexConnect(loginId?: string): Promise<{ ok: boolean }> {
 }
 
 export function codexLogout(): Promise<{ ok: boolean }> {
-  return apiFetch(apiUrl("/api/codex/logout"), { method: "POST" }).then((r) => parseJson<{ ok: boolean }>(r));
+  return codexFetch("/api/codex/logout", { method: "POST" }).then((r) => parseJson<{ ok: boolean }>(r));
 }
 
 export function codexRestart(): Promise<{ ok: boolean; error?: string }> {
-  return apiFetch(apiUrl("/api/codex/restart"), { method: "POST" }).then((r) => parseJson<{ ok: boolean; error?: string }>(r));
+  return codexFetch("/api/codex/restart", { method: "POST" }).then((r) => parseJson<{ ok: boolean; error?: string }>(r));
 }
 
 export function consumeCodexReset(creditId?: string): Promise<{ outcome: string; status?: CodexStatus }> {
-  return apiFetch(apiUrl("/api/codex/reset"), {
+  return codexFetch("/api/codex/reset", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(creditId ? { creditId } : {}),

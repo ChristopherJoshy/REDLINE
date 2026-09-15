@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { test } from "node:test";
 import { openDatabase } from "../db/database.js";
-import { COUNTDOWN_MS, extendRound, roundState, startRound, stopRound } from "./state.js";
+import { COUNTDOWN_MS, extendRound, pauseRound, resumeRound, roundState, startRound, stopRound } from "./state.js";
 
 test("round clock keeps countdown separate from playable duration", () => {
   const db = openDatabase(":memory:", join(__dirname, "../db/schema.sql"));
@@ -31,6 +31,23 @@ test("only active rounds extend and a stop ends immediately", () => {
     stopRound(db, 1);
     assert.equal(roundState(db, 1, now).status, "ended");
     assert.throws(() => extendRound(db, 1, 60, now));
+  } finally {
+    db.close();
+  }
+});
+
+test("paused rounds hold their clock and cannot be started twice", () => {
+  const db = openDatabase(":memory:", join(__dirname, "../db/schema.sql"));
+  try {
+    const now = Date.parse("2026-09-15T10:00:00.000Z");
+    startRound(db, 2, 120, now - COUNTDOWN_MS);
+    const paused = pauseRound(db, 2, now + 20_000);
+    assert.equal(paused.status, "paused");
+    assert.equal(roundState(db, 2, now + 200_000).status, "paused");
+    assert.throws(() => startRound(db, 2, 60, now + 30_000));
+    const resumed = resumeRound(db, 2, now + 200_000);
+    assert.equal(resumed.status, "active");
+    assert.equal(Date.parse(resumed.endsAt ?? ""), now + 120_000 + 180_000);
   } finally {
     db.close();
   }

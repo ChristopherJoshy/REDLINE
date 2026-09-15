@@ -17,14 +17,14 @@ export function round1Open(db: DatabaseAdapter): boolean { return roundState(db,
 export function vaultOpen(db: DatabaseAdapter): boolean {
   return db.get<{ value: string }>("SELECT value FROM game_state WHERE key = 'vault_open'")?.value === "1";
 }
-export function round2Status(db: DatabaseAdapter): "off" | "countdown" | "active" {
+export function round2Status(db: DatabaseAdapter): "off" | "countdown" | "active" | "paused" {
   const status = roundState(db, 2).status;
-  return status === "countdown" || status === "active" ? status : "off";
+  return status === "countdown" || status === "active" || status === "paused" ? status : "off";
 }
 export function round2Duration(db: DatabaseAdapter): number { return roundState(db, 2).durationSecs; }
 export function round2TimeLeft(db: DatabaseAdapter): number {
   const state = roundState(db, 2);
-  const end = state.status === "countdown" ? state.startsAt : state.status === "active" ? state.endsAt : null;
+  const end = state.status === "countdown" ? state.startsAt : state.status === "active" || state.status === "paused" ? state.endsAt : null;
   return end ? Math.max(0, Math.ceil((Date.parse(end) - Date.now()) / 1000)) : 0;
 }
 export function isQualified(db: DatabaseAdapter, teamId: string): boolean {
@@ -51,6 +51,47 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
   app.get("/api/admin/rounds", async (req, reply) => {
     if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
     return roundSnapshot(db);
+  });
+
+  app.get("/api/admin/round2/control", async (req, reply) => {
+    if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
+    const teams = db.all<{ id: string; name: string; boss: string | null; phaseOverride: string | null }>(
+      `SELECT t.id, t.name, a.boss,
+        (SELECT value FROM game_state WHERE key = 'r2_phase_override:' || t.id || ':' || a.boss) AS phaseOverride
+       FROM teams t LEFT JOIN r2_assignments a ON a.team_id = t.id ORDER BY t.name`,
+    );
+    return { teams };
+  });
+
+  app.post("/api/admin/round2/assignment", async (req, reply) => {
+    if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
+    const body = (req.body ?? {}) as { teamId?: unknown; boss?: unknown; reset?: unknown; reason?: unknown };
+    if (typeof body.teamId !== "string" || (body.boss !== "itachi" && body.boss !== "aizen")) return reply.code(400).send({ error: "teamId and boss are required" });
+    const team = db.get<{ id: string }>("SELECT id FROM teams WHERE id = ?", body.teamId);
+    if (!team) return reply.code(404).send({ error: "team not found" });
+    const existing = db.get<{ boss: string }>("SELECT boss FROM r2_assignments WHERE team_id = ?", body.teamId);
+    if (existing && existing.boss !== body.boss && body.reset !== true) return reply.code(409).send({ error: "Changing a boss requires reset=true." });
+    const reason = typeof body.reason === "string" && body.reason.trim() ? body.reason.trim().slice(0, 240) : "admin assignment";
+    db.transaction(() => {
+      db.run("INSERT INTO r2_assignments (team_id, boss) VALUES (?, ?) ON CONFLICT(team_id) DO UPDATE SET boss = excluded.boss", body.teamId as string, body.boss as string);
+      if (existing && existing.boss !== body.boss) {
+        db.run("DELETE FROM chat_logs WHERE team_id = ? AND bot_id IN ('itachi','aizen')", body.teamId as string);
+        db.run("DELETE FROM team_inventory WHERE team_id = ? AND bot_id IN ('itachi','aizen')", body.teamId as string);
+        db.run("DELETE FROM r2_scores WHERE team_id = ?", body.teamId as string);
+      }
+      db.run("INSERT INTO admin_audit (action, target_id, reason, detail) VALUES (?, ?, ?, ?)", "round2_assignment", body.teamId as string, reason, JSON.stringify({ boss: body.boss, reset: body.reset === true }));
+    });
+    return { ok: true, teamId: body.teamId, boss: body.boss };
+  });
+
+  app.post("/api/admin/round2/phase", async (req, reply) => {
+    if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
+    const body = (req.body ?? {}) as { teamId?: unknown; boss?: unknown; phase?: unknown; reason?: unknown };
+    if (typeof body.teamId !== "string" || (body.boss !== "itachi" && body.boss !== "aizen") || !["auto", "p1", "p2"].includes(String(body.phase))) return reply.code(400).send({ error: "teamId, boss, and phase (auto|p1|p2) are required" });
+    const reason = typeof body.reason === "string" && body.reason.trim() ? body.reason.trim().slice(0, 240) : "admin phase control";
+    db.run("INSERT INTO game_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", `r2_phase_override:${body.teamId}:${body.boss}`, body.phase as string);
+    db.run("INSERT INTO admin_audit (action, target_id, reason, detail) VALUES (?, ?, ?, ?)", "round2_phase", body.teamId as string, reason, JSON.stringify({ boss: body.boss, phase: body.phase }));
+    return { ok: true, phase: body.phase };
   });
 
   for (const round of [1, 2] as const) {

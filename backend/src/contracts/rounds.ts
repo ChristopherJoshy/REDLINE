@@ -6,6 +6,7 @@ export interface RoundState {
   startsAt: string | null;
   endsAt: string | null;
   durationSecs: number;
+  pausedAt?: string | null;
 }
 
 export interface RoundSnapshot {

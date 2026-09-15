@@ -20,7 +20,7 @@ import CelebrationOverlay from "@/components/CelebrationOverlay";
 import { getCover } from "@/api/profiles";
 import { submitItem } from "@/api/merchant";
 import { apiFetch } from "@/api/client";
-import { Send, ShoppingBag } from "lucide-react";
+import { Send, ShoppingBag, Volume2, VolumeX, SkipForward, ArrowDown } from "lucide-react";
 import { DUR, EASE, reducedMotion } from "@/lib/motionTokens";
 
 interface RoundTwoScreenProps {
@@ -32,9 +32,15 @@ interface RoundTwoScreenProps {
 
 type Reveal = "blackout" | "sigil" | "open";
 
+function readPref(key: string, fallback: string): string {
+  try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
+}
+
 export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: RoundTwoScreenProps): React.JSX.Element {
   const { bots, send, flash, inventory, rewind } = useBotStream(teamId);
-  const [reveal, setReveal] = useState<Reveal>("blackout");
+  const [reveal, setReveal] = useState<Reveal>(() => {
+    try { return sessionStorage.getItem(`redline:r2-intro:${teamId}:${boss}`) === "1" ? "open" : "blackout"; } catch { return "blackout"; }
+  });
   const [draft, setDraft] = useState("");
   const [phase, setPhase] = useState<"p1" | "p2">("p1");
   const [coverMissing, setCoverMissing] = useState(false);
@@ -43,6 +49,19 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
   const [offerError, setOfferError] = useState("");
   const [merchantView, setMerchantView] = useState(false);
   const [jumpscare, setJumpscare] = useState(false);
+  const [phaseReveal, setPhaseReveal] = useState(false);
+  const [musicMuted, setMusicMuted] = useState(() => readPref("redline_music_muted", "0") === "1");
+  const [musicVolume, setMusicVolume] = useState(() => Number(readPref("redline_music_volume", "0.18")) || 0.18);
+  const musicRef = useRef<HTMLAudioElement | null>(null);
+  const feedRef = useRef<HTMLDivElement>(null);
+  const nearBottomRef = useRef(true);
+  const [showLatest, setShowLatest] = useState(false);
+  const previousPhase = useRef<"p1" | "p2">("p1");
+  const state = bots[boss];
+  const lore = CHARACTERS[boss];
+  const chatBg = CHAT_BACKGROUND[boss];
+  useDocumentTitle(`Round 2 · ${lore?.name ?? boss} — REDLINE Arena`);
+  const bossAudio = boss === "itachi" ? "/sounds/itachi/crow-caw.mp3" : "/sounds/aizen/entry-yokoso-full.mp3";
   const prevStatus = useRef<string | null>(null);
 
   // Sigil reveal choreography refs
@@ -57,6 +76,49 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
   const prevMsgCountRef = useRef(0);
 
   // Celebration on boss filing
+  useEffect(() => {
+    if (phase === "p2" && previousPhase.current === "p1") {
+      setPhaseReveal(true);
+      const timer = window.setTimeout(() => setPhaseReveal(false), 1800);
+      if (!reducedMotion()) playSound(boss === "itachi" ? "/sounds/itachi/sfx-sharingan.mp3" : "/sounds/aizen/shatter.mp3");
+      previousPhase.current = phase;
+      return () => window.clearTimeout(timer);
+    }
+    previousPhase.current = phase;
+    return undefined;
+  }, [phase, boss]);
+
+  useEffect(() => {
+    const audio = new Audio(boss === "itachi" ? "/sounds/round2/long-note-one.mp3" : "/sounds/round2/long-note-three.mp3");
+    audio.loop = true;
+    musicRef.current = audio;
+    audio.volume = musicMuted ? 0 : musicVolume;
+    if (reveal === "open") void audio.play().catch(() => {});
+    return () => { audio.pause(); audio.src = ""; musicRef.current = null; };
+  }, [boss]);
+
+  useEffect(() => {
+    const audio = musicRef.current;
+    if (!audio) return;
+    audio.volume = musicMuted ? 0 : musicVolume;
+    if (reveal === "open") void audio.play().catch(() => {});
+    try { localStorage.setItem("redline_music_muted", musicMuted ? "1" : "0"); localStorage.setItem("redline_music_volume", String(musicVolume)); } catch { /* preferences are optional */ }
+  }, [musicMuted, musicVolume, reveal]);
+
+  useEffect(() => {
+    if (reveal === "open") {
+      try { sessionStorage.setItem(`redline:r2-intro:${teamId}:${boss}`, "1"); } catch { /* optional */ }
+    }
+  }, [reveal, teamId, boss]);
+
+  useEffect(() => {
+    if (reveal !== "open") return;
+    const feed = feedRef.current;
+    if (!feed) return;
+    if (nearBottomRef.current) feed.scrollTo({ top: feed.scrollHeight, behavior: reducedMotion() ? "auto" : "smooth" });
+    else setShowLatest(true);
+  }, [state?.messages.length, state?.streaming, reveal]);
+
   useEffect(() => {
     const cur = inventory.find((i) => i.botId === boss)?.status ?? "none";
     const had = prevStatus.current;
@@ -97,17 +159,13 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
     return () => { dead = true; };
   }, [boss]);
 
-  const state = bots[boss];
-  const lore = CHARACTERS[boss];
-  const chatBg = CHAT_BACKGROUND[boss];
-  useDocumentTitle(`Round 2 · ${lore?.name ?? boss} — REDLINE Arena`);
-  const bossAudio = boss === "itachi" ? "/sounds/itachi/crow-caw.mp3" : "/sounds/aizen/entry-yokoso-full.mp3";
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("arena:accent", { detail: { accent: lore?.accent ?? "#ff1e2d", ink: lore?.accentInk ?? "#ffffff" } }));
   }, [boss, lore?.accent, lore?.accentInk]);
 
   // Reveal sequence with Anime.js sigil choreography
   useEffect(() => {
+    if (reveal === "open") return undefined;
     const t1 = window.setTimeout(() => {
       setReveal("sigil");
       unlockAudio();
@@ -122,7 +180,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
       }).catch(() => {});
     }, 2200);
     return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
-  }, [boss, bossAudio]);
+  }, [boss, bossAudio, reveal]);
 
   // Sigil cinematic on sigil reveal state
   useEffect(() => {
@@ -234,7 +292,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
             <div
               ref={sigilPortraitRef}
               className="w-28 h-28 rounded-[8px] overflow-hidden border border-[var(--color-border-strong)]"
-              style={{ opacity: 0 }}
+              style={{ opacity: reducedMotion() ? 1 : 0 }}
             >
               <img
                 src={lore?.avatar ?? "/characters/itachi.jpg"}
@@ -245,17 +303,20 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
             <h2
               ref={sigilNameRef}
               className="font-[family-name:var(--font-vault)] text-[24px] font-bold text-[var(--color-text-1)]"
-              style={{ opacity: 0 }}
+              style={{ opacity: reducedMotion() ? 1 : 0 }}
             >
               {lore?.name}
             </h2>
             <span
               ref={sigilCaptionRef}
               className="font-[family-name:var(--font-code)] text-[12px] tracking-[0.25em] text-[var(--color-text-3)]"
-              style={{ opacity: 0 }}
+              style={{ opacity: reducedMotion() ? 1 : 0 }}
             >
               ROUND 2
             </span>
+            <button type="button" onClick={() => setReveal("open")} className="mt-3 inline-flex min-h-[44px] items-center gap-2 border border-white/20 px-4 text-xs font-semibold text-white/80 hover:border-white/50">
+              <SkipForward className="h-4 w-4" /> Skip intro
+            </button>
           </div>
         )}
       </div>
@@ -271,7 +332,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
           : { backgroundImage: `url("${chatBg}")`, backgroundSize: "cover", backgroundPosition: "center top", "--accent": lore?.accent ?? "#ff1e2d", "--accent-ink": lore?.accentInk ?? "#ffffff" }) as unknown as React.CSSProperties
       }
     >
-      {flash > 0 && <div key={flash} className="pointer-events-none fixed inset-0 z-40 bg-white" aria-hidden="true" />}
+      {flash > 0 && !reducedMotion() && <div key={flash} className="pointer-events-none fixed inset-0 z-40 bg-[rgba(255,30,45,0.22)]" aria-hidden="true" />}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[rgba(5,7,10,0.72)]" />
       <div className="relative flex min-h-0 flex-1 flex-col">
       <header className="acc-border flex items-center justify-between gap-2 border-b bg-[rgba(5,7,10,0.85)] px-4 py-3 backdrop-blur-sm">
@@ -304,8 +365,13 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
             </span>
           )}
           <RewindButton botId={boss} onRewind={rewind} />
+          <button type="button" onClick={() => setMusicMuted((v) => !v)} aria-label={musicMuted ? "Unmute music" : "Mute music"} className="flex min-h-[44px] items-center justify-center rounded-[6px] border border-white/15 px-2 text-white/80 hover:border-white/40">
+            {musicMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          </button>
         </div>
       </header>
+
+      {phaseReveal && <div className="pointer-events-none absolute inset-x-0 top-[116px] z-30 flex justify-center"><div className="r2-phase-reveal border border-[var(--accent)] bg-[rgba(5,7,10,0.94)] px-6 py-3 text-center shadow-[0_0_40px_var(--accent-glow)]"><p className="font-mono text-[10px] tracking-[0.3em] text-white/60">THRESHOLD CROSSED</p><p className="mt-1 font-[family-name:var(--font-vault)] text-lg font-bold text-white">{boss === "itachi" ? "The loop is broken" : "The perfect hypnosis fractures"}</p></div></div>}
 
       {/* Round 1-style mark selector: one assigned boss, plus the vault merchant/altar. */}
       <nav aria-label="Round 2 contacts" className="acc-border flex shrink-0 items-stretch gap-2 overflow-x-auto border-b bg-[rgba(5,7,10,0.78)] px-3 py-2 backdrop-blur-sm sm:px-4">
@@ -358,7 +424,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
         <>
 
       {/* Chat Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 max-w-[900px] w-full mx-auto" aria-live="polite">
+      <div ref={feedRef} onScroll={(e) => { const el = e.currentTarget; nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 96; if (nearBottomRef.current) setShowLatest(false); }} className="redline-scroll flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 max-w-[900px] w-full mx-auto" aria-live="polite">
         {state.messages.map((m, i) =>
           m.role === "ally" ? (
             <div key={i} className="r2-chat-msg acc-border self-center my-1 max-w-[500px] rounded-[10px] border border-dashed bg-[rgba(13,17,23,0.92)] p-3.5 text-[14px] text-[var(--color-text-1)]">
@@ -464,14 +530,17 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
         )}
       </div>
 
-      <form onSubmit={submit} className="acc-border border-t bg-[rgba(5,7,10,0.9)] p-3 backdrop-blur-sm sm:p-4">
+      {showLatest && <button type="button" onClick={() => { const feed = feedRef.current; if (feed) feed.scrollTo({ top: feed.scrollHeight, behavior: reducedMotion() ? "auto" : "smooth" }); nearBottomRef.current = true; setShowLatest(false); }} className="absolute bottom-[88px] right-4 z-20 inline-flex min-h-[44px] items-center gap-2 rounded-[6px] border border-[var(--accent)] bg-[rgba(5,7,10,0.95)] px-3 text-xs font-semibold text-white shadow-lg"><ArrowDown className="h-4 w-4" /> Jump to latest</button>}
+      <form onSubmit={submit} className="acc-border border-t bg-[rgba(5,7,10,0.94)] p-3 backdrop-blur-sm sm:p-4">
         <div className="mx-auto flex w-full max-w-[900px] items-center gap-3">
-          <input
+          <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }}
             disabled={!locked}
             placeholder={locked ? `Write to ${lore?.name}` : "Paused"}
-            className="acc-border min-h-[48px] flex-1 rounded-[8px] border bg-[rgba(13,17,23,0.9)] px-4 text-[15px] text-white placeholder:text-[var(--color-text-faint)] focus:outline-none acc-glow transition"
+            rows={1}
+            className="acc-border max-h-32 min-h-[48px] flex-1 resize-y rounded-[8px] border bg-[rgba(13,17,23,0.96)] px-4 py-3 text-[15px] leading-6 text-white placeholder:text-[var(--color-text-faint)] focus:outline-none acc-glow transition"
           />
           <button
             type="submit"

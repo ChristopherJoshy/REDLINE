@@ -28,14 +28,15 @@ export function roundState(db: DatabaseAdapter, round: RoundNumber, now = Date.n
   const start = Date.parse(saved.startsAt);
   const end = Date.parse(saved.endsAt);
   
-  let status: import("../contracts/rounds.js").RoundStatus = saved.stopped || now >= end ? "ended" : now < start ? "countdown" : "active";
-  if (status === "active" && saved.pausedAt) status = "paused";
+  const effectiveNow = saved.pausedAt ? Date.parse(saved.pausedAt) : now;
+  const status: import("../contracts/rounds.js").RoundStatus = saved.stopped || effectiveNow >= end ? "ended" : saved.pausedAt ? "paused" : now < start ? "countdown" : "active";
   
   return {
     status,
     startsAt: saved.startsAt,
     endsAt: saved.endsAt,
     durationSecs: (end - start) / 1000,
+    pausedAt: saved.pausedAt ?? null,
   };
 }
 
@@ -44,6 +45,8 @@ export function roundSnapshot(db: DatabaseAdapter, now = Date.now()): RoundSnaps
 }
 
 export function startRound(db: DatabaseAdapter, round: RoundNumber, durationSecs: number, now = Date.now()): RoundState {
+  const current = roundState(db, round, now).status;
+  if (current === "active" || current === "paused" || current === "countdown") throw new Error("End the current round before starting another countdown.");
   if (!Number.isInteger(durationSecs) || durationSecs < 1 || durationSecs > MAX_DURATION_SECS) throw new Error("Duration must be between 1 second and 24 hours.");
   save(db, round, { startsAt: new Date(now + COUNTDOWN_MS).toISOString(), endsAt: new Date(now + COUNTDOWN_MS + durationSecs * 1000).toISOString(), stopped: false, pausedAt: null });
   return roundState(db, round, now);
@@ -90,8 +93,12 @@ export function reduceRound(db: DatabaseAdapter, round: RoundNumber, reduceSecs:
   if (!saved || (state.status !== "active" && state.status !== "paused")) throw new Error(`Round ${round} is not active or paused.`);
   
   const currentEnd = Date.parse(saved.endsAt);
+  const effectiveNow = saved.pausedAt ? Date.parse(saved.pausedAt) : now;
   let newEnd = currentEnd - reduceSecs * 1000;
-  if (newEnd < now) newEnd = now; // Can't reduce past current time
+  if (newEnd <= effectiveNow) {
+    stopRound(db, round);
+    return roundState(db, round, now);
+  }
   
   save(db, round, { ...saved, endsAt: new Date(newEnd).toISOString() });
   return roundState(db, round, now);

@@ -90,6 +90,15 @@ CREATE TABLE IF NOT EXISTS game_state (
   value TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS admin_audit (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  action TEXT NOT NULL,
+  target_id TEXT,
+  reason TEXT NOT NULL,
+  detail TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 CREATE TABLE IF NOT EXISTS r2_assignments (
   team_id TEXT PRIMARY KEY REFERENCES teams(id),
   boss TEXT NOT NULL,

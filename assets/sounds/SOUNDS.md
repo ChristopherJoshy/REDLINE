@@ -61,3 +61,7 @@ All files served same-origin under `/sounds/`. Never hotlink MyInstants at event
 | merchant/troll-not-enough-cash | /sounds/merchant/troll-not-enough-cash.mp3 | https://www.myinstants.com/en/instant/n-merchant-not-enough-cash-66612/ | g-r-b-herb | 247 | TROLL | 37033 |
 | portal/open-loop | /sounds/portal/open-loop.mp3 | https://www.myinstants.com/en/instant/nether-portal-17190/ | UndergrndFurret | 33,739 | OPEN-LOOP | 153226 |
 | portal/enter-whoosh | /sounds/portal/enter-whoosh.mp3 | https://www.myinstants.com/en/instant/nether-portal-travil-sound-44535/ | bartek876 | 899 | ENTER-WHOOSH | 240881 |
+## Round 2 atmosphere
+
+- `round2/long-note-one.mp3` — “Long Note One” by Kevin MacLeod, sourced from [incompetech.com](https://incompetech.com/music/royalty-free/index.html?Search=Search&isrc=USUAN1100418), licensed under Creative Commons Attribution 4.0.
+- `round2/long-note-three.mp3` — “Long Note Three” by Kevin MacLeod, sourced from [incompetech.com](https://incompetech.com/music/royalty-free/index.html?collection=037&page=3), licensed under Creative Commons Attribution 4.0.

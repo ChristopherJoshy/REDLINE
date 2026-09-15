@@ -205,6 +205,17 @@ body {
   background: rgba(255, 255, 255, 0.04);
 }
 
+@keyframes r2-phase-reveal {
+  from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.r2-phase-reveal { animation: r2-phase-reveal 420ms var(--ease-out) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .r2-phase-reveal { animation: none; }
+}
+
 .mark-card {
   transition: border-color 180ms var(--ease-out), background 180ms var(--ease-out), box-shadow 180ms var(--ease-out), transform 180ms var(--ease-out);
 }

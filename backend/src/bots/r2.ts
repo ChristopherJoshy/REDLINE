@@ -57,12 +57,14 @@ export function userTurns(db: DatabaseAdapter, teamId: string, boss: BossId): nu
 }
 
 export function r2Phase(db: DatabaseAdapter, teamId: string, boss: BossId): R2Phase {
+  const override = db.get<{ value: string }>("SELECT value FROM game_state WHERE key = ?", `r2_phase_override:${teamId}:${boss}`)?.value;
+  if (override === "p1" || override === "p2") return override;
   return userTurns(db, teamId, boss) >= PROMPTS[boss].releaseAt ? "p2" : "p1";
 }
 
 export function r2Prompt(db: DatabaseAdapter, teamId: string, boss: BossId): { prompt: string; phase: R2Phase; reveal: boolean } {
   const turns = userTurns(db, teamId, boss);
-  const phase: R2Phase = turns >= PROMPTS[boss].releaseAt ? "p2" : "p1";
+  const phase = r2Phase(db, teamId, boss);
   return { prompt: directCharacter(boss, PROMPTS[boss][phase]), phase, reveal: turns === PROMPTS[boss].releaseAt };
 }
 

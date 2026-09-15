@@ -209,7 +209,7 @@ export default function GatedArena({ teamId, displayName, locked }: { teamId: st
       const endsAt = new Date(Date.now() + gates.round2TimeLeft * 1000).toISOString();
       setCountdownEndsAt(endsAt);
     }
-    if (gates.round2Status === "off" && countdownEndsAt) {
+    if ((gates.round2Status === "off" || gates.round2Status === "paused") && countdownEndsAt) {
       setCountdownEndsAt(null);
     }
     if (gates.round2Status === "active") {

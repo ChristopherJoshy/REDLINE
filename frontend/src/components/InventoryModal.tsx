@@ -82,7 +82,7 @@ export default function InventoryModal({
 
   if (!isOpen) return null;
 
-  const enrichedItems = inventory.map((inv) => {
+  const enrichedItems = inventory.filter((inv) => inv.status !== "locked").map((inv) => {
     const char = CHARACTERS[inv.botId];
     const itemMeta = char?.targetItem;
     return {

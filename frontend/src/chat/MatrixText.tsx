@@ -41,9 +41,19 @@ export default function MatrixText({
       timersRef.current = {};
       if (flickerTimerRef.current !== undefined) {
         window.clearInterval(flickerTimerRef.current);
+        flickerTimerRef.current = undefined;
       }
+      
+      // StrictMode / Remount fix: if unmounted, reset state so remounting starts fresh
+      if (animateOnMount) {
+        settledCountRef.current = 0;
+        prevTextRef.current = "";
+      } else {
+        settledCountRef.current = prevTextRef.current.length;
+      }
+      setGlyphs({});
     };
-  }, []);
+  }, [animateOnMount]);
 
   useEffect(() => {
     if (reducedMotion()) {

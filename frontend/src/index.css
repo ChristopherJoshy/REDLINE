@@ -235,6 +235,9 @@ body {
 :root {
   --accent: #ff1e2d;
   --accent-ink: #ffffff;
+}
+
+* {
   --accent-deep: color-mix(in srgb, var(--accent) 55%, black);
   --accent-soft: color-mix(in srgb, var(--accent) 55%, white);
   --accent-wash: color-mix(in srgb, var(--accent) 12%, transparent);

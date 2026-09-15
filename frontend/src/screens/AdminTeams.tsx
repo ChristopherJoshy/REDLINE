@@ -73,7 +73,7 @@ interface AdminTeamOverview {
 }
 
 interface Round2State {
-  status: "off" | "countdown" | "active";
+  status: "off" | "countdown" | "active" | "paused";
   timeLeft: number;
   duration: number;
 }
@@ -1811,14 +1811,13 @@ export default function AdminTeams(): React.JSX.Element {
                 )}
 
                 <div className="flex flex-col gap-3 pt-4 border-t border-[#3F3F46]">
-                  {round2.status === "off" && (
-                    <label className="flex flex-col gap-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] p-3 font-mono text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA]">
-                      Round duration (minutes)
-                      <input type="number" min="1" max="1440" value={roundDurationMins} onChange={(e) => setRoundDurationMins(Math.max(1, Math.min(1440, Number(e.target.value) || 1)))} className="h-10 w-full rounded-[2px] border border-[#3F3F46] bg-[#27272A] px-3 font-mono text-[#F4F4F5] focus:border-[#EF4444] focus:outline-none" />
-                    </label>
-                  )}
+                  {/* R1 Not started — show duration input + start button */}
                   {gates.round1.status === "not_started" && (
                     <div className="flex flex-col gap-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] p-3">
+                      <label className="flex flex-col gap-2 font-mono text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA]">
+                        R1 Duration (minutes)
+                        <input type="number" min="1" max="1440" value={roundDurationMins} onChange={(e) => setRoundDurationMins(Math.max(1, Math.min(1440, Number(e.target.value) || 1)))} className="h-10 w-full rounded-[2px] border border-[#3F3F46] bg-[#27272A] px-3 font-mono text-[#F4F4F5] focus:border-[#EF4444] focus:outline-none" />
+                      </label>
                       <button
                         type="button"
                         onClick={async () => {
@@ -1836,53 +1835,142 @@ export default function AdminTeams(): React.JSX.Element {
                       </button>
                     </div>
                   )}
-                  {round2.status === "off" && (
+
+                  {/* R1 Active — Pause + time controls */}
+                  {gates.round1.status === "active" && (
+                    <div className="flex flex-col gap-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] p-3">
+                      <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA]">Round 1 Controls</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={async () => { await pauseRound1(adminCode); setGates(await getGates()); notify("Round 1 Paused"); }}
+                          className="py-2.5 px-3 rounded-[2px] border border-[#F59E0B] bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] font-mono font-bold text-[12px] uppercase tracking-wider transition cursor-pointer"
+                        >
+                          Pause
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => { await endRound1(adminCode); setGates(await getGates()); notify("Round 1 frozen!"); }}
+                          className="py-2.5 px-3 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] text-[#A1A1AA] font-mono font-bold text-[12px] uppercase tracking-wider transition cursor-pointer"
+                        >
+                          Freeze
+                        </button>
+                      </div>
+                      {/* Add / Remove time */}
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#71717A] mt-1">Add Time</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[1, 5, 10].map(m => (
+                          <button key={m} type="button"
+                            onClick={async () => { await extendRound1(adminCode, m * 60); setGates(await getGates()); notify(`+${m} min to Round 1`); }}
+                            className="py-2 px-2 rounded-[2px] border border-[#10B981] bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] font-mono font-bold text-[12px] uppercase transition cursor-pointer"
+                          >
+                            +{m}m
+                          </button>
+                        ))}
+                      </div>
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#71717A] mt-1">Remove Time</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[1, 5, 10].map(m => (
+                          <button key={m} type="button"
+                            onClick={async () => { await reduceRound1(adminCode, m * 60); setGates(await getGates()); notify(`-${m} min from Round 1`); }}
+                            className="py-2 px-2 rounded-[2px] border border-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-[#EF4444] font-mono font-bold text-[12px] uppercase transition cursor-pointer"
+                          >
+                            -{m}m
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* R1 Paused — Resume button */}
+                  {gates.round1.status === "paused" && (
                     <button
                       type="button"
-                      onClick={async () => {
-                        try {
-                          await startRound2(adminCode, roundDurationMins * 60);
-                          const g = await getGates();
-                          setGates(g);
-                          notify(`Round 2 scheduled: 30s countdown, then ${roundDurationMins} minutes.`);
-                        } catch (err) {
-                          setError(err instanceof Error ? err.message : "Could not start Round 2.");
-                        }
-                      }}
-                      className="py-4 px-4 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-[#F4F4F5] font-mono font-bold text-[14px] uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer"
+                      onClick={async () => { await resumeRound1(adminCode); setGates(await getGates()); notify("Round 1 Resumed"); }}
+                      className="py-3 px-4 rounded-[2px] border border-[#10B981] bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] font-mono font-bold text-[13px] uppercase tracking-wider transition cursor-pointer w-full"
+                    >
+                      Resume Round 1
+                    </button>
+                  )}
+
+                  {/* Start Round 2 — only when R1 has started */}
+                  {round2.status === "off" && gates.round1.status !== "not_started" && (
+                    <button
+                      type="button"
+                      onClick={() => setShowR2Select(true)}
+                      className="py-4 px-4 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-[#F4F4F5] font-mono font-bold text-[14px] uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer mt-2"
                     >
                       <Unlock className="w-4 h-4" />
-                      <span>Start Round 2 (30s countdown)</span>
+                      <span>Select Teams &amp; Start Round 2…</span>
                     </button>
                   )}
 
-                  {round2.status !== "off" && (
+                  {/* R2 Active — Pause + time controls */}
+                  {round2.status === "active" && (
+                    <div className="flex flex-col gap-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] p-3 mt-2">
+                      <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA]">Round 2 Controls</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={async () => { await pauseRound2(adminCode); setGates(await getGates()); notify("Round 2 Paused"); }}
+                          className="py-2.5 px-3 rounded-[2px] border border-[#F59E0B] bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] font-mono font-bold text-[12px] uppercase tracking-wider transition cursor-pointer"
+                        >
+                          Pause
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => { await stopRound2(adminCode); setRound2({ status: "off", timeLeft: 0, duration: 1800 }); setGates(await getGates()); notify("Round 2 stopped!"); }}
+                          className="py-2.5 px-3 rounded-[2px] border border-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-[#EF4444] font-mono font-bold text-[12px] uppercase tracking-wider transition cursor-pointer"
+                        >
+                          Stop
+                        </button>
+                      </div>
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#71717A] mt-1">Add Time</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[1, 5, 10].map(m => (
+                          <button key={m} type="button"
+                            onClick={async () => { await extendRound2(adminCode, m * 60); setGates(await getGates()); notify(`+${m} min to Round 2`); }}
+                            className="py-2 px-2 rounded-[2px] border border-[#10B981] bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] font-mono font-bold text-[12px] uppercase transition cursor-pointer"
+                          >
+                            +{m}m
+                          </button>
+                        ))}
+                      </div>
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#71717A] mt-1">Remove Time</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[1, 5, 10].map(m => (
+                          <button key={m} type="button"
+                            onClick={async () => { await reduceRound2(adminCode, m * 60); setGates(await getGates()); notify(`-${m} min from Round 2`); }}
+                            className="py-2 px-2 rounded-[2px] border border-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-[#EF4444] font-mono font-bold text-[12px] uppercase transition cursor-pointer"
+                          >
+                            -{m}m
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* R2 Paused — Resume */}
+                  {round2.status === "paused" && (
                     <button
                       type="button"
-                      onClick={async () => {
-                        await stopRound2(adminCode);
-                        setRound2({ status: "off", timeLeft: 0, duration: 1800 });
-                        const g = await getGates();
-                        setGates(g);
-                        notify("Round 2 stopped!");
-                      }}
-                      className="py-3.5 px-4 rounded-[2px] border border-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-[#EF4444] font-mono font-bold text-[13px] uppercase tracking-wider transition cursor-pointer"
+                      onClick={async () => { await resumeRound2(adminCode); setGates(await getGates()); notify("Round 2 Resumed"); }}
+                      className="py-3 px-4 mt-2 rounded-[2px] border border-[#10B981] bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] font-mono font-bold text-[13px] uppercase tracking-wider transition cursor-pointer w-full"
                     >
-                      Stop Round 2
+                      Resume Round 2
                     </button>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await endRound1(adminCode);
-                      setGates(await getGates());
-                      notify("Round 1 submissions frozen!");
-                    }}
-                    className="py-3.5 px-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono font-bold text-[13px] uppercase tracking-wider transition cursor-pointer"
-                  >
-                    Freeze / End Round 1 Only
-                  </button>
+                  {/* R2 countdown — Stop button */}
+                  {round2.status === "countdown" && (
+                    <button
+                      type="button"
+                      onClick={async () => { await stopRound2(adminCode); setRound2({ status: "off", timeLeft: 0, duration: 1800 }); setGates(await getGates()); notify("Round 2 cancelled!"); }}
+                      className="py-3.5 px-4 mt-2 rounded-[2px] border border-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-[#EF4444] font-mono font-bold text-[13px] uppercase tracking-wider transition cursor-pointer"
+                    >
+                      Cancel Round 2 Countdown
+                    </button>
+                  )}
 
                   <button
                     type="button"

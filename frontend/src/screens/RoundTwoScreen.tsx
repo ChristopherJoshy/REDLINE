@@ -3,6 +3,7 @@ import { animate, createTimeline } from "animejs";
 import type { BotId } from "@contracts/events";
 import TypingBubble from "@/chat/TypingBubble";
 import MatrixText from "@/chat/MatrixText";
+import ChatMarkdown from "@/chat/ChatMarkdown";
 import { useBotStream } from "@/chat/useBotStream";
 import { playSound, unlockAudio } from "@/chat/sound";
 import { AVATAR_FOCUS, CHARACTERS, CHAT_BACKGROUND } from "@/data/characterLore";
@@ -388,18 +389,17 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
                     : "border border-[rgba(255,255,255,0.09)] bg-[rgba(13,17,23,0.92)] text-[var(--color-text-1)]"
                 }`}
               >
-                <p className="whitespace-pre-wrap">
-                  {m.role === "user" ? (
-                    stripThinking(m.text)
-                  ) : (
-                    <MatrixText
-                      text={stripThinking(m.text)}
-                      isStreaming={false}
-                      animateOnMount={i === state.messages.length - 1}
-                      accentColor={lore?.accent ?? "#ff1e2d"}
-                    />
-                  )}
-                </p>
+                {m.role === "user" ? (
+                  <ChatMarkdown text={stripThinking(m.text)} useMatrix={false} />
+                ) : (
+                  <ChatMarkdown
+                    text={stripThinking(m.text)}
+                    useMatrix={true}
+                    isStreaming={false}
+                    animateOnMount={i === state.messages.length - 1}
+                    accentColor={lore?.accent ?? "#ff1e2d"}
+                  />
+                )}
               </div>
             </div>
           )
@@ -453,13 +453,12 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
               <img src={lore?.avatar} alt="" className="w-full h-full object-cover" />
             </span>
             <div className="rounded-[10px] bg-[#0b0c10]/80 backdrop-blur-md border border-white/10 px-4 py-3 text-[14.5px] leading-relaxed text-white/95">
-              <p className="whitespace-pre-wrap">
-                <MatrixText
-                  text={stripThinking(state.streaming)}
-                  isStreaming={true}
-                  accentColor={lore?.accent ?? "#ff1e2d"}
-                />
-              </p>
+              <ChatMarkdown
+                text={stripThinking(state.streaming)}
+                useMatrix={true}
+                isStreaming={true}
+                accentColor={lore?.accent ?? "#ff1e2d"}
+              />
             </div>
           </div>
         )}

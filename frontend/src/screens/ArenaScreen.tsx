@@ -8,6 +8,7 @@ import { acquireLock, getLocks, releaseLock, type BotLockMap } from "@/api/locks
 import type { BotId, InventoryDelta } from "@contracts/events";
 import TypingBubble from "@/chat/TypingBubble";
 import MatrixText from "@/chat/MatrixText";
+import ChatMarkdown from "@/chat/ChatMarkdown";
 import { useBotStream } from "@/chat/useBotStream";
 import { unlockAudio } from "@/chat/sound";
 import { AVATAR_FOCUS, CHARACTERS, CHAT_BACKGROUND } from "@/data/characterLore";
@@ -871,10 +872,11 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                               {/* Message body */}
                               <div className="whitespace-pre-wrap">
                                 {isUser ? (
-                                  stripThinking(m.text)
+                                  <ChatMarkdown text={stripThinking(m.text)} useMatrix={false} />
                                 ) : (
-                                  <MatrixText
+                                  <ChatMarkdown
                                     text={stripThinking(m.text)}
+                                    useMatrix={true}
                                     isStreaming={false}
                                     animateOnMount={false}
                                     accentColor={botAccent}
@@ -932,13 +934,14 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                           <img src={CHARACTERS[chattingBotId]?.avatar} alt="" className={`w-full h-full object-cover ${CHARACTERS[chattingBotId] ? AVATAR_FOCUS[chattingBotId] : "object-center"}`} />
                         </span>
                         <div className="px-4 py-3 border border-white/12 bg-[#080b0f]/85 backdrop-blur-md text-white text-[14.5px] leading-relaxed shadow-[0_8px_32px_rgba(0,0,0,0.7)]">
-                          <p className="whitespace-pre-wrap">
-                            <MatrixText
+                          <div className="whitespace-pre-wrap">
+                            <ChatMarkdown
                               text={stripThinking(activeBot?.streaming)}
+                              useMatrix={true}
                               isStreaming={true}
                               accentColor={botAccent}
                             />
-                          </p>
+                          </div>
                         </div>
                       </div>
                     )}

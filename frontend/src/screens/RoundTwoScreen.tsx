@@ -6,7 +6,7 @@ import type { BotId } from "@contracts/events";
 import TypingBubble from "@/chat/TypingBubble";
 import ChatMarkdown from "@/chat/ChatMarkdown";
 import { useBotStream } from "@/chat/useBotStream";
-import { playSound, unlockAudio } from "@/chat/sound";
+import { unlockAudio } from "@/chat/sound";
 import { AVATAR_FOCUS, CHARACTERS, CHAT_BACKGROUND } from "@/data/characterLore";
 
 function stripThinking(text: string | undefined): string {
@@ -17,11 +17,11 @@ function stripThinking(text: string | undefined): string {
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import RewindButton from "@/chat/RewindButton";
 import ProfileModal from "@/components/ProfileModal";
-import CelebrationOverlay from "@/components/CelebrationOverlay";
+import BossCutscene from "@/portal/BossCutscene";
 import { getCover } from "@/api/profiles";
 import { submitItem } from "@/api/merchant";
 import { apiFetch } from "@/api/client";
-import { ShoppingBag, Volume2, VolumeX, SkipForward, ArrowDown, CheckCircle2, Shield, Pause, Play } from "lucide-react";
+import { ShoppingBag, Volume2, VolumeX, ArrowDown, CheckCircle2, Shield, Pause, Play } from "lucide-react";
 import { DUR, reducedMotion } from "@/lib/motionTokens";
 
 interface RoundTwoScreenProps {
@@ -31,7 +31,7 @@ interface RoundTwoScreenProps {
   onRoundEnd?: () => void;
 }
 
-type Reveal = "blackout" | "sigil" | "open";
+type Reveal = "arrival" | "open";
 
 function readPref(key: string, fallback: string): string {
   try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
@@ -40,7 +40,7 @@ function readPref(key: string, fallback: string): string {
 export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: RoundTwoScreenProps): React.JSX.Element {
   const { bots, send, flash, inventory, hasSyncedInventory, credits, rewind } = useBotStream(teamId);
   const [reveal, setReveal] = useState<Reveal>(() => {
-    try { return sessionStorage.getItem(`redline:r2-intro:${teamId}:${boss}`) === "1" ? "open" : "blackout"; } catch { return "blackout"; }
+    try { return sessionStorage.getItem(`redline:r2-intro:${teamId}:${boss}`) === "1" ? "open" : "arrival"; } catch { return "arrival"; }
   });
   const [draft, setDraft] = useState("");
   const [phase, setPhase] = useState<"p1" | "p2">("p1");
@@ -60,7 +60,6 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
   const [systemReduced, setSystemReduced] = useState(reducedMotion);
   const motionOff = motionPaused || systemReduced;
   const rootRef = useRef<HTMLDivElement>(null);
-  const phaseRef = useRef<HTMLDivElement>(null);
   const openerRequested = useRef(false);
   const [openerError, setOpenerError] = useState("");
   const musicRef = useRef<HTMLAudioElement | null>(null);
@@ -72,13 +71,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
   const lore = CHARACTERS[boss];
   const chatBg = CHAT_BACKGROUND[boss];
   useDocumentTitle(`Round 2 · ${lore?.name ?? boss} — REDLINE Arena`);
-  const bossAudio = boss === "itachi" ? "/sounds/itachi/crow-caw.mp3" : "/sounds/aizen/entry-yokoso-full.mp3";
   const prevStatus = useRef<string | null>(null);
-
-  // Sigil reveal choreography refs
-  const sigilPortraitRef = useRef<HTMLDivElement>(null);
-  const sigilNameRef = useRef<HTMLHeadingElement>(null);
-  const sigilCaptionRef = useRef<HTMLSpanElement>(null);
 
   // Altar button ref
   const altarBtnRef = useRef<HTMLButtonElement>(null);
@@ -100,21 +93,6 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("arena:credits", { detail: credits }));
   }, [credits]);
-
-  useEffect(() => {
-    if (!phaseReveal) return;
-    const timer = window.setTimeout(() => setPhaseReveal(false), 3200);
-    return () => window.clearTimeout(timer);
-  }, [phaseReveal]);
-
-  useEffect(() => {
-    if (!phaseReveal || motionOff || !phaseRef.current) return;
-    const context = gsap.context(() => {
-      gsap.timeline().from(phaseRef.current, { opacity: 0, y: 8, duration: DUR.page / 1000, ease: "power2.out" })
-        .to(phaseRef.current, { opacity: 0, y: -4, duration: DUR.ui / 1000 }, 2.9);
-    }, rootRef);
-    return () => context.revert();
-  }, [phaseReveal, motionOff]);
 
   useEffect(() => {
     const audio = new Audio(boss === "itachi" ? "/sounds/round2/long-note-one.mp3" : "/sounds/round2/long-note-three.mp3");
@@ -194,14 +172,6 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
     window.dispatchEvent(new CustomEvent("arena:accent", { detail: { accent: lore?.accent ?? "var(--color-redline)", ink: lore?.accentInk ?? "var(--color-text-1)" } }));
   }, [boss, lore?.accent, lore?.accentInk]);
 
-  // Each reveal stage owns one timer; skipping and reduced motion enter the same open state.
-  useEffect(() => {
-    if (reveal === "open") return;
-    if (motionOff) { setReveal("open"); return; }
-    const timer = window.setTimeout(() => setReveal(reveal === "blackout" ? "sigil" : "open"), reveal === "blackout" ? 300 : 1600);
-    return () => window.clearTimeout(timer);
-  }, [reveal, motionOff]);
-
   async function requestOpener(): Promise<void> {
     setOpenerError("");
     try {
@@ -219,18 +189,6 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
     openerRequested.current = true;
     void requestOpener();
   }, [reveal, locked, hasSyncedInventory]);
-
-  useEffect(() => {
-    if (reveal !== "sigil" || motionOff) return;
-    playSound(bossAudio);
-    const context = gsap.context(() => {
-      gsap.timeline({ defaults: { ease: "power2.out" } })
-        .from(sigilPortraitRef.current, { opacity: 0, scale: 0.97, y: 8, duration: DUR.enter / 1000 })
-        .from(sigilNameRef.current, { opacity: 0, y: 6, duration: DUR.panel / 1000 }, 0.15)
-        .from(sigilCaptionRef.current, { opacity: 0, duration: DUR.panel / 1000 }, 0.25);
-    });
-    return () => context.revert();
-  }, [reveal, motionOff, bossAudio]);
 
   const hasItem = inventory.some((item) => item.botId === boss && item.status === "obtained");
   const verified = inventory.some((item) => item.botId === boss && item.status === "verified");
@@ -301,46 +259,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
   }
 
   if (reveal !== "open") {
-    return (
-      <div
-        className="dark-cinematic flex min-h-0 flex-1 flex-col items-center justify-center gap-5 bg-[var(--color-bg-0)] p-6 text-center select-none"
-        role="status"
-        aria-label="Boss reveal"
-      >
-        {reveal === "sigil" && (
-          <div className="flex flex-col items-center gap-4">
-            <div
-              ref={sigilPortraitRef}
-              className="w-28 h-28 rounded-[8px] overflow-hidden border border-[var(--color-border-strong)]"
-              
-            >
-              <img
-                src={lore?.avatar ?? "/characters/itachi.jpg"}
-                alt={lore?.name}
-                className={`w-full h-full object-cover ${lore ? AVATAR_FOCUS[lore.id] : "object-center"}`}
-              />
-            </div>
-            <h2
-              ref={sigilNameRef}
-              className="font-[family-name:var(--font-vault)] text-[24px] font-bold text-[var(--color-text-1)]"
-              
-            >
-              {lore?.name}
-            </h2>
-            <span
-              ref={sigilCaptionRef}
-              className="font-[family-name:var(--font-code)] text-[12px] tracking-[0.25em] text-[var(--color-text-3)]"
-              
-            >
-              ROUND 2
-            </span>
-            <button type="button" onClick={() => setReveal("open")} className="mt-3 inline-flex min-h-[44px] items-center gap-2 border border-white/20 px-4 text-xs font-semibold text-white/80 hover:border-white/50">
-              <SkipForward className="h-4 w-4" /> Skip intro
-            </button>
-          </div>
-        )}
-      </div>
-    );
+    return <BossCutscene boss={boss} scene="arrival" motionOff={motionOff} onDone={() => setReveal("open")} />;
   }
 
   return (
@@ -370,19 +289,15 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
               </span>
             </h3>
             <p className="text-[12px] text-[var(--color-text-3)] truncate">
-              Phase {phase === "p1" ? "1" : "2"} · {lore?.tagline}
+              {lore?.tagline}
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {phase === "p2" ? (
+          {phase === "p2" && (
             <span className="rounded-[6px] border border-moss-border bg-moss-wash px-3 py-1 text-moss text-[12px] font-semibold">
               <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />{boss === "itachi" ? "Izanami shattered" : "Hypnosis broken"}
-            </span>
-          ) : (
-            <span className="acc-wash rounded-[6px] border px-3 py-1 text-[12px] font-semibold">
-              <Shield className="mr-1 inline h-3.5 w-3.5" /> Phase 1
             </span>
           )}
           <RewindButton botId={boss} onRewind={rewind} />
@@ -398,7 +313,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
         </label>
       </header>
 
-      {phaseReveal && <div role="status" className="pointer-events-none absolute inset-x-0 top-[116px] z-30 flex justify-center"><div ref={phaseRef} className="border border-[var(--accent)] bg-[rgba(5,7,10,0.94)] px-6 py-3 text-center shadow-[0_0_40px_var(--accent-glow)]"><p className="font-mono text-[10px] tracking-[0.3em] text-white/60">THRESHOLD CROSSED</p><p className="mt-1 font-[family-name:var(--font-vault)] text-lg font-bold text-white">{boss === "itachi" ? "The loop is broken" : "The perfect hypnosis fractures"}</p></div></div>}
+      {phaseReveal && !celebration && <BossCutscene boss={boss} scene="phase" motionOff={motionOff} onDone={() => setPhaseReveal(false)} />}
 
       {/* Round 1-style mark selector: one assigned boss, plus the vault merchant/altar. */}
       <nav aria-label="Round 2 contacts" className="acc-border flex shrink-0 items-stretch gap-2 overflow-x-auto border-b bg-[rgba(5,7,10,0.78)] px-3 py-2 backdrop-blur-sm sm:px-4">
@@ -516,7 +431,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
         />
       )}
       {celebration && (
-        <CelebrationOverlay botId={boss} onClose={() => setCelebration(false)} />
+        <BossCutscene boss={boss} scene="victory" motionOff={motionOff} onDone={() => { setCelebration(false); setPhaseReveal(false); }} />
       )}
     </div>
   );

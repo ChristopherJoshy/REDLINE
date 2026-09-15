@@ -329,9 +329,6 @@ export default function App(): React.JSX.Element {
               <p>
                 <strong className="text-white">Relics:</strong> Extract each character's authentic target item. Guard against decoys and fakes.
               </p>
-              <p>
-                <strong className="text-white">Round 2:</strong> File 5 or more relics to breach the vault gates and confront the legendary bosses.
-              </p>
             </div>
             <button
               type="button"

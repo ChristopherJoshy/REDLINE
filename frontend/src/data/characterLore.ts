@@ -316,7 +316,7 @@ export const CHAT_BACKGROUND: Record<BotId, string> = {
   joker: "/backgrounds/the-joker.png",
   light: "/backgrounds/light-yagami.png",
   levi: "/backgrounds/leavy-ackerman.png",
-  deadpool: "/backgrounds/login-uiwork.png",
+  deadpool: "/backgrounds/deadpool.png",
   merchant: "/backgrounds/login-uiwork.png",
   itachi: "/backgrounds/dark_castle_night.jpg",
   aizen: "/backgrounds/gothic_citadel.jpg",

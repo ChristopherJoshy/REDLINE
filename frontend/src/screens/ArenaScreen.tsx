@@ -140,6 +140,12 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
   }, []);
 
   useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("arena:nav_visibility", { detail: { hidden: chattingBotId !== null } })
+    );
+  }, [chattingBotId]);
+
+  useEffect(() => {
     let dead = false;
     getCover("wick")
       .then((c) => { if (!dead) setCovers((prev) => ({ ...prev, wick: c })); })

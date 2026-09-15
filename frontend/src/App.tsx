@@ -25,6 +25,7 @@ export default function App(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<"arena" | "leaderboard" | "intel" | "about">("arena");
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [hideNav, setHideNav] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
   const onLockChange = useCallback((v: boolean) => setLocked(v), []);
 
@@ -53,16 +54,25 @@ export default function App(): React.JSX.Element {
       if (typeof custom.detail.accent === "string") setShellAccent(custom.detail.accent);
       if (typeof custom.detail.ink === "string") setShellAccentInk(custom.detail.ink);
     }
+    window.addEventListener("arena:accent", handleAccent);
     function handleCredits(e: Event) {
       const custom = e as CustomEvent<number>;
       if (typeof custom.detail === "number") setCredits(custom.detail);
     }
+    function handleNavVis(e: Event) {
+      const custom = e as CustomEvent<{ hidden: boolean }>;
+      if (custom.detail && typeof custom.detail.hidden === "boolean") {
+        setHideNav(custom.detail.hidden);
+      }
+    }
     window.addEventListener("arena:credits", handleCredits);
+    window.addEventListener("arena:nav_visibility", handleNavVis);
     return () => {
       window.removeEventListener("arena:announcement", handleAnnouncement);
       window.removeEventListener("arena:elo_update", handleEloUpdate);
       window.removeEventListener("arena:accent", handleAccent);
       window.removeEventListener("arena:credits", handleCredits);
+      window.removeEventListener("arena:nav_visibility", handleNavVis);
     };
   }, [identity]);
   // ELO badge pulse on value change
@@ -139,8 +149,12 @@ export default function App(): React.JSX.Element {
         onIdentified={(res) => {
           if (res) {
             setIdentity(res);
+            if (res.elo) setCredits(res.elo);
           } else {
-            void me().then((m) => setIdentity(m));
+            void me().then((m) => {
+              setIdentity(m);
+              if (m?.elo) setCredits(m.elo);
+            });
           }
         }}
       />
@@ -182,7 +196,8 @@ export default function App(): React.JSX.Element {
         </div>
       )}
 
-      <header className="acc-border sticky top-0 z-30 flex min-h-[58px] items-center justify-between gap-3 border-b bg-[rgba(5,7,10,0.85)] px-4 backdrop-blur-md sm:px-6">
+      {!hideNav && (
+        <header className="acc-border sticky top-0 z-30 flex min-h-[58px] items-center justify-between gap-3 border-b bg-[rgba(5,7,10,0.85)] px-4 backdrop-blur-md sm:px-6">
         {/* Left: REDLINE CTF ARENA + 4-line mini ticker */}
         <div className="flex items-center gap-3.5">
           <div className="flex flex-col leading-none">
@@ -277,6 +292,7 @@ export default function App(): React.JSX.Element {
           </button>
         </div>
       </header>
+      )}
 
       {/* Main Full-Width Content Container */}
       <div className="flex min-h-0 flex-1 flex-col">

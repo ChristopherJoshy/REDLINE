@@ -147,8 +147,8 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     if (!guard(req)) {
       return reply.code(401).send({ error: "unauthorized" });
     }
-    const teams = db.all<{ id: string; name: string; hint: string; join_code: string | null; elo: number; created_at: string }>(
-      "SELECT id, name, hint, join_code, elo, created_at FROM teams ORDER BY elo DESC"
+    const teams = db.all<{ id: string; name: string; hint: string; join_code: string | null; elo: number; is_qualified: number; created_at: string }>(
+      "SELECT id, name, hint, join_code, elo, is_qualified, created_at FROM teams ORDER BY elo DESC"
     );
     const result = teams.map((team) => {
       const members = db.all<{ display_name: string; role: string; joined_at: string }>(
@@ -233,6 +233,24 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     const dest = join(dir, `redline-${stamp}.db`);
     await db.backup(dest);
     return { file: dest };
+  });
+
+  app.post("/api/admin/qualify-team", async (req, reply) => {
+    if (!guard(req)) {
+      return reply.code(401).send({ error: "unauthorized" });
+    }
+    const body = (req.body ?? {}) as { teamId?: unknown; qualified?: unknown };
+    const teamId = typeof body.teamId === "string" ? body.teamId : undefined;
+    const qualified = typeof body.qualified === "boolean" ? body.qualified : undefined;
+    if (teamId === undefined || qualified === undefined) {
+      return reply.code(400).send({ error: "teamId and qualified (boolean) are required" });
+    }
+    const team = db.get<{ name: string }>("SELECT name FROM teams WHERE id = ?", teamId);
+    if (team === undefined) {
+      return reply.code(404).send({ error: "team not found" });
+    }
+    db.run("UPDATE teams SET is_qualified = ? WHERE id = ?", qualified ? 1 : 0, teamId);
+    return { ok: true, teamId, qualified };
   });
 
   // Powerful Admin Tools: ELO Adjuster

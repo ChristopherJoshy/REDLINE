@@ -63,6 +63,7 @@ interface AdminTeamOverview {
   hint: string;
   join_code?: string;
   elo: number;
+  is_qualified: number;
   created_at: string;
   members: AdminMember[];
   inventory: AdminInventoryItem[];
@@ -568,6 +569,29 @@ export default function AdminTeams(): React.JSX.Element {
       notify(`Team ${res.name} enrolled with join code: ${res.code}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create team failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleToggleQualify(teamId: string, current: number): Promise<void> {
+    if (adminCode === "") return;
+    setBusy(true);
+    try {
+      const res = await apiFetch("/api/admin/qualify-team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-code": adminCode },
+        body: JSON.stringify({ teamId, qualified: current === 0 }),
+      });
+      if (res.ok) {
+        notify(current === 0 ? "Team Qualified for R2" : "Team Disqualified");
+        setTeams((prev) => prev.map((t) => (t.id === teamId ? { ...t, is_qualified: current === 0 ? 1 : 0 } : t)));
+      } else {
+        const d = (await res.json()) as { error?: string };
+        alert(d.error ?? "Failed to toggle qualification");
+      }
+    } catch {
+      alert("Request failed");
     } finally {
       setBusy(false);
     }
@@ -1224,6 +1248,16 @@ export default function AdminTeams(): React.JSX.Element {
 
                       {/* Power Controls Button Group */}
                       <div className="flex items-center border border-[#3F3F46] rounded-[2px] overflow-hidden bg-[#27272A] divide-x divide-[#3F3F46]">
+                        <button
+                          type="button"
+                          onClick={() => void handleToggleQualify(t.id, t.is_qualified)}
+                          disabled={busy}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider text-[#F4F4F5] transition cursor-pointer disabled:opacity-50 ${t.is_qualified ? "bg-[#10B981]/20 hover:bg-[#10B981]/30 text-[#10B981]" : "hover:bg-[#3F3F46]"}`}
+                          title={t.is_qualified ? "Qualified for Round 2 (Click to revoke)" : "Not qualified (Click to qualify)"}
+                        >
+                          <Trophy className={`w-3.5 h-3.5 ${t.is_qualified ? "text-[#10B981]" : "text-[#A1A1AA]"}`} />
+                          <span>{t.is_qualified ? "R2 Qualified" : "Qualify"}</span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => {

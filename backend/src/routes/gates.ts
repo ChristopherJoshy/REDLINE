@@ -27,22 +27,11 @@ export function round2TimeLeft(db: DatabaseAdapter): number {
   const end = state.status === "countdown" ? state.startsAt : state.status === "active" ? state.endsAt : null;
   return end ? Math.max(0, Math.ceil((Date.parse(end) - Date.now()) / 1000)) : 0;
 }
-export function top5(db: DatabaseAdapter): string[] {
-  try {
-    const raw = db.get<{ value: string }>("SELECT value FROM game_state WHERE key = 'top5'")?.value ?? "[]";
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((t): t is string => typeof t === "string") : [];
-  } catch { return []; }
+export function isQualified(db: DatabaseAdapter, teamId: string): boolean {
+  return db.get<{ is_qualified: number }>("SELECT is_qualified FROM teams WHERE id = ?", teamId)?.is_qualified === 1;
 }
 export function solvedCount(db: DatabaseAdapter, teamId: string): number {
   return db.get<{ n: number }>("SELECT COUNT(*) AS n FROM team_inventory WHERE team_id = ? AND status = 'verified' AND bot_id NOT IN ('itachi', 'aizen')", teamId)?.n ?? 0;
-}
-function selectFinalists(db: DatabaseAdapter): string[] {
-  const ids = db.all<{ id: string }>(`SELECT t.id FROM teams t ORDER BY t.elo DESC,
-    (SELECT MAX(i.verified_at) FROM team_inventory i WHERE i.team_id = t.id AND i.status = 'verified') IS NULL ASC,
-    (SELECT MAX(i.verified_at) FROM team_inventory i WHERE i.team_id = t.id AND i.status = 'verified') ASC, t.id ASC LIMIT 5`).map((r) => r.id);
-  db.run("INSERT INTO game_state (key, value) VALUES ('top5', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", JSON.stringify(ids));
-  return ids;
 }
 
 export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bus: Bus): void {
@@ -50,7 +39,7 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
     const session = sessionOf(req);
     if (!session) return reply.code(401).send({ error: "no session" });
     return { ...roundSnapshot(db), round1Open: round1Open(db), vaultOpen: vaultOpen(db),
-      qualified: vaultOpen(db) && top5(db).includes(session.teamId),
+      qualified: vaultOpen(db) && isQualified(db, session.teamId),
       solved: solvedCount(db, session.teamId), round1Size: ROUND1_SIZE,
       round2Status: round2Status(db), round2TimeLeft: round2TimeLeft(db) };
   });
@@ -70,10 +59,10 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
       }
       try {
         const state = db.transaction(() => {
-          if (round === 2 && roundState(db, 1, now).status !== "ended") throw new Error("End Round 1 before starting Round 2.");
           const started = startRound(db, round, duration, now);
           if (round === 2) {
-            selectFinalists(db);
+            db.run("INSERT INTO elo_log (team_id, delta, before_rating, after_rating, reason) SELECT id, 600 - elo, elo, 600, 'round2_start_reset' FROM teams");
+            db.run("UPDATE teams SET elo = 600");
             db.run("INSERT INTO game_state (key, value) VALUES ('vault_open', '1') ON CONFLICT(key) DO UPDATE SET value = '1'");
           }
           return started;
@@ -108,11 +97,6 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
   }
   registerStop("/api/admin/end-round1", 1);
   registerStop("/api/admin/stop-round2", 2);
-  app.post("/api/admin/compute-top5", async (req, reply) => {
-    if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
-    if (roundState(db, 1).status !== "ended" || roundState(db, 2).status !== "not_started") return reply.code(409).send({ error: "Finalists can only be selected between rounds." });
-    return { top5: selectFinalists(db) };
-  });
   app.post("/api/admin/open-vault", async (req, reply) => {
     if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
     if (round2Status(db) === "off") return reply.code(409).send({ error: "Start Round 2 to open the vault." });
@@ -122,7 +106,7 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
   app.post("/api/round2/enter", async (req, reply) => {
     const session = sessionOf(req);
     if (!session) return reply.code(401).send({ error: "no session" });
-    if (round2Status(db) !== "active" || !vaultOpen(db) || !top5(db).includes(session.teamId)) return reply.code(403).send({ error: "vault sealed" });
+    if (round2Status(db) !== "active" || !vaultOpen(db) || !isQualified(db, session.teamId)) return reply.code(403).send({ error: "vault sealed or not qualified" });
     const existing = db.get<{ boss: string }>("SELECT boss FROM r2_assignments WHERE team_id = ?", session.teamId);
     if (existing) return { boss: existing.boss as BotId };
     const boss: BotId = Math.random() < 0.5 ? "itachi" : "aizen";

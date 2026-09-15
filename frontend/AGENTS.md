@@ -13,3 +13,6 @@ Baseline: root `AGENTS.md`. Taste + palette: root `DESIGN.md` (normative; preser
 ## Commands
 
 - `npm run dev` (needs backend env, see root), `npm run build`, `tsc --noEmit`.
+
+- VPS contains only the backend, no need to move the frontend there. Vercel handles frontend.
+

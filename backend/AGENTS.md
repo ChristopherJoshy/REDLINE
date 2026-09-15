@@ -37,3 +37,6 @@ ssh -i "C:\Users\Chris\Documents\Minecraft\Personal\sshkey\test123.pem" ubuntu@3
 # 5. Clean up local tarball
 rm dist.tar.gz
 ```
+
+- VPS contains only the backend, no need to move the frontend there. Vercel handles frontend.
+

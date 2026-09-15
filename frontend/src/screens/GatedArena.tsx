@@ -191,6 +191,9 @@ export default function GatedArena({ teamId, displayName, locked }: { teamId: st
     }
     return <RoundTwoScreen teamId={teamId} boss={boss} locked={locked && round2Active} onRoundEnd={() => setRoundEnded(true)} />;
   }
+  if (gates !== null && gates.round2Status !== "off" && !gates.qualified) {
+    return <SealedScreen message="Sorry, you are not selected to move to Round 2." />;
+  }
   if (countdownEndsAt) {
     return <CountdownBanner endsAt={countdownEndsAt} round={2} />;
   }

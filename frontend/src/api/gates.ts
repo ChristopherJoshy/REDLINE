@@ -103,13 +103,13 @@ export function resumeRound2(code: string): Promise<{ ok: boolean }> {
   return adminPost("/api/admin/resume-round2", code) as Promise<{ ok: boolean }>;
 }
 
-export async function enterRound2(): Promise<{ boss: string }> {
+export async function enterRound2(): Promise<{ boss: string; newlyAssigned: boolean }> {
   const res = await apiFetch("/api/round2/enter", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: "{}",
   });
-  const data = (await res.json()) as { boss: string } & { error?: string };
+  const data = (await res.json()) as { boss: string; newlyAssigned: boolean } & { error?: string };
   if (!res.ok) {
     throw new Error(data.error ?? "vault sealed");
   }

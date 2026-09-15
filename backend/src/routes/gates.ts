@@ -225,9 +225,9 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
     db.run("INSERT INTO game_state (key, value) VALUES ('vault_open', '1') ON CONFLICT(key) DO UPDATE SET value = '1'");
 
     const existing = db.get<{ boss: string }>("SELECT boss FROM r2_assignments WHERE team_id = ?", session.teamId);
-    if (existing) return { boss: existing.boss as BotId };
+    if (existing) return { boss: existing.boss as BotId, newlyAssigned: false };
     const boss: BotId = Math.random() < 0.5 ? "itachi" : "aizen";
     db.run("INSERT INTO r2_assignments (team_id, boss) VALUES (?, ?)", session.teamId, boss);
-    return { boss };
+    return { boss, newlyAssigned: true };
   });
 }

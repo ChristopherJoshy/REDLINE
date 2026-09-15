@@ -88,11 +88,15 @@ function PortalGate({ onEnter }: { onEnter: (boss: BotId) => void }): React.JSX.
     setError("");
     setLoading(true);
     try {
-      const { boss } = await enterRound2();
+      const { boss, newlyAssigned } = await enterRound2();
       if (boss !== "itachi" && boss !== "aizen") {
         throw new Error("bad boss");
       }
-      setGachaBoss(boss);
+      if (!newlyAssigned) {
+        onEnter(boss);
+      } else {
+        setGachaBoss(boss);
+      }
     } catch (e: any) {
       setLoading(false);
       if (e.message === "not_selected") {

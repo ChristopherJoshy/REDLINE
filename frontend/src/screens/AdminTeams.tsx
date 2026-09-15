@@ -1113,7 +1113,7 @@ export default function AdminTeams(): React.JSX.Element {
               }`}
             >
               <KeyRound className="w-4 h-4 text-[#10B981]" />
-              <span>API Pool {settingsUnlocked ? "🔓" : "🔒"}</span>
+              <span>Settings & API {settingsUnlocked ? "🔓" : "🔒"}</span>
             </button>
           </div>
 

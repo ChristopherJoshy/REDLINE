@@ -28,3 +28,4 @@ deploy-vps.sh
 # OS noise
 .DS_Store
 Thumbs.db
+*.tar.gz

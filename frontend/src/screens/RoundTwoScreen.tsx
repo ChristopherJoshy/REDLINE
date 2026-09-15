@@ -52,14 +52,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
   const [merchantView, setMerchantView] = useState(false);
   const [jumpscare, setJumpscare] = useState(false);
   const [phaseReveal, setPhaseReveal] = useState(false);
-  const [musicMuted, setMusicMuted] = useState(() => readPref("redline_music_muted", "0") === "1");
-  const [musicVolume, setMusicVolume] = useState(() => {
-    const value = Number(readPref("redline_music_volume", "0.18"));
-    return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0.18;
-  });
-  const [motionPaused, setMotionPaused] = useState(() => readPref("redline_r2_motion", "1") === "0");
-  const [systemReduced, setSystemReduced] = useState(reducedMotion);
-  const motionOff = motionPaused || systemReduced;
+  const motionOff = reducedMotion();
   const rootRef = useRef<HTMLDivElement>(null);
   const openerRequested = useRef(false);
   const [openerError, setOpenerError] = useState("");
@@ -80,16 +73,6 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
   // Chat msg count tracker
   const prevMsgCountRef = useRef(0);
 
-  useEffect(() => {
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setSystemReduced(media.matches);
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
-
-  useEffect(() => {
-    try { localStorage.setItem("redline_r2_motion", motionPaused ? "0" : "1"); } catch { /* optional preference */ }
-  }, [motionPaused]);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("arena:credits", { detail: credits }));
@@ -99,19 +82,10 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
     const audio = new Audio(boss === "itachi" ? "/sounds/round2/long-note-one.mp3" : "/sounds/round2/long-note-three.mp3");
     audio.loop = true;
     musicRef.current = audio;
-    audio.volume = musicMuted ? 0 : musicVolume;
-    if (reveal === "open" && locked && !musicMuted) void audio.play().catch(() => {});
+    audio.volume = 1;
+    if (reveal === "open" && locked) void audio.play().catch(() => {});
     return () => { audio.pause(); audio.src = ""; musicRef.current = null; };
-  }, [boss]);
-
-  useEffect(() => {
-    const audio = musicRef.current;
-    if (!audio) return;
-    audio.volume = musicMuted ? 0 : musicVolume;
-    if (reveal === "open" && locked && !musicMuted) void audio.play().catch(() => {});
-    else audio.pause();
-    try { localStorage.setItem("redline_music_muted", musicMuted ? "1" : "0"); localStorage.setItem("redline_music_volume", String(musicVolume)); } catch { /* preferences are optional */ }
-  }, [musicMuted, musicVolume, reveal, locked]);
+  }, [boss, reveal, locked]);
 
   useEffect(() => {
     if (reveal === "open") {
@@ -306,17 +280,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
               <ArrowLeft className="h-4 w-4" /> Back
             </button>
           )}
-          <RewindButton botId={boss} onRewind={rewind} />
-          <button type="button" aria-pressed={motionOff} aria-label={motionOff ? "Enable effects" : "Reduce effects"} disabled={systemReduced} onClick={() => setMotionPaused((value) => !value)} className="flex min-h-[44px] items-center gap-2 border border-white/15 px-3 text-xs text-text-2 disabled:opacity-60">
-            {motionOff ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />} Effects {motionOff ? "off" : "on"}
-          </button>
-          <button type="button" onClick={() => setMusicMuted((v) => !v)} aria-label={musicMuted ? "Unmute music" : "Mute music"} className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[6px] border border-white/15 px-2 text-white/80 hover:border-white/40">
-            {musicMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-          </button>
         </div>
-        <label className="flex items-center gap-2 font-mono text-[11px] text-text-3">
-          MUSIC <input type="range" aria-label="Music volume" min="0" max="1" step="0.05" value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))} className="h-11 w-24 accent-redline" />
-        </label>
       </header>
 
       {phaseReveal && !celebration && <BossCutscene boss={boss} scene="phase" motionOff={motionOff} onDone={() => setPhaseReveal(false)} />}

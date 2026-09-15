@@ -72,3 +72,11 @@ export interface CreateTeamResult {
 export function createTeam(adminCode: string, name: string, members: string[]): Promise<CreateTeamResult> {
   return post<CreateTeamResult>("/api/admin/teams", { name, members }, adminCode);
 }
+
+/** Returns the list of display_names currently in-session for a team (seat-locked). */
+export async function getActiveMembers(teamId: string): Promise<string[]> {
+  const res = await apiFetch(`/api/team/active?teamId=${encodeURIComponent(teamId)}`);
+  if (!res.ok) return [];
+  const data = (await res.json()) as { active: string[] };
+  return data.active ?? [];
+}

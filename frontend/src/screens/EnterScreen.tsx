@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createTimeline } from "animejs";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
-import { identify, joinTeam, type JoinResult, type IdentifyResult } from "@/api/teams";
+import { identify, joinTeam, getActiveMembers, type JoinResult, type IdentifyResult } from "@/api/teams";
 import { Shield, User, ArrowRight, Lock, KeyRound } from "lucide-react";
 import { DUR, EASE, reducedMotion } from "@/lib/motionTokens";
 type SettleTimerId = number;
@@ -18,6 +18,7 @@ export default function EnterScreen({ onIdentified }: { onIdentified: (res?: Ide
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [glyphs, setGlyphs] = useState<Record<number, string>>({});
+  const [activeMembers, setActiveMembers] = useState<string[]>([]);
 
   // Entrance choreography refs
   const ruleRef = useRef<HTMLSpanElement>(null);
@@ -130,6 +131,20 @@ export default function EnterScreen({ onIdentified }: { onIdentified: (res?: Ide
       tl.pause();
     };
   }, []);
+
+  // Poll active seats every 3s once we have a teamId
+  useEffect(() => {
+    if (joined === null) return;
+    const { teamId } = joined;
+    let dead = false;
+    async function poll(): Promise<void> {
+      const active = await getActiveMembers(teamId);
+      if (!dead) setActiveMembers(active);
+    }
+    void poll();
+    const t = window.setInterval(() => { void poll(); }, 3000);
+    return () => { dead = true; window.clearInterval(t); };
+  }, [joined]);
 
   async function submitCode(e: React.FormEvent): Promise<void> {
     e.preventDefault();
@@ -351,32 +366,45 @@ export default function EnterScreen({ onIdentified }: { onIdentified: (res?: Ide
               </div>
 
               <div className="flex flex-col gap-2" role="radiogroup" aria-label="Team members">
-                {joined.members.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    role="radio"
-                    aria-checked={picked === m}
-                    onClick={() => setPicked(m)}
-                    className={`flex min-h-[48px] items-center gap-3 rounded-none border px-4 text-left transition-all duration-300 ${
-                      picked === m
-                        ? "border-red-600 bg-red-600/20 text-white shadow-[0_0_15px_rgba(220,38,38,0.3)]"
-                        : "border-red-600/30 text-red-200 hover:bg-red-600/10 hover:border-red-600/50"
-                    }`}
-                  >
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-none transition-colors ${
-                      picked === m ? "bg-red-600 text-white" : "bg-black/50 text-red-400"
-                    }`}>
-                      <User className="w-4 h-4" />
-                    </span>
-                    <span className={`font-semibold text-[15px] flex-1 ${picked === m ? "text-white" : "text-red-100"}`}>
-                      {m}
-                    </span>
-                    {picked === m && (
-                      <span className="h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_10px_rgba(220,38,38,0.8)]" aria-hidden="true" />
-                    )}
-                  </button>
-                ))}
+                {joined.members.map((m) => {
+                  const isTaken = activeMembers.includes(m);
+                  const isSelected = picked === m;
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      disabled={isTaken}
+                      onClick={() => { if (!isTaken) setPicked(m); }}
+                      className={`flex min-h-[48px] items-center gap-3 rounded-none border px-4 text-left transition-all duration-300 ${
+                        isTaken
+                          ? "border-white/10 bg-white/5 text-white/30 cursor-not-allowed opacity-60"
+                          : isSelected
+                            ? "border-red-600 bg-red-600/20 text-white shadow-[0_0_15px_rgba(220,38,38,0.3)]"
+                            : "border-red-600/30 text-red-200 hover:bg-red-600/10 hover:border-red-600/50"
+                      }`}
+                    >
+                      <span className={`flex h-8 w-8 items-center justify-center rounded-none transition-colors ${
+                        isTaken ? "bg-white/10 text-white/30" : isSelected ? "bg-red-600 text-white" : "bg-black/50 text-red-400"
+                      }`}>
+                        <User className="w-4 h-4" />
+                      </span>
+                      <span className={`font-semibold text-[15px] flex-1 ${isTaken ? "text-white/30" : isSelected ? "text-white" : "text-red-100"}`}>
+                        {m}
+                      </span>
+                      {isTaken && (
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-white/10 text-[10px] font-bold tracking-[0.1em] text-white/40 font-mono">
+                          <Lock className="w-2.5 h-2.5" />
+                          TAKEN
+                        </span>
+                      )}
+                      {isSelected && !isTaken && (
+                        <span className="h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_10px_rgba(220,38,38,0.8)]" aria-hidden="true" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
               <button

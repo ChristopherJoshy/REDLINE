@@ -58,6 +58,26 @@ export function sessionOf(req: { headers: Record<string, string | string[] | und
   return verifySessionToken(token, env.joinCodePepper);
 }
 
+/** In-memory seat lock: teamId → Set of display_names currently in-session */
+const seatLocks = new Map<string, Set<string>>();
+
+function lockSeat(teamId: string, displayName: string): void {
+  if (!seatLocks.has(teamId)) seatLocks.set(teamId, new Set());
+  seatLocks.get(teamId)!.add(displayName);
+}
+
+function releaseSeat(teamId: string, displayName: string): void {
+  seatLocks.get(teamId)?.delete(displayName);
+}
+
+function isSeatTaken(teamId: string, displayName: string): boolean {
+  return seatLocks.get(teamId)?.has(displayName) ?? false;
+}
+
+function activeSeats(teamId: string): string[] {
+  return Array.from(seatLocks.get(teamId) ?? []);
+}
+
 export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter): void {
   // Admin: create team + members. Code shown ONCE here, never stored.
   app.post("/api/admin/teams", async (req, reply) => {
@@ -133,6 +153,11 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter): v
     if (member === undefined) {
       return reply.code(404).send({ error: "unknown identity" });
     }
+    // Check if this seat is already locked by another session
+    if (isSeatTaken(teamId, displayName)) {
+      return reply.code(409).send({ error: "That seat is already taken by another player." });
+    }
+    lockSeat(teamId, displayName);
     const token = makeSessionToken(teamId, displayName, env.joinCodePepper);
     const team = db.get<{ name: string; elo: number }>("SELECT name, elo FROM teams WHERE id = ?", teamId);
     void reply.header(
@@ -146,6 +171,15 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter): v
       elo: team?.elo ?? 1200,
       token,
     };
+  });
+
+  // Get active (locked) members for a team — used by the Enter screen.
+  app.get("/api/team/active", async (req, reply) => {
+    const { teamId } = (req.query as Record<string, unknown>);
+    if (typeof teamId !== "string" || teamId.trim() === "") {
+      return reply.code(400).send({ error: "teamId required" });
+    }
+    return { active: activeSeats(teamId.trim()) };
   });
 
   // Admin: reset team by id -> removes team, members, and related game data.
@@ -195,6 +229,9 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter): v
     if (member === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
+    // Re-lock seat on page refresh — this won't block concurrent sessions
+    // because the token already proves identity; we just restore the lock state.
+    lockSeat(session.teamId, session.displayName);
     const team = db.get<{ name: string; elo: number }>("SELECT name, elo FROM teams WHERE id = ?", session.teamId);
     return {
       teamId: session.teamId,
@@ -204,7 +241,11 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter): v
     };
   });
 
-  app.post("/api/logout", async (_req, reply) => {
+  app.post("/api/logout", async (req, reply) => {
+    const session = sessionOf(req);
+    if (session !== undefined) {
+      releaseSeat(session.teamId, session.displayName);
+    }
     void reply.header(
       "Set-Cookie",
       `${SESSION_COOKIE}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=None; Secure`,

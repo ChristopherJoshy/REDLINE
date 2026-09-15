@@ -70,7 +70,9 @@ export function canFallbackBeforeStart(kind: CodexErrorKind): boolean {
     kind === "rate_limited" ||
     kind === "overloaded" ||
     kind === "timeout_before_start" ||
-    kind === "transport_closed"
+    kind === "transport_closed" ||
+    kind === "protocol_error" ||
+    kind === "turn_failed"
   );
 }
 

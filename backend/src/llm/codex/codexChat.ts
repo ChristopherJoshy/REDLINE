@@ -155,7 +155,7 @@ async function* runCodexTurn(opts: CodexTurnOptions): AsyncGenerator<StreamYield
       throw err instanceof CodexError ? err : fail("transport_closed", "thread/start failed");
     }
     const threadRec = (typeof threadRes === "object" && threadRes !== null ? (threadRes as Record<string, unknown>) : {}) as Record<string, unknown>;
-    const tid = threadRec["threadId"] ?? threadRec["id"];
+    const tid = (threadRec["thread"] && typeof threadRec["thread"] === "object" && threadRec["thread"] !== null ? (threadRec["thread"] as Record<string, unknown>)["id"] : null) ?? threadRec["threadId"] ?? threadRec["id"];
     if (typeof tid !== "string" || tid === "") {
       // Fallback: non-ephemeral thread (some servers restrict inject on ephemeral).
       const retry = (await server.call("thread/start", {
@@ -167,7 +167,7 @@ async function* runCodexTurn(opts: CodexTurnOptions): AsyncGenerator<StreamYield
         dynamicTools,
       })) as unknown;
       const retryRec = (typeof retry === "object" && retry !== null ? (retry as Record<string, unknown>) : {}) as Record<string, unknown>;
-      const retryId = retryRec["threadId"] ?? retryRec["id"];
+      const retryId = (retryRec["thread"] && typeof retryRec["thread"] === "object" && retryRec["thread"] !== null ? (retryRec["thread"] as Record<string, unknown>)["id"] : null) ?? retryRec["threadId"] ?? retryRec["id"];
       if (typeof retryId !== "string" || retryId === "") throw fail("protocol_error", "thread/start missing id");
       threadId = retryId;
     } else {
@@ -190,7 +190,7 @@ async function* runCodexTurn(opts: CodexTurnOptions): AsyncGenerator<StreamYield
             dynamicTools,
           })) as unknown;
           const retryRec = (typeof retry === "object" && retry !== null ? (retry as Record<string, unknown>) : {}) as Record<string, unknown>;
-          const retryId = retryRec["threadId"] ?? retryRec["id"];
+          const retryId = (retryRec["thread"] && typeof retryRec["thread"] === "object" && retryRec["thread"] !== null ? (retryRec["thread"] as Record<string, unknown>)["id"] : null) ?? retryRec["threadId"] ?? retryRec["id"];
           if (typeof retryId !== "string" || retryId === "") throw fail("protocol_error", "thread retry missing id");
           threadId = retryId;
           await server.call("thread/inject_items", { threadId, items: split.historyItems }, server.rpcTimeoutMs);

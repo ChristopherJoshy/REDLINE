@@ -108,7 +108,7 @@ export async function* withCodexPrimary(
       else primaryCounters.codexFallbackR2 += 1;
       // Latch short breakers for hard gates so we don't burn every request.
       if (kind === "not_authenticated" || kind === "binary_missing") latchBreaker(60_000, kind);
-      else if (kind === "model_unavailable") latchBreaker(120_000, kind);
+      else if (kind === "model_unavailable" || kind === "turn_failed") latchBreaker(120_000, kind);
       else if (kind === "rate_limited") latchBreaker(60_000, kind);
       yield* fallback();
       return;

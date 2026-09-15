@@ -53,6 +53,16 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     return adminOk(val?.trim(), env.adminSettingsPin);
   }
 
+  // Append an operator audit record for every mutating admin request. The log is
+  // intentionally server-owned so browser clients cannot edit or erase it.
+  app.addHook("onResponse", async (req, reply) => {
+    if (!req.url.split("?")[0]?.startsWith("/api/admin/") || req.method === "GET" || !guard(req)) return;
+    const body = req.body !== null && typeof req.body === "object" ? req.body as Record<string, unknown> : {};
+    const reason = typeof body.reason === "string" && body.reason.trim() ? body.reason.trim().slice(0, 240) : "admin operation";
+    const targetId = typeof body.teamId === "string" ? body.teamId : null;
+    db.run("INSERT INTO admin_audit (action, target_id, reason, detail) VALUES (?, ?, ?, ?)", `HTTP ${req.method} ${req.url.split("?")[0]}`, targetId, reason, JSON.stringify({ statusCode: reply.statusCode }));
+  });
+
 
   // Rewind: −1 ELO immediately, truncate to point-in-time messageId / turns / phase start.
   app.post("/api/rewind", async (req, reply) => {
@@ -524,6 +534,14 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 40);
 
     return { stream };
+  });
+
+  app.get("/api/admin/audit", async (req, reply) => {
+    if (!guard(req)) return reply.code(401).send({ error: "unauthorized" });
+    const rows = db.all<{ id: number; action: string; target_id: string | null; reason: string; detail: string; created_at: string }>(
+      "SELECT id, action, target_id, reason, detail, created_at FROM admin_audit ORDER BY id DESC LIMIT 250",
+    );
+    return { entries: rows };
   });
 
   // Powerful Admin Tools: System Diagnostics & Health Status

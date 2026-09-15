@@ -155,7 +155,7 @@ export default function AdminTeams(): React.JSX.Element {
   const [authError, setAuthError] = useState<string>("");
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
 
-  const [tab, setTab] = useState<"squads" | "stream" | "broadcast" | "create" | "gates" | "diagnostics" | "codex" | "settings">("squads");
+  const [tab, setTab] = useState<"squads" | "stream" | "broadcast" | "create" | "gates" | "diagnostics" | "codex" | "settings" | "audit">("squads");
   useDocumentTitle(`Console · ${tab[0]?.toUpperCase() ?? ""}${tab.slice(1)} — REDLINE Arena`);
   
   // On mount: if a stored adminCode exists, verify it with the backend
@@ -272,6 +272,7 @@ export default function AdminTeams(): React.JSX.Element {
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState("");
   const [successToast, setSuccessToast] = useState("");
+  const [auditEntries, setAuditEntries] = useState<Array<{ id: number; action: string; target_id: string | null; reason: string; detail: string; created_at: string }>>([]);
   const [r2Control, setR2Control] = useState<Array<{ id: string; name: string; boss: string | null; phaseOverride: string | null }>>([]);
   const [r2Reason, setR2Reason] = useState("Live event operator adjustment");
 
@@ -362,12 +363,13 @@ export default function AdminTeams(): React.JSX.Element {
     async function poll(): Promise<void> {
       try {
         const headers = { "x-admin-code": adminCode };
-        const [resOverview, resGates, resStream, resHealth, resAnnounce] = await Promise.all([
+        const [resOverview, resGates, resStream, resHealth, resAnnounce, resAudit] = await Promise.all([
           apiFetch("/api/admin/overview", { headers }).catch(() => null),
           getGates().catch(() => null),
           apiFetch("/api/admin/activity-stream", { headers }).catch(() => null),
           apiFetch("/api/admin/system-health", { headers }).catch(() => null),
           apiFetch("/api/admin/announcements", { headers }).catch(() => null),
+          apiFetch("/api/admin/audit", { headers }).catch(() => null),
         ]);
 
         if (resOverview && resOverview.ok && !dead) {
@@ -399,6 +401,10 @@ export default function AdminTeams(): React.JSX.Element {
         if (resAnnounce && resAnnounce.ok && !dead) {
           const data = (await resAnnounce.json()) as { announcements: AnnouncementItem[] };
           setAnnouncements(data.announcements);
+        }
+        if (resAudit && resAudit.ok && !dead) {
+          const data = (await resAudit.json()) as { entries: typeof auditEntries };
+          setAuditEntries(data.entries);
         }
       } catch {
         // Keep prior state
@@ -1144,9 +1150,9 @@ export default function AdminTeams(): React.JSX.Element {
               <span>Codex Luna</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setTab("settings")}
+              <button
+                type="button"
+                onClick={() => setTab("settings")}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-[2px] text-[13px] font-bold uppercase tracking-wider font-mono transition cursor-pointer ${
                 tab === "settings"
                   ? "bg-[#EF4444] text-[#F4F4F5] border border-[#EF4444]"
@@ -1155,6 +1161,18 @@ export default function AdminTeams(): React.JSX.Element {
             >
               <KeyRound className="w-4 h-4 text-[#10B981]" />
               <span>Settings & API {settingsUnlocked ? "🔓" : "🔒"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("audit")}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-[2px] text-[13px] font-bold uppercase tracking-wider font-mono transition cursor-pointer ${
+                tab === "audit"
+                  ? "bg-[#EF4444] text-[#F4F4F5] border border-[#EF4444]"
+                  : "bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:bg-[#3F3F46] hover:text-[#F4F4F5]"
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Audit log ({auditEntries.length})</span>
             </button>
           </div>
 
@@ -2157,6 +2175,16 @@ export default function AdminTeams(): React.JSX.Element {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {tab === "audit" && (
+          <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] p-6">
+            <div><h2 className="font-mono text-[22px] font-bold uppercase text-[#F4F4F5]">Admin action log</h2><p className="mt-1 text-[13px] text-[#A1A1AA]">Every mutating admin request is recorded on the server with its target, reason, and timestamp.</p></div>
+            <div className="overflow-x-auto rounded-[2px] border border-[#3F3F46]">
+              <table className="w-full min-w-[760px] text-left font-mono text-xs"><thead className="bg-[#18181B] text-[10px] uppercase tracking-wider text-[#A1A1AA]"><tr><th className="px-3 py-3">Time</th><th className="px-3 py-3">Action</th><th className="px-3 py-3">Target</th><th className="px-3 py-3">Reason</th><th className="px-3 py-3">Details</th></tr></thead><tbody>{auditEntries.map((entry) => <tr key={entry.id} className="border-t border-[#3F3F46] text-[#F4F4F5]"><td className="whitespace-nowrap px-3 py-3 text-[#A1A1AA]">{new Date(entry.created_at).toLocaleString()}</td><td className="px-3 py-3">{entry.action}</td><td className="px-3 py-3">{entry.target_id ?? "—"}</td><td className="max-w-[240px] px-3 py-3">{entry.reason}</td><td className="max-w-[300px] truncate px-3 py-3 text-[#A1A1AA]">{entry.detail}</td></tr>)}</tbody></table>
+              {auditEntries.length === 0 && <p className="p-6 text-center text-sm text-[#A1A1AA]">No admin actions recorded yet.</p>}
+            </div>
           </div>
         )}
 

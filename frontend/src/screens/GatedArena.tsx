@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import ArenaScreen from "@/screens/ArenaScreen";
 import RoundTwoScreen from "@/screens/RoundTwoScreen";
 import PortalTransition from "@/portal/PortalTransition";
+import GachaReveal from "@/portal/GachaReveal";
 import { computeTop5, endRound1, enterRound2, getGates, openVault, type Gates } from "@/api/gates";
 
 function SealedScreen({ message = "Round 1 is done for your team. Wait for the organizers to open round 2." }: { message?: string }): React.JSX.Element {
@@ -77,29 +78,46 @@ function RoundEndedScreen(): React.JSX.Element {
 function PortalGate({ onEnter }: { onEnter: (boss: BotId) => void }): React.JSX.Element {
   useDocumentTitle("Vault — REDLINE Arena");
   const [error, setError] = useState("");
-  const [travel, setTravel] = useState<BotId | null>(null);
+  const [loading, setLoading] = useState(false);
+  // gachaBoss = boss assigned, waiting for gacha + transition to finish
+  const [gachaBoss, setGachaBoss] = useState<BotId | null>(null);
+  // travelBoss = after gacha, trigger the portal transition
+  const [travelBoss, setTravelBoss] = useState<BotId | null>(null);
+
   async function step(): Promise<void> {
     setError("");
+    setLoading(true);
     try {
       const { boss } = await enterRound2();
       if (boss !== "itachi" && boss !== "aizen") {
         throw new Error("bad boss");
       }
-      setTravel(boss);
+      setGachaBoss(boss);
     } catch (e: any) {
+      setLoading(false);
       if (e.message === "not_selected") {
         setError("Your team was not selected for Round 2.");
+      } else if (e.message === "vault sealed or not qualified") {
+        setError("The vault has not opened yet. Wait for the organizers.");
       } else {
-        setError("The vault is sealed.");
+        setError(e.message === "bad boss" ? "Unexpected boss assignment." : "The vault is sealed or Round 2 has not started.");
       }
     }
   }
-  if (travel !== null) {
-    const boss = travel;
+
+  // After gacha animation finishes → portal transition
+  if (travelBoss !== null) {
+    const boss = travelBoss;
     return <PortalTransition onDone={() => onEnter(boss)} />;
   }
+
+  // Gacha spin phase
+  if (gachaBoss !== null) {
+    return <GachaReveal boss={gachaBoss} onDone={() => setTravelBoss(gachaBoss)} />;
+  }
+
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-hidden bg-cover bg-center p-[var(--space)] text-center" style={{ backgroundImage: "url('/backgrounds/login-uiwork.png')" }}>
+    <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-hidden bg-cover bg-center p-[var(--space)] text-center" style={{ backgroundImage: "url('/backgrounds/login-ui.png')" }}>
       <div aria-hidden="true" className="absolute inset-0 bg-[rgba(5,7,10,0.78)]" />
       <div className="relative flex flex-col items-center gap-4">
         <span aria-hidden="true" className="acc-bar block h-[3px] w-12 rounded-full" />
@@ -112,11 +130,30 @@ function PortalGate({ onEnter }: { onEnter: (boss: BotId) => void }): React.JSX.
         <button
           type="button"
           onClick={() => void step()}
-          className="redline-cta flex min-h-[52px] items-center gap-3 rounded-[8px] px-8 py-4 text-[16px] font-semibold active:scale-[0.99]"
+          disabled={loading}
+          className="redline-cta flex min-h-[52px] items-center gap-3 rounded-[8px] px-8 py-4 text-[16px] font-semibold active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          <span>Step through</span>
+          {loading ? (
+            <>
+              <span className="block h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+              <span>Opening…</span>
+            </>
+          ) : (
+            <span>Step through</span>
+          )}
         </button>
-        {error !== "" && <p role="alert" className="acc-text text-[14px]">{error}</p>}
+        {error !== "" && (
+          <div className="flex flex-col items-center gap-2">
+            <p role="alert" className="acc-text text-[14px]">{error}</p>
+            <button
+              type="button"
+              onClick={() => { setError(""); void step(); }}
+              className="text-[12px] font-mono text-white/50 hover:text-white/80 underline transition"
+            >
+              Try again
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

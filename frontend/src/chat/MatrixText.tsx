@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { reducedMotion } from "@/lib/motionTokens";
 
 const MATRIX_GLYPHS = "アカサタナハマヤラワ0123456789ABCDEFRL<>*+#";
-const SCRAMBLE_MS = 220;
-const CASCADE_MS = 12;
-const FLICKER_MS = 38;
+const SCRAMBLE_MS = 450;
+const CASCADE_MS = 25;
+const FLICKER_MS = 50;
 
 interface MatrixTextProps {
   text: string;

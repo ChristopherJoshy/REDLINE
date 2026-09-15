@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { animate, createTimeline } from "animejs";
 import type { BotId } from "@contracts/events";
 import TypingBubble from "@/chat/TypingBubble";
+import MatrixText from "@/chat/MatrixText";
 import { useBotStream } from "@/chat/useBotStream";
 import { playSound, unlockAudio } from "@/chat/sound";
 import { AVATAR_FOCUS, CHARACTERS, CHAT_BACKGROUND } from "@/data/characterLore";
@@ -320,7 +321,18 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
                     : "border border-[rgba(255,255,255,0.09)] bg-[rgba(13,17,23,0.92)] text-[var(--color-text-1)]"
                 }`}
               >
-                <p className="whitespace-pre-wrap">{m.text}</p>
+                <p className="whitespace-pre-wrap">
+                  {m.role === "user" ? (
+                    m.text
+                  ) : (
+                    <MatrixText
+                      text={m.text}
+                      isStreaming={false}
+                      animateOnMount={i === state.messages.length - 1}
+                      accentColor={lore?.accent ?? "#ff1e2d"}
+                    />
+                  )}
+                </p>
               </div>
             </div>
           )
@@ -362,8 +374,8 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
             <span className="redline-chip block w-8 h-8 rounded-[8px] overflow-hidden shrink-0" aria-hidden="true">
               <img src={lore?.avatar} alt="" className="w-full h-full object-cover" />
             </span>
-            <div className="rounded-[10px] border border-[rgba(255,255,255,0.09)] bg-[rgba(13,17,23,0.92)]">
-              <TypingBubble />
+            <div className="rounded-[10px] overflow-hidden">
+              <TypingBubble accentColor={lore?.accent ?? "#ff1e2d"} />
             </div>
           </div>
         )}
@@ -374,7 +386,13 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
               <img src={lore?.avatar} alt="" className="w-full h-full object-cover" />
             </span>
             <div className="rounded-[10px] border border-[rgba(255,255,255,0.09)] bg-[rgba(13,17,23,0.92)] px-4 py-3 text-[14.5px] leading-relaxed text-[var(--color-text-1)]">
-              <p className="whitespace-pre-wrap">{state.streaming}</p>
+              <p className="whitespace-pre-wrap">
+                <MatrixText
+                  text={state.streaming}
+                  isStreaming={true}
+                  accentColor={lore?.accent ?? "#ff1e2d"}
+                />
+              </p>
             </div>
           </div>
         )}

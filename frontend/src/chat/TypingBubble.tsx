@@ -1,25 +1,30 @@
 import { useEffect, useRef } from "react";
 import { animate, stagger } from "animejs";
 import { reducedMotion } from "@/lib/motionTokens";
+import { Radio } from "lucide-react";
 
 /**
- * TypingBubble — three ink-dots in an asymmetric breathing wave.
- * When `thinking` is true, displays a subtle thought badge and animated ink dots.
+ * Tactical Typing/Decoding Indicator — animated red waveform spectrum with terminal telemetry.
  */
-export default function TypingBubble({ thinking = true }: { thinking?: boolean }): React.JSX.Element {
-  const containerRef = useRef<HTMLDivElement>(null);
+export default function TypingBubble({
+  thinking = true,
+  accentColor = "#ff1e2d",
+}: {
+  thinking?: boolean;
+  accentColor?: string;
+}): React.JSX.Element {
+  const barsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const dots = containerRef.current?.querySelectorAll<HTMLSpanElement>(".ink-dot");
-    if (!dots || dots.length === 0) return;
-
     if (reducedMotion()) return;
+    const bars = barsRef.current?.querySelectorAll<HTMLSpanElement>(".spectrum-bar");
+    if (!bars || bars.length === 0) return;
 
-    const anim = animate(Array.from(dots), {
-      translateY: [0, -4, 0],
-      opacity: [0.9, 0.35, 0.9],
-      duration: 780,
-      delay: stagger(140, { start: 0 }),
+    const anim = animate(Array.from(bars), {
+      scaleY: [0.3, 1.2, 0.4],
+      opacity: [0.4, 1, 0.5],
+      duration: 650,
+      delay: stagger(100, { start: 0 }),
       ease: "inOutSine",
       loop: true,
     });
@@ -31,20 +36,22 @@ export default function TypingBubble({ thinking = true }: { thinking?: boolean }
 
   return (
     <div
-      ref={containerRef}
-      aria-label={thinking ? "Bot is thinking" : "Bot is typing"}
-      className="flex items-center gap-2 px-3.5 py-2.5"
+      aria-label={thinking ? "Decrypting incoming transmission" : "Bot is typing"}
+      className="flex items-center gap-3 px-4 py-3 bg-[#0a0d12]/90 border border-white/10 backdrop-blur-md"
     >
-      {thinking && (
-        <span className="text-[12px] font-medium tracking-wide text-[var(--color-text-3)] select-none">
-          Thinking
-        </span>
-      )}
-      <div className="flex items-center gap-1.5 py-0.5">
-        {[0, 1, 2].map((i) => (
+      <Radio className="w-3.5 h-3.5 animate-pulse" style={{ color: accentColor }} />
+      <span className="font-[family-name:var(--font-code)] text-[11px] font-bold tracking-[0.18em] text-white/60 uppercase select-none">
+        Decrypting Signal
+      </span>
+      <div ref={barsRef} className="flex items-center gap-1 h-3.5 px-1">
+        {[0, 1, 2, 3, 4].map((i) => (
           <span
             key={i}
-            className="ink-dot acc-bg block h-1.5 w-1.5 rounded-full"
+            className="spectrum-bar block w-1 h-3 rounded-none origin-bottom"
+            style={{
+              backgroundColor: accentColor,
+              boxShadow: `0 0 8px ${accentColor}aa`,
+            }}
             aria-hidden="true"
           />
         ))}

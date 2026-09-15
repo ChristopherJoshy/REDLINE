@@ -7,6 +7,7 @@ import { getCover, type CoverProfile } from "@/api/profiles";
 import { acquireLock, getLocks, releaseLock, type BotLockMap } from "@/api/locks";
 import type { BotId, InventoryDelta } from "@contracts/events";
 import TypingBubble from "@/chat/TypingBubble";
+import MatrixText from "@/chat/MatrixText";
 import { useBotStream } from "@/chat/useBotStream";
 import { unlockAudio } from "@/chat/sound";
 import { AVATAR_FOCUS, CHARACTERS, CHAT_BACKGROUND } from "@/data/characterLore";
@@ -32,7 +33,9 @@ import {
   Sparkles,
   ArrowRight,
   RotateCcw,
-  Radio
+  Radio,
+  ShieldAlert,
+  Check
 } from "lucide-react";
 
 const ROSTER: Array<{ id: BotId; label: string; num: string }> = [
@@ -663,287 +666,419 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
           </div>
         </div>
       ) : (
-        /* ── Chat View ── */
         <div className="relative flex-1 flex flex-col min-h-0">
           <div className="relative flex min-h-0 flex-1 flex-col">
-          <header className="acc-border flex items-center justify-between gap-2 border-b bg-[rgba(5,7,10,0.6)] px-4 py-3 backdrop-blur-sm">
-            <div className="flex items-center gap-3 min-w-0">
-              <button
-                type="button"
-                onClick={() => leaveChat()}
-                className="flex min-h-[44px] items-center gap-1.5 rounded-[6px] border border-[var(--color-border)] px-3 py-1.5 font-semibold text-[13px] text-[var(--color-text-2)] hover:bg-[var(--color-surface-2)] transition"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Marks</span>
-              </button>
+            {/* Top HUD Header */}
+            <header className="relative flex items-center justify-between gap-3 border-b border-white/10 bg-[#050709]/85 px-4 py-3 backdrop-blur-md">
+              {/* Upper red tactical line */}
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#ff1e2d] shadow-[0_0_8px_rgba(255,30,45,0.7)]" />
 
-              <span className="acc-border acc-glow block w-10 h-10 rounded-[8px] overflow-hidden border shrink-0">
-                <img
-                  src={CHARACTERS[chattingBotId]?.avatar ?? "/characters/wick.jpg"}
-                  alt={chattingBotId}
-                  className={`w-full h-full object-cover ${CHARACTERS[chattingBotId] ? AVATAR_FOCUS[chattingBotId] : "object-center"}`}
-                />
-              </span>
-
-              <div className="min-w-0">
-                <h3 className="font-[family-name:var(--font-display)] text-[16px] font-bold tracking-[0.05em] text-white truncate">
-                  {(CHARACTERS[chattingBotId]?.name ?? "").toUpperCase()}
-                </h3>
-                <p className="text-[12px] text-[var(--color-text-3)] truncate">
-                  {CHARACTERS[chattingBotId]?.tagline}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {isMerchant ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setMerchantTab("counter")}
-                    aria-pressed={merchantTab === "counter"}
-                    className={`flex min-h-[44px] items-center gap-1.5 rounded-[6px] border px-3 py-1.5 font-semibold text-[12px] transition ${
-                      merchantTab === "counter"
-                        ? "border-[rgba(216,155,36,0.55)] bg-[rgba(216,155,36,0.14)] text-[var(--color-gold-bright)]"
-                        : "redline-chip text-[var(--color-text-2)] hover:text-white"
-                    }`}
-                  >
-                    <Scale className="w-4 h-4" />
-                    <span className="hidden sm:inline">Counter</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMerchantTab("talk")}
-                    aria-pressed={merchantTab === "talk"}
-                    className={`flex min-h-[44px] items-center gap-1.5 rounded-[6px] border px-3 py-1.5 font-semibold text-[12px] transition ${
-                      merchantTab === "talk"
-                        ? "border-[rgba(216,155,36,0.55)] bg-[rgba(216,155,36,0.14)] text-[var(--color-gold-bright)]"
-                        : "redline-chip text-[var(--color-text-2)] hover:text-white"
-                    }`}
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    <span className="hidden sm:inline">Talk</span>
-                  </button>
-                </>
-              ) : (
+              {/* Left Persona Dossier */}
+              <div className="flex items-center gap-3 min-w-0">
                 <button
                   type="button"
-                  onClick={() => setInventoryOpen(true)}
-                  className="redline-chip acc-border flex min-h-[44px] items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-semibold text-[12px] text-white transition"
+                  onClick={() => leaveChat()}
+                  title="Return to Marks (ESC)"
+                  className="flex h-10 px-3 items-center gap-2 border border-white/15 bg-black/60 backdrop-blur-md text-white/70 hover:text-white hover:border-[#ff1e2d] hover:bg-[#ff1e2d]/10 transition-all group"
                 >
-                  <Package className="acc-text h-4 w-4" />
-                  <span className="hidden sm:inline">Satchel ({inventory.length}/8)</span>
+                  <ArrowLeft className="w-4 h-4 text-[#ff1e2d] group-hover:-translate-x-0.5 transition-transform" />
+                  <span className="font-mono text-[11px] font-bold tracking-[0.15em] uppercase hidden sm:inline">MARKS</span>
                 </button>
-              )}
 
-              <RewindButton botId={chattingBotId} onRewind={rewind} />
-              {!isMerchant && chattingBotId !== null && (
-                <button
-                  type="button"
-                  onClick={() => { openCoverFor(chattingBotId, false, null); }}
-                  title="View or update your cover for this mark"
-                  className="flex min-h-[44px] items-center gap-1.5 rounded-[6px] border border-[var(--color-border)] px-3 py-1.5 font-semibold text-[12px] text-[var(--color-text-1)] hover:bg-[var(--color-surface-2)] transition"
-                >
-                  <VenetianMask className="w-4 h-4 text-[var(--color-text-3)]" />
-                  <span className="hidden sm:inline">Cover</span>
-                </button>
-              )}
-            </div>
-          </header>
+                <span className="relative block w-10 h-10 overflow-hidden border border-[#ff1e2d]/60 bg-black/70 shrink-0 shadow-[0_0_12px_rgba(255,30,45,0.35)]">
+                  <img
+                    src={CHARACTERS[chattingBotId]?.avatar ?? "/characters/wick.jpg"}
+                    alt={chattingBotId}
+                    className={`w-full h-full object-cover ${CHARACTERS[chattingBotId] ? AVATAR_FOCUS[chattingBotId] : "object-center"}`}
+                  />
+                  <div className="absolute inset-0 border border-white/10 pointer-events-none" />
+                </span>
 
-          {isMerchant && merchantTab === "counter" ? (
-            <div className="flex-1 overflow-y-auto min-h-0">
-              <MerchantCounter inventory={inventory} credits={credits} say={say} />
-            </div>
-          ) : (
-            <>
-              <div className="redline-scroll flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 max-w-[860px] w-full mx-auto" aria-live="polite">
-                {activeBot?.messages.map((m, idx) => {
-                  const isUser = m.role === "user";
-                  const canRewind = m.id !== undefined && chattingBotId !== null;
-                  const isRewindingThis = m.id !== undefined && rewindingId === m.id;
-                  return (
-                    <div
-                      key={m.id ?? idx}
-                      className={`chat-msg group relative flex gap-3 max-w-[85%] ${isUser ? "self-end flex-row-reverse" : "self-start"}`}
-                    >
-                      <span className="redline-chip block w-8 h-8 rounded-[8px] overflow-hidden shrink-0" aria-hidden="true">
-                        {isUser ? (
-                          <span className="acc-wash flex h-full w-full items-center justify-center text-[11px] font-bold">
-                            <UserCheck className="w-4 h-4" />
-                          </span>
-                        ) : (
-                          <img
-                            src={CHARACTERS[chattingBotId]?.avatar}
-                            alt=""
-                            className={`w-full h-full object-cover ${CHARACTERS[chattingBotId] ? AVATAR_FOCUS[chattingBotId] : "object-center"}`}
-                          />
-                        )}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-[family-name:var(--font-code)] text-[15px] sm:text-[17px] font-bold tracking-[0.12em] text-white uppercase truncate">
+                      {CHARACTERS[chattingBotId]?.name ?? chattingBotId}
+                    </h3>
+                    {CHARACTERS[chattingBotId]?.moniker && (
+                      <span className="text-white/35 font-mono text-[11px] tracking-wider hidden md:inline truncate">
+                        // {CHARACTERS[chattingBotId]?.moniker}
                       </span>
+                    )}
+                  </div>
+                  <p className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-mono text-white/40 truncate">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#ff1e2d] animate-pulse" />
+                    <span className="text-[#ff5b64] font-semibold">SURVEILLANCE ACTIVE</span>
+                    <span className="hidden sm:inline text-white/25">· {CHARACTERS[chattingBotId]?.tagline}</span>
+                  </p>
+                </div>
+              </div>
 
-                      <div className="flex flex-col gap-1 max-w-full">
-                        <div
-                          className={`rounded-[10px] px-4 py-3 text-[14.5px] leading-relaxed relative ${
-                            isUser
-                              ? "redline-cta acc-glow"
-                              : "border border-[rgba(255,255,255,0.09)] bg-[rgba(13,17,23,0.92)] text-[var(--color-text-1)]"
+              {/* Center/Right HUD Telemetry & Actions */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                {/* 8-pip segmented progress bar */}
+                {!isMerchant && (
+                  <div className="hidden lg:flex items-center gap-2.5 px-3 py-1.5 border border-white/10 bg-black/60 backdrop-blur-md">
+                    <span className="font-mono text-[10px] font-bold tracking-[0.15em] text-white/50 uppercase">
+                      ROUND {Math.min(verifiedCount + 1, 8)}/8
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+                        <span
+                          key={i}
+                          className={`block h-2 w-3 rounded-none transition-all ${
+                            i < verifiedCount
+                              ? "bg-[#ff1e2d] shadow-[0_0_8px_rgba(255,30,45,0.8)]"
+                              : "bg-white/10"
                           }`}
-                        >
-                          <p className="whitespace-pre-wrap">{m.text}</p>
-                        </div>
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                        {/* Granular Rewind Button on message hover/focus */}
-                        {canRewind && (
-                          <div className={`flex items-center gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity ${isUser ? "justify-end" : "justify-start"}`}>
-                            <button
-                              type="button"
-                              disabled={isRewindingThis}
-                              onClick={async () => {
-                                if (m.id === undefined || chattingBotId === null) return;
-                                const confirmMsg = isUser
-                                  ? `Rewind to this message? Turns from here onward will be deleted (−1 ELO).`
-                                  : `Rewind to before this reply? (−1 ELO)`;
-                                if (!window.confirm(confirmMsg)) return;
-                                setRewindingId(m.id);
-                                if (isUser) {
-                                  setDraft(m.text);
-                                }
-                                await rewind(chattingBotId, { messageId: m.id });
-                                setRewindingId(null);
-                              }}
-                              className="acc-text flex items-center gap-1 text-[11px] font-semibold text-[var(--color-text-3)] hover:brightness-125 px-1.5 py-0.5 rounded transition"
-                              title="Rewind to this point in time (-1 ELO)"
-                            >
-                              <RotateCcw className={`w-3 h-3 ${isRewindingThis ? "animate-spin" : ""}`} />
-                              <span>{isRewindingThis ? "Rewinding..." : "Rewind to here"}</span>
-                            </button>
-                          </div>
-                        )}
+                {isMerchant ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setMerchantTab("counter")}
+                      aria-pressed={merchantTab === "counter"}
+                      className={`flex min-h-[40px] items-center gap-1.5 border px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.1em] uppercase transition ${
+                        merchantTab === "counter"
+                          ? "border-[#f5b301] bg-[#f5b301]/15 text-[#f5b301] shadow-[0_0_12px_rgba(245,179,1,0.3)]"
+                          : "border-white/15 bg-black/50 text-white/60 hover:text-white hover:border-white/30"
+                      }`}
+                    >
+                      <Scale className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Counter</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMerchantTab("talk")}
+                      aria-pressed={merchantTab === "talk"}
+                      className={`flex min-h-[40px] items-center gap-1.5 border px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.1em] uppercase transition ${
+                        merchantTab === "talk"
+                          ? "border-[#f5b301] bg-[#f5b301]/15 text-[#f5b301] shadow-[0_0_12px_rgba(245,179,1,0.3)]"
+                          : "border-white/15 bg-black/50 text-white/60 hover:text-white hover:border-white/30"
+                      }`}
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Talk</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setInventoryOpen(true)}
+                    className="flex min-h-[40px] items-center gap-2 border border-white/15 bg-black/60 backdrop-blur-md px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.1em] text-white/80 hover:text-white hover:border-[#ff1e2d] hover:bg-[#ff1e2d]/10 transition"
+                  >
+                    <Package className="h-3.5 w-3.5 text-[#ff1e2d]" />
+                    <span>SATCHEL ({inventory.length}/8)</span>
+                  </button>
+                )}
+
+                <RewindButton botId={chattingBotId} onRewind={rewind} />
+
+                {!isMerchant && chattingBotId !== null && (
+                  <button
+                    type="button"
+                    onClick={() => { openCoverFor(chattingBotId, false, null); }}
+                    title="View or update your cover for this mark"
+                    className="flex min-h-[40px] items-center gap-2 border border-white/15 bg-black/60 backdrop-blur-md px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.1em] text-white/80 hover:text-white hover:border-[#ff1e2d] hover:bg-[#ff1e2d]/10 transition"
+                  >
+                    <VenetianMask className="w-3.5 h-3.5 text-[#ff1e2d]" />
+                    <span className="hidden sm:inline">COVER</span>
+                    {covers[chattingBotId] && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#ff1e2d] shadow-[0_0_6px_rgba(255,30,45,0.9)]" />
+                    )}
+                  </button>
+                )}
+              </div>
+            </header>
+
+            {isMerchant && merchantTab === "counter" ? (
+              <div className="flex-1 overflow-y-auto min-h-0">
+                <MerchantCounter inventory={inventory} credits={credits} say={say} />
+              </div>
+            ) : (
+              <>
+                {/* Tactical Chat Container */}
+                <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+                  {/* Floating Objective HUD Card (Top Left) */}
+                  {!isMerchant && (
+                    <div className="pointer-events-none absolute top-4 left-4 z-20 hidden md:block">
+                      <div className="pointer-events-auto flex items-start gap-3 p-3 bg-black/80 border border-white/12 backdrop-blur-md max-w-[340px] shadow-[0_8px_24px_rgba(0,0,0,0.7)]">
+                        <ShieldAlert className="w-4 h-4 text-[#ff1e2d] shrink-0 mt-0.5" />
+                        <div className="min-w-0">
+                          <p className="font-mono text-[9px] font-bold tracking-[0.2em] text-[#ff5b64] uppercase">MISSION OBJECTIVE</p>
+                          <p className="text-[12px] text-white/90 font-medium leading-snug mt-0.5">
+                            Gain trust and extract the <span className="text-white font-bold">{CHARACTERS[chattingBotId]?.targetItem.name}</span>.
+                          </p>
+                          {CHARACTERS[chattingBotId]?.vulnerabilityHint && (
+                            <p className="text-[10px] text-white/40 font-mono italic mt-1 line-clamp-2">
+                              {CHARACTERS[chattingBotId]?.vulnerabilityHint}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  );
-                })}
+                  )}
 
-                {activeBot?.typing && activeBot.streaming === "" && (
-                  <div className="self-start flex gap-3">
-                    <span className="redline-chip block w-8 h-8 rounded-[8px] overflow-hidden shrink-0" aria-hidden="true">
-                      <img src={CHARACTERS[chattingBotId]?.avatar} alt="" className={`w-full h-full object-cover ${CHARACTERS[chattingBotId] ? AVATAR_FOCUS[chattingBotId] : "object-center"}`} />
-                    </span>
-                    <div className="rounded-[10px] border border-[rgba(255,255,255,0.09)] bg-[rgba(13,17,23,0.92)]">
-                      <TypingBubble />
-                    </div>
+                  {/* Ambient Telemetry Watermarks */}
+                  <div className="pointer-events-none absolute top-4 right-6 z-10 hidden xl:flex flex-col items-end gap-1 font-mono text-[10px] text-white/20 tracking-[0.2em] uppercase select-none">
+                    <span>SECURE FREQ // 894.2 MHz</span>
+                    <span>ENCRYPT: SHA-256</span>
                   </div>
-                )}
+                  <div className="pointer-events-none absolute bottom-6 right-6 z-10 hidden xl:flex flex-col items-end gap-0.5 font-mono text-[10px] text-white/15 tracking-[0.2em] uppercase select-none">
+                    <span>SAME TARGET</span>
+                    <span>DIFFERENT MASKS</span>
+                  </div>
 
-                {activeBot?.streaming !== "" && activeBot?.streaming !== undefined && (
-                  <div className="self-start flex gap-3 max-w-[85%]">
-                    <span className="redline-chip block w-8 h-8 rounded-[8px] overflow-hidden shrink-0" aria-hidden="true">
-                      <img src={CHARACTERS[chattingBotId]?.avatar} alt="" className={`w-full h-full object-cover ${CHARACTERS[chattingBotId] ? AVATAR_FOCUS[chattingBotId] : "object-center"}`} />
-                    </span>
-                    <div className="rounded-[10px] px-4 py-3 border border-[rgba(255,255,255,0.09)] bg-[rgba(13,17,23,0.92)] text-[var(--color-text-1)] text-[14.5px] leading-relaxed">
-                      <p className="whitespace-pre-wrap">{activeBot.streaming}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              {/* In-page Claim Banner (part of the site) if relic is yielded & held */}
-              {chattingBotId && inventory.some((i) => i.botId === chattingBotId && i.status === "obtained") && (() => {
-                const item = inventory.find((i) => i.botId === chattingBotId && i.status === "obtained");
-                const lore = CHARACTERS[chattingBotId];
-                return (
-                  <div className="border-y border-[rgba(216,155,36,0.45)] bg-[rgba(9,13,18,0.9)] p-3 shadow-[0_0_24px_rgba(216,155,36,0.12)] sm:px-6">
-                    <div className="mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 max-w-[860px]">
-                      <div className="flex items-center gap-3 w-full sm:w-auto">
-                        <div className="relative w-11 h-11 rounded-[8px] border border-[rgba(216,155,36,0.55)] bg-[rgba(216,155,36,0.1)] p-1 flex items-center justify-center shrink-0">
-                          <img
-                            src={lore?.targetItem.asset ?? "/items/wick_medallion.svg"}
-                            alt=""
-                            className="w-full h-full object-contain drop-shadow"
-                          />
-                          <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--color-gold)]">
-                            <Sparkles className="w-2 h-2 text-black" />
+                  {/* Scrollable Message Feed */}
+                  <div className="redline-scroll flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 max-w-[860px] w-full mx-auto" aria-live="polite">
+                    {activeBot?.messages.map((m, idx) => {
+                      const isUser = m.role === "user";
+                      const canRewind = m.id !== undefined && chattingBotId !== null;
+                      const isRewindingThis = m.id !== undefined && rewindingId === m.id;
+                      const isLatestBotMsg = !isUser && idx === (activeBot?.messages.length ?? 0) - 1;
+
+                      return (
+                        <div
+                          key={m.id ?? idx}
+                          className={`chat-msg group relative flex gap-3 max-w-[85%] ${isUser ? "self-end flex-row-reverse" : "self-start"}`}
+                        >
+                          {/* Avatar / Badge */}
+                          <span className="block w-9 h-9 overflow-hidden shrink-0 border border-white/15 bg-black/60 shadow-[0_0_10px_rgba(0,0,0,0.5)]" aria-hidden="true">
+                            {isUser ? (
+                              <span className="flex h-full w-full items-center justify-center bg-[#ff1e2d]/20 text-[#ff5b64] border border-[#ff1e2d]/40">
+                                <UserCheck className="w-4 h-4" />
+                              </span>
+                            ) : (
+                              <img
+                                src={CHARACTERS[chattingBotId]?.avatar}
+                                alt=""
+                                className={`w-full h-full object-cover ${CHARACTERS[chattingBotId] ? AVATAR_FOCUS[chattingBotId] : "object-center"}`}
+                              />
+                            )}
                           </span>
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-gold-bright)] bg-[rgba(216,155,36,0.12)] px-2 py-0.5 rounded border border-[rgba(216,155,36,0.45)]">
-                              Relic Secured · Held
-                            </span>
-                            <span className="text-[12px] text-[var(--color-text-3)]">
-                              ~{lore?.targetItem.merchantBounty ?? 100} credits
-                            </span>
+
+                          <div className="flex flex-col gap-1.5 max-w-full">
+                            {/* Message Capsule */}
+                            <div
+                              className={`px-4 py-3 text-[14.5px] leading-relaxed relative ${
+                                isUser
+                                  ? "bg-gradient-to-r from-red-700 via-red-600 to-red-700 border border-red-500/50 text-white shadow-[0_4px_24px_rgba(220,38,38,0.35)]"
+                                  : "border border-white/12 bg-[#080b0f]/85 backdrop-blur-md text-white/95 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
+                              }`}
+                            >
+                              {/* Metadata line */}
+                              <div className="flex items-center gap-2 mb-1.5 opacity-60 font-mono text-[9px] tracking-[0.18em] uppercase select-none">
+                                <span>{isUser ? "// OPERATOR TRANSMISSION" : `// INTERCEPTED // ${CHARACTERS[chattingBotId]?.name.toUpperCase()}`}</span>
+                              </div>
+
+                              {/* Message body */}
+                              <div className="whitespace-pre-wrap">
+                                {isUser ? (
+                                  m.text
+                                ) : (
+                                  <MatrixText
+                                    text={m.text}
+                                    isStreaming={false}
+                                    animateOnMount={isLatestBotMsg}
+                                    accentColor={botAccent}
+                                  />
+                                )}
+                              </div>
+
+                              {/* Delivery telemetry */}
+                              <div className="flex items-center justify-end gap-1 mt-1.5 opacity-40 font-mono text-[9px] tracking-wider select-none">
+                                <span>{isUser ? "TRANSMITTED" : "DECRYPTED"}</span>
+                                {isUser && <Check className="w-2.5 h-2.5 text-white" />}
+                              </div>
+                            </div>
+
+                            {/* Granular Rewind Button on message hover/focus */}
+                            {canRewind && (
+                              <div className={`flex items-center gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity ${isUser ? "justify-end" : "justify-start"}`}>
+                                <button
+                                  type="button"
+                                  disabled={isRewindingThis}
+                                  onClick={async () => {
+                                    if (m.id === undefined || chattingBotId === null) return;
+                                    const confirmMsg = isUser
+                                      ? `Rewind to this message? Turns from here onward will be deleted (−1 ELO).`
+                                      : `Rewind to before this reply? (−1 ELO)`;
+                                    if (!window.confirm(confirmMsg)) return;
+                                    setRewindingId(m.id);
+                                    if (isUser) {
+                                      setDraft(m.text);
+                                    }
+                                    await rewind(chattingBotId, { messageId: m.id });
+                                    setRewindingId(null);
+                                  }}
+                                  className="flex items-center gap-1 font-mono text-[10px] font-bold text-[#ff5b64] hover:brightness-125 px-1.5 py-0.5 bg-black/60 border border-white/10 transition"
+                                  title="Rewind to this point in time (-1 ELO)"
+                                >
+                                  <RotateCcw className={`w-3 h-3 ${isRewindingThis ? "animate-spin" : ""}`} />
+                                  <span>{isRewindingThis ? "Rewinding..." : "REWIND TO HERE"}</span>
+                                </button>
+                              </div>
+                            )}
                           </div>
-                          <p className="text-[14px] font-bold text-white truncate">
-                            {lore?.targetItem.name ?? item?.itemKey}
+                        </div>
+                      );
+                    })}
+
+                    {/* Bot Typing Decrypting Signal */}
+                    {activeBot?.typing && activeBot.streaming === "" && (
+                      <div className="self-start flex gap-3">
+                        <span className="block w-9 h-9 overflow-hidden shrink-0 border border-white/15 bg-black/60 shadow-[0_0_10px_rgba(0,0,0,0.5)]" aria-hidden="true">
+                          <img src={CHARACTERS[chattingBotId]?.avatar} alt="" className={`w-full h-full object-cover ${CHARACTERS[chattingBotId] ? AVATAR_FOCUS[chattingBotId] : "object-center"}`} />
+                        </span>
+                        <TypingBubble accentColor={botAccent} />
+                      </div>
+                    )}
+
+                    {/* Bot Streaming Tokens with Matrix Decode */}
+                    {activeBot?.streaming !== "" && activeBot?.streaming !== undefined && (
+                      <div className="self-start flex gap-3 max-w-[85%]">
+                        <span className="block w-9 h-9 overflow-hidden shrink-0 border border-white/15 bg-black/60 shadow-[0_0_10px_rgba(0,0,0,0.5)]" aria-hidden="true">
+                          <img src={CHARACTERS[chattingBotId]?.avatar} alt="" className={`w-full h-full object-cover ${CHARACTERS[chattingBotId] ? AVATAR_FOCUS[chattingBotId] : "object-center"}`} />
+                        </span>
+                        <div className="px-4 py-3 border border-white/12 bg-[#080b0f]/85 backdrop-blur-md text-white text-[14.5px] leading-relaxed shadow-[0_8px_32px_rgba(0,0,0,0.7)]">
+                          <div className="flex items-center gap-2 mb-1.5 opacity-60 font-mono text-[9px] tracking-[0.18em] uppercase select-none">
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#ff1e2d] animate-ping" />
+                            <span>DECODING STREAM // {CHARACTERS[chattingBotId]?.name.toUpperCase()}</span>
+                          </div>
+                          <p className="whitespace-pre-wrap">
+                            <MatrixText
+                              text={activeBot.streaming}
+                              isStreaming={true}
+                              accentColor={botAccent}
+                            />
                           </p>
                         </div>
                       </div>
+                    )}
+                  </div>
+                </div>
 
-                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (item) setClaimRelic({ botId: item.botId, itemKey: item.itemKey });
-                          }}
-                          className="flex min-h-[40px] items-center gap-1.5 rounded-[6px] border border-[rgba(216,155,36,0.55)] bg-[rgba(216,155,36,0.16)] px-4 py-2 text-[13px] font-bold text-[var(--color-gold-bright)] transition hover:bg-[rgba(216,155,36,0.26)] active:scale-95 cursor-pointer"
-                        >
-                          <Gift className="w-4 h-4" />
-                          <span>Inspect / Claim</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => engage("merchant")}
-                          className="redline-chip acc-border flex min-h-[40px] cursor-pointer items-center gap-1.5 rounded-[6px] px-3 py-2 text-[13px] font-semibold text-white transition"
-                        >
-                          <span>Merchant</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
+                {/* In-page Claim Banner if relic is yielded & held */}
+                {chattingBotId && inventory.some((i) => i.botId === chattingBotId && i.status === "obtained") && (() => {
+                  const item = inventory.find((i) => i.botId === chattingBotId && i.status === "obtained");
+                  const lore = CHARACTERS[chattingBotId];
+                  return (
+                    <div className="border-y border-[rgba(216,155,36,0.55)] bg-[rgba(9,13,18,0.95)] p-3 shadow-[0_0_24px_rgba(216,155,36,0.15)] sm:px-6 z-20">
+                      <div className="mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 max-w-[860px]">
+                        <div className="flex items-center gap-3 w-full sm:w-auto">
+                          <div className="relative w-11 h-11 border border-[rgba(216,155,36,0.65)] bg-[rgba(216,155,36,0.15)] p-1 flex items-center justify-center shrink-0">
+                            <img
+                              src={lore?.targetItem.asset ?? "/items/wick_medallion.svg"}
+                              alt=""
+                              className="w-full h-full object-contain drop-shadow"
+                            />
+                            <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--color-gold)]">
+                              <Sparkles className="w-2 h-2 text-black" />
+                            </span>
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-gold-bright)] bg-[rgba(216,155,36,0.15)] px-2 py-0.5 border border-[rgba(216,155,36,0.45)]">
+                                Relic Secured · Held
+                              </span>
+                              <span className="text-[12px] text-[var(--color-text-3)] font-mono">
+                                ~{lore?.targetItem.merchantBounty ?? 100} credits
+                              </span>
+                            </div>
+                            <p className="text-[14px] font-bold text-white truncate">
+                              {lore?.targetItem.name ?? item?.itemKey}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (item) setClaimRelic({ botId: item.botId, itemKey: item.itemKey });
+                            }}
+                            className="flex min-h-[40px] items-center gap-1.5 border border-[rgba(216,155,36,0.65)] bg-[rgba(216,155,36,0.2)] px-4 py-2 text-[13px] font-bold text-[var(--color-gold-bright)] transition hover:bg-[rgba(216,155,36,0.3)] active:scale-95 cursor-pointer font-mono"
+                          >
+                            <Gift className="w-4 h-4" />
+                            <span>INSPECT / CLAIM</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => engage("merchant")}
+                            className="flex min-h-[40px] cursor-pointer items-center gap-1.5 border border-white/20 bg-black/60 px-3 py-2 text-[13px] font-semibold text-white transition hover:border-[#ff1e2d] hover:bg-[#ff1e2d]/10 font-mono"
+                          >
+                            <span>MERCHANT</span>
+                            <ArrowRight className="w-3.5 h-3.5 text-[#ff1e2d]" />
+                          </button>
+                        </div>
                       </div>
                     </div>
+                  );
+                })()}
+
+                {/* In-page Verified Banner if relic is already filed */}
+                {chattingBotId && inventory.some((i) => i.botId === chattingBotId && i.status === "verified") && (
+                  <div className="border-t border-[#9db87a]/40 bg-[#090d12]/95 px-4 py-2.5 text-center text-[12px] text-white/80 flex items-center justify-center gap-2 z-20">
+                    <CheckCircle2 className="w-4 h-4 text-[#9db87a]" />
+                    <span className="font-mono">RELIC FILED & LOCKED AT THE MERCHANT COUNTER.</span>
+                    <button
+                      type="button"
+                      onClick={() => setCelebration(chattingBotId)}
+                      className="underline text-[var(--color-gold-bright)] font-semibold hover:opacity-80 ml-1 cursor-pointer font-mono"
+                    >
+                      Celebrate again
+                    </button>
                   </div>
-                );
-              })()}
+                )}
 
-              {/* In-page Verified Banner if relic is already filed */}
-              {chattingBotId && inventory.some((i) => i.botId === chattingBotId && i.status === "verified") && (
-                <div className="border-t border-[rgba(157,184,122,0.35)] bg-[rgba(9,13,18,0.9)] px-4 py-2 text-center text-[12px] text-[var(--color-text-2)] flex items-center justify-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#9db87a]" />
-                  <span>Relic filed and locked at the Merchant Counter.</span>
-                  <button
-                    type="button"
-                    onClick={() => setCelebration(chattingBotId)}
-                    className="underline text-[var(--color-gold-bright)] font-semibold hover:opacity-80 ml-1 cursor-pointer"
-                  >
-                    Celebrate again
-                  </button>
-                </div>
-              )}
+                {/* Tactical Transmission Console (Bottom Bar) */}
+                <form
+                  onSubmit={submitChat}
+                  className="relative border-t border-white/10 bg-[#050709]/90 p-3 sm:p-4 backdrop-blur-md z-20"
+                >
+                  {/* Top glowing red line */}
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#ff1e2d]/60 to-transparent" />
 
-              <form
-                onSubmit={submitChat}
-                className="acc-border border-t bg-[rgba(5,7,10,0.6)] p-3 backdrop-blur-sm sm:p-4"
-              >
-                <div className="mx-auto flex w-full max-w-[860px] items-center gap-3">
-                  <input
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    disabled={!locked}
-                    placeholder={locked ? `Write to ${CHARACTERS[chattingBotId]?.name}` : "Paused"}
-                    className="acc-border min-h-[48px] flex-1 rounded-[8px] border bg-[rgba(13,17,23,0.9)] px-4 text-[15px] text-white placeholder:text-[var(--color-text-faint)] focus:outline-none acc-glow transition"
-                  />
+                  <div className="mx-auto flex flex-col gap-2 max-w-[860px] w-full">
+                    {/* Console Telemetry Strip */}
+                    <div className="flex items-center justify-between font-mono text-[9px] text-white/30 tracking-[0.2em] uppercase select-none px-1">
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#ff1e2d] animate-pulse" />
+                        ENCRYPTED CHANNEL // TERMINAL v1.0.4
+                      </span>
+                      <span className="hidden sm:inline">PEOPLE TALK. PATTERNS DON'T.</span>
+                    </div>
 
-                  <button
-                    type="submit"
-                    disabled={!locked || draft.trim() === ""}
-                    className="redline-cta flex min-h-[48px] items-center justify-center gap-2 rounded-[8px] px-5 text-[14px] font-semibold disabled:opacity-50"
-                  >
-                    <span>Send</span>
-                    <Send className="w-4 h-4" />
-                  </button>
-                </div>
-              </form>
-            </>
-          )}
+                    {/* Input Console */}
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex-1 flex items-center">
+                        <input
+                          value={draft}
+                          onChange={(e) => setDraft(e.target.value)}
+                          disabled={!locked}
+                          placeholder={locked ? `Write to ${CHARACTERS[chattingBotId]?.name}...` : "Transmission paused"}
+                          className="w-full min-h-[50px] border border-white/15 bg-black/80 px-4 text-[14.5px] text-white placeholder:text-white/30 focus:outline-none focus:border-[#ff1e2d] focus:shadow-[0_0_20px_rgba(255,30,45,0.25)] transition-all font-mono"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={!locked || draft.trim() === ""}
+                        className="relative flex min-h-[50px] px-6 items-center justify-center gap-2 bg-[#ff1e2d] text-white font-mono text-[13px] font-bold tracking-[0.15em] uppercase hover:bg-[#e01020] disabled:opacity-40 transition-all shadow-[0_0_25px_rgba(255,30,45,0.35)] active:scale-[0.98] group overflow-hidden shrink-0"
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                        <span>TRANSMIT</span>
+                        <Send className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}

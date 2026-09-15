@@ -345,6 +345,9 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
       setHeldBot(null);
       void releaseLock(held);
     }
+    setHeldBot(null);
+    setLockNotice(null);
+    setCelebration(null);
     setChattingBotId(null);
   }
 
@@ -699,17 +702,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                     <h3 className="font-[family-name:var(--font-code)] text-[15px] sm:text-[17px] font-bold tracking-[0.12em] text-white uppercase truncate">
                       {CHARACTERS[chattingBotId]?.name ?? chattingBotId}
                     </h3>
-                    {CHARACTERS[chattingBotId]?.moniker && (
-                      <span className="text-white/35 font-mono text-[11px] tracking-wider hidden md:inline truncate">
-                        // {CHARACTERS[chattingBotId]?.moniker}
-                      </span>
-                    )}
                   </div>
-                  <p className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-mono text-white/40 truncate">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#ff1e2d] animate-pulse" />
-                    <span className="text-[#ff5b64] font-semibold">SURVEILLANCE ACTIVE</span>
-                    <span className="hidden sm:inline text-white/25">· {CHARACTERS[chattingBotId]?.tagline}</span>
-                  </p>
                 </div>
               </div>
 
@@ -719,7 +712,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                 {!isMerchant && (
                   <div className="hidden lg:flex items-center gap-2.5 px-3 py-1.5 border border-white/10 bg-black/60 backdrop-blur-md">
                     <span className="font-mono text-[10px] font-bold tracking-[0.15em] text-white/50 uppercase">
-                      ROUND {Math.min(verifiedCount + 1, 8)}/8
+                      COMPLETED {verifiedCount}/8
                     </span>
                     <div className="flex items-center gap-1">
                       {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
@@ -813,11 +806,6 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                           <p className="text-[12px] text-white/90 font-medium leading-snug mt-0.5">
                             Gain trust and extract the <span className="text-white font-bold">{CHARACTERS[chattingBotId]?.targetItem.name}</span>.
                           </p>
-                          {CHARACTERS[chattingBotId]?.vulnerabilityHint && (
-                            <p className="text-[10px] text-white/40 font-mono italic mt-1 line-clamp-2">
-                              {CHARACTERS[chattingBotId]?.vulnerabilityHint}
-                            </p>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -870,11 +858,6 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                                   : "border border-white/12 bg-[#080b0f]/85 backdrop-blur-md text-white/95 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
                               }`}
                             >
-                              {/* Metadata line */}
-                              <div className="flex items-center gap-2 mb-1.5 opacity-60 font-mono text-[9px] tracking-[0.18em] uppercase select-none">
-                                <span>{isUser ? "// OPERATOR TRANSMISSION" : `// INTERCEPTED // ${CHARACTERS[chattingBotId]?.name.toUpperCase()}`}</span>
-                              </div>
-
                               {/* Message body */}
                               <div className="whitespace-pre-wrap">
                                 {isUser ? (
@@ -883,16 +866,10 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                                   <MatrixText
                                     text={m.text}
                                     isStreaming={false}
-                                    animateOnMount={isLatestBotMsg}
+                                    animateOnMount={false}
                                     accentColor={botAccent}
                                   />
                                 )}
-                              </div>
-
-                              {/* Delivery telemetry */}
-                              <div className="flex items-center justify-end gap-1 mt-1.5 opacity-40 font-mono text-[9px] tracking-wider select-none">
-                                <span>{isUser ? "TRANSMITTED" : "DECRYPTED"}</span>
-                                {isUser && <Check className="w-2.5 h-2.5 text-white" />}
                               </div>
                             </div>
 
@@ -945,10 +922,6 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                           <img src={CHARACTERS[chattingBotId]?.avatar} alt="" className={`w-full h-full object-cover ${CHARACTERS[chattingBotId] ? AVATAR_FOCUS[chattingBotId] : "object-center"}`} />
                         </span>
                         <div className="px-4 py-3 border border-white/12 bg-[#080b0f]/85 backdrop-blur-md text-white text-[14.5px] leading-relaxed shadow-[0_8px_32px_rgba(0,0,0,0.7)]">
-                          <div className="flex items-center gap-2 mb-1.5 opacity-60 font-mono text-[9px] tracking-[0.18em] uppercase select-none">
-                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#ff1e2d] animate-ping" />
-                            <span>DECODING STREAM // {CHARACTERS[chattingBotId]?.name.toUpperCase()}</span>
-                          </div>
                           <p className="whitespace-pre-wrap">
                             <MatrixText
                               text={activeBot.streaming}
@@ -1044,15 +1017,6 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                   <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#ff1e2d]/60 to-transparent" />
 
                   <div className="mx-auto flex flex-col gap-2 max-w-[860px] w-full">
-                    {/* Console Telemetry Strip */}
-                    <div className="flex items-center justify-between font-mono text-[9px] text-white/30 tracking-[0.2em] uppercase select-none px-1">
-                      <span className="flex items-center gap-1.5">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[#ff1e2d] animate-pulse" />
-                        ENCRYPTED CHANNEL // TERMINAL v1.0.4
-                      </span>
-                      <span className="hidden sm:inline">PEOPLE TALK. PATTERNS DON'T.</span>
-                    </div>
-
                     {/* Input Console */}
                     <div className="flex items-center gap-3">
                       <div className="relative flex-1 flex items-center">

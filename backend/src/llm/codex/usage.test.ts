@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  buildPublicStatus,
   isCodexLimitExhausted,
   labelWindow,
   mergeRateLimits,
@@ -8,6 +9,7 @@ import {
   seedUsageCacheForTests,
   toWindow,
 } from "./usage.js";
+import { CODEX_MODEL } from "./protocol.js";
 
 test("usedPercent 25 => remaining 75; missing windows stay missing", () => {
   resetUsageCacheForTests();
@@ -44,4 +46,17 @@ test("reset availability: count 0 unavailable, >0 available; exhaustion gate", (
   );
   assert.equal(isCodexLimitExhausted(), true);
   resetUsageCacheForTests();
+});
+
+test("model/list data catalog marks the requested model and reasoning support available", () => {
+  resetUsageCacheForTests();
+  seedUsageCacheForTests(
+    {},
+    { connected: true, planType: "plus" },
+    [{ id: CODEX_MODEL, supportedReasoningEfforts: [{ reasoningEffort: "low" }, { reasoningEffort: "medium" }] }],
+  );
+  const status = buildPublicStatus({ health: () => ({ state: "healthy", restartCount: 0 }) } as never);
+  assert.equal(status.model.available, true);
+  assert.equal(status.model.supportsLow, true);
+  assert.equal(status.model.supportsMedium, true);
 });

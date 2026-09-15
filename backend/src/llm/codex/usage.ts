@@ -29,7 +29,7 @@ export interface CodexPublicStatus {
 interface CachedState {
   raw: Record<string, unknown> | null;
   account: { connected: boolean; planType?: string } | null;
-  models: Array<{ id?: string; effort?: unknown }> | null;
+  models: Array<{ id?: string; model?: string; effort?: unknown; supportedReasoningEfforts?: unknown }> | null;
   updatedAt: number;
 }
 
@@ -132,9 +132,18 @@ function pickResetCredits(raw: Record<string, unknown>): { availableCount: numbe
 
 function modelAvailability(models: CachedState["models"]): { available: boolean; supportsLow: boolean; supportsMedium: boolean } {
   if (!models) return { available: false, supportsLow: false, supportsMedium: false };
-  const entry = models.find((m) => m.id === CODEX_MODEL);
+  const entry = models.find((m) => m.id === CODEX_MODEL || m.model === CODEX_MODEL);
   if (!entry) return { available: false, supportsLow: false, supportsMedium: false };
-  const efforts = Array.isArray(entry.effort) ? (entry.effort as unknown[]).map(String) : undefined;
+  const rawEfforts = entry.effort ?? entry.supportedReasoningEfforts;
+  const efforts = Array.isArray(rawEfforts)
+    ? rawEfforts
+        .map((effort) => {
+          if (typeof effort === "string") return effort;
+          const rec = asRecord(effort);
+          return typeof rec?.["reasoningEffort"] === "string" ? rec["reasoningEffort"] : undefined;
+        })
+        .filter((effort): effort is string => effort !== undefined)
+    : undefined;
   // Catalog schemas vary; if effort list absent, assume low/medium supported when model present.
   if (!efforts) return { available: true, supportsLow: true, supportsMedium: true };
   return {
@@ -165,7 +174,12 @@ async function refreshModels(server: CodexAppServer): Promise<void> {
   try {
     const res = (await server.call("model/list", {})) as unknown;
     const rec = asRecord(res);
-    const list = Array.isArray(rec?.["models"]) ? (rec["models"] as Array<{ id?: string; effort?: unknown }>) : Array.isArray(res) ? (res as Array<{ id?: string }>) : [];
+    const rawList = rec?.["models"] ?? rec?.["data"];
+    const list = Array.isArray(rawList)
+      ? (rawList as Array<{ id?: string; model?: string; effort?: unknown; supportedReasoningEfforts?: unknown }>)
+      : Array.isArray(res)
+        ? (res as Array<{ id?: string; model?: string; effort?: unknown; supportedReasoningEfforts?: unknown }>)
+        : [];
     cache.models = list;
   } catch {
     // keep previous catalog; gameplay proceeds via fallback
@@ -264,7 +278,7 @@ export function resetUsageCacheForTests(): void {
   usageListenerAttached = false;
 }
 
-export function seedUsageCacheForTests(raw: Record<string, unknown>, account?: { connected: boolean; planType?: string }, models?: Array<{ id?: string; effort?: unknown }>): void {
+export function seedUsageCacheForTests(raw: Record<string, unknown>, account?: { connected: boolean; planType?: string }, models?: Array<{ id?: string; model?: string; effort?: unknown; supportedReasoningEfforts?: unknown }>): void {
   cache.raw = raw;
   if (account) cache.account = account;
   if (models) cache.models = models;

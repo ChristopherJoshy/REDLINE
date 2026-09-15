@@ -321,11 +321,11 @@ export default function ProfileModal({ botId, lockCreate, onSaved, onClose }: Pr
       aria-modal="true"
       aria-labelledby="cover-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm sm:p-6"
-      onClick={() => { if (!required) onClose(); }}
+      onMouseDown={() => { if (!required) onClose(); }}
     >
       <div
         className="redline-panel relative flex w-full max-w-[880px] max-h-[90vh] flex-col overflow-hidden rounded-[12px]"
-        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-[rgba(255,30,45,0.25)] bg-[rgba(5,7,10,0.7)] px-6 py-4">
           <div className="flex items-center gap-3">

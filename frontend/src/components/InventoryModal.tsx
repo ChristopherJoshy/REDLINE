@@ -157,9 +157,6 @@ export default function InventoryModal({ isOpen, onClose, inventory, credits = 0
                       </span>
                       <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rotate-45 ${getRarityColor(item.rarity)} shadow-[0_0_8px_rgba(0,0,0,0.5)]`} />
-                        <span className={`text-[11px] uppercase tracking-wide ${isSelected ? "text-white" : "text-white/50"}`}>
-                          {item.rarity}
-                        </span>
                       </div>
                     </div>
                   </button>
@@ -176,46 +173,46 @@ export default function InventoryModal({ isOpen, onClose, inventory, credits = 0
           {/* Right Pane: Item Details */}
           <aside className="flex w-full lg:w-[40%] flex-col p-6 bg-white/[0.01] overflow-hidden relative">
             {selectedItem ? (
-              <div className="flex flex-col h-full overflow-y-auto">
-                <div className="relative flex min-h-[220px] shrink-0 w-full items-center justify-center rounded-[8px] border border-white/5 bg-gradient-to-b from-white/[0.05] to-transparent mb-6 p-8">
+              <div className="flex flex-col h-full">
+                <div className="relative flex flex-1 min-h-[120px] w-full items-center justify-center rounded-[8px] border border-white/5 bg-gradient-to-b from-white/[0.05] to-transparent mb-4 sm:mb-6 p-4 sm:p-8">
                   <img src={selectedItem.asset} alt={selectedItem.name} className="max-h-full max-w-full object-contain drop-shadow-2xl" />
                 </div>
 
-                <div className="flex flex-col gap-1 mb-6 shrink-0">
-                  <h3 className="font-serif text-[24px] tracking-wide text-white/90 uppercase leading-tight">
+                <div className="flex flex-col gap-1 mb-4 sm:mb-6 shrink-0">
+                  <h3 className="font-serif text-[20px] sm:text-[24px] tracking-wide text-white/90 uppercase leading-tight">
                     {selectedItem.name}
                   </h3>
-                  <p className="text-[13px] text-white/50">
+                  <p className="text-[12px] sm:text-[13px] text-white/50">
                     From <span className="font-medium text-white/80">{selectedItem.botName}</span>
                   </p>
                 </div>
 
                 {selectedItem.status === "verified" ? (
-                  <div className="flex shrink-0 items-center gap-3 rounded-[6px] border border-[#10b981]/30 bg-[#10b981]/10 px-4 py-3 mb-6">
+                  <div className="flex shrink-0 items-center gap-3 rounded-[6px] border border-[#10b981]/30 bg-[#10b981]/10 px-4 py-2.5 sm:py-3 mb-4 sm:mb-6">
                     <ShieldCheck className="w-5 h-5 text-[#10b981]" />
                     <span className="text-[11px] font-bold tracking-widest text-[#10b981] uppercase">Verified & Filed</span>
                   </div>
                 ) : (
-                  <div className="flex shrink-0 items-center gap-3 rounded-[6px] border border-[#ff2a2a]/30 bg-[#ff2a2a]/10 px-4 py-3 mb-6">
+                  <div className="flex shrink-0 items-center gap-3 rounded-[6px] border border-[#ff2a2a]/30 bg-[#ff2a2a]/10 px-4 py-2.5 sm:py-3 mb-4 sm:mb-6">
                     <AlertCircle className="w-5 h-5 text-[#ff2a2a]" />
                     <span className="text-[11px] font-bold tracking-widest text-[#ff2a2a] uppercase">Held · Needs Appraisal</span>
                   </div>
                 )}
 
-                <div className="flex flex-col gap-6 shrink-0 text-[13px] text-white/60 leading-relaxed pb-6">
-                  <div className="flex flex-col gap-2 border-b border-white/5 pb-4">
+                <div className="flex flex-col gap-3 sm:gap-4 shrink-0 text-[12px] sm:text-[13px] text-white/60 leading-relaxed pb-4 sm:pb-6">
+                  <div className="flex flex-col gap-1.5 border-b border-white/5 pb-3">
                     <span className="text-[10px] font-bold tracking-widest text-white/40 uppercase">About</span>
-                    <p>{selectedItem.description}</p>
+                    <p className="line-clamp-3 sm:line-clamp-none">{selectedItem.description}</p>
                   </div>
                   
-                  <div className="flex flex-col gap-2 border-b border-white/5 pb-4">
+                  <div className="flex flex-col gap-1.5 border-b border-white/5 pb-3">
                     <span className="text-[10px] font-bold tracking-widest text-white/40 uppercase">Tell</span>
-                    <p>{selectedItem.authenticityTell}</p>
+                    <p className="line-clamp-2 sm:line-clamp-none">{selectedItem.authenticityTell}</p>
                   </div>
 
-                  <div className="flex flex-col gap-2 pb-4">
+                  <div className="flex flex-col gap-1.5">
                     <span className="text-[10px] font-bold tracking-widest text-white/40 uppercase">Decoy</span>
-                    <p>{selectedItem.decoyWarning}</p>
+                    <p className="line-clamp-2 sm:line-clamp-none">{selectedItem.decoyWarning}</p>
                   </div>
                 </div>
 

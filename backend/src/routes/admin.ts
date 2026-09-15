@@ -56,11 +56,12 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
   // Append an operator audit record for every mutating admin request. The log is
   // intentionally server-owned so browser clients cannot edit or erase it.
   app.addHook("onResponse", async (req, reply) => {
-    if (!req.url.split("?")[0]?.startsWith("/api/admin/") || req.method === "GET" || !guard(req)) return;
+    const path = req.url.split("?")[0] ?? "";
+    if (!path.startsWith("/api/admin/") || req.method === "GET" || path.endsWith("/verify") || !guard(req)) return;
     const body = req.body !== null && typeof req.body === "object" ? req.body as Record<string, unknown> : {};
     const reason = typeof body.reason === "string" && body.reason.trim() ? body.reason.trim().slice(0, 240) : "admin operation";
     const targetId = typeof body.teamId === "string" ? body.teamId : null;
-    db.run("INSERT INTO admin_audit (action, target_id, reason, detail) VALUES (?, ?, ?, ?)", `HTTP ${req.method} ${req.url.split("?")[0]}`, targetId, reason, JSON.stringify({ statusCode: reply.statusCode }));
+    db.run("INSERT INTO admin_audit (action, target_id, reason, detail) VALUES (?, ?, ?, ?)", `HTTP ${req.method} ${path}`, targetId, reason, JSON.stringify({ statusCode: reply.statusCode }));
   });
 
 

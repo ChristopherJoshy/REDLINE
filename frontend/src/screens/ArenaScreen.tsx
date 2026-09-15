@@ -471,15 +471,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                     {selectedLore.name}
                   </h2>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className="rounded-[4px] border border-white/20 bg-white/5 px-2.5 py-1 font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.1em] uppercase backdrop-blur-sm"
-                      style={{ color: "var(--accent)" }}
-                    >
-                      {selectedLore.role}
-                    </span>
-                    <span className="rounded-[4px] border border-[rgba(216,155,36,0.3)] bg-[rgba(216,155,36,0.1)] px-2.5 py-1 font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.1em] text-[var(--color-gold-bright)] uppercase backdrop-blur-sm">
-                      {selectedLore.difficulty}
-                    </span>
+                    {/* Removed Role and Difficulty Tags */}
                     {getBotItemStatus(selectedLore.id) === "verified" && (
                       <span className="rounded-[4px] border border-[rgba(157,184,122,0.4)] bg-[rgba(157,184,122,0.15)] px-2.5 py-1 font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.1em] text-[#b8d097] uppercase backdrop-blur-sm">
                         FILED
@@ -522,9 +514,6 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="font-semibold text-[14px] text-white leading-tight">
                           {selectedLore.targetItem.name}
-                        </span>
-                        <span className="shrink-0 rounded-[4px] border border-[rgba(216,155,36,0.4)] bg-[rgba(216,155,36,0.15)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--color-gold-bright)] uppercase tracking-wider font-[family-name:var(--font-code)] backdrop-blur-sm">
-                          {selectedLore.targetItem.rarity} · {selectedLore.targetItem.category}
                         </span>
                       </div>
                       <p className="text-[12px] leading-relaxed text-white/70">
@@ -614,14 +603,6 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                 
                 // Color theme logic
                 const activeBorder = isMerchantCard ? "border-[#f2b632] shadow-[0_0_15px_rgba(242,182,50,0.6)]" : "border-[#ff1e2d] shadow-[0_0_15px_rgba(255,30,45,0.6)]";
-                
-                const difficulty = isMerchantCard ? "Counter" : lore?.difficulty ?? "Normal";
-                let tagColorClass = "";
-                if (difficulty === "Normal") tagColorClass = "text-blue-400 border-blue-400/40 bg-blue-400/10";
-                else if (difficulty === "Challenging") tagColorClass = "text-red-500 border-red-500/40 bg-red-500/10";
-                else if (difficulty === "Master") tagColorClass = "text-purple-400 border-purple-400/40 bg-purple-400/10";
-                else if (difficulty === "Counter") tagColorClass = "text-[#f2b632] border-[#f2b632]/40 bg-[#f2b632]/10";
-                else tagColorClass = "text-[var(--color-text-3)] border-white/20 bg-black/50";
 
                 return (
                   <button
@@ -672,10 +653,6 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                           isSelected ? "text-white" : "text-[var(--color-text-2)]"
                         }`}>
                           {item.label.toUpperCase()}
-                        </span>
-                        
-                        <span className={`rounded-[3px] border px-2 py-0.5 font-[family-name:var(--font-code)] text-[8.5px] font-semibold tracking-wide ${tagColorClass} ${!isSelected && "opacity-80"}`}>
-                          {difficulty}
                         </span>
                       </div>
                     </div>

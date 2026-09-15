@@ -266,13 +266,6 @@ export default function AdminBoard(): React.JSX.Element {
             </div>
           </div>
         </div>
-
-        <footer className="mt-6 flex w-full items-center justify-between px-2 text-[12px] text-[#8A8A8A]">
-          <div className="flex items-center gap-2">
-            <span className="inline-block h-2 w-2 rounded-full bg-[#00D9A6] shadow-[0_0_8px_rgba(0,217,166,0.8)]" aria-hidden="true" />
-            <span className="font-mono text-[11px] uppercase tracking-wider">Live · 5s sync</span>
-          </div>
-        </footer>
       </div>
     </main>
   );

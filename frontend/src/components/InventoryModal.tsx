@@ -105,9 +105,9 @@ export default function InventoryModal({ isOpen, onClose, inventory, credits = 0
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
           {/* Left Pane: Items List */}
-          <main className="flex w-full lg:w-[60%] flex-col border-r border-white/5 p-6 overflow-y-auto">
+          <main className="flex w-full lg:w-[60%] flex-col border-b lg:border-b-0 lg:border-r border-white/5 p-6 lg:overflow-y-auto shrink-0 lg:shrink">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-serif text-[20px] text-white/90">Items</h3>
               <span className="text-[14px] text-white/50">{enrichedItems.length} held</span>
@@ -171,48 +171,50 @@ export default function InventoryModal({ isOpen, onClose, inventory, credits = 0
           </main>
 
           {/* Right Pane: Item Details */}
-          <aside className="flex w-full lg:w-[40%] flex-col p-6 bg-white/[0.01] overflow-hidden relative">
+          <aside className="flex w-full lg:w-[40%] flex-col p-6 bg-[#05070a]/50 relative shrink-0 lg:shrink lg:overflow-y-auto border-t lg:border-t-0 border-white/5">
             {selectedItem ? (
-              <div className="flex flex-col h-full">
-                <div className="relative flex flex-1 min-h-[120px] w-full items-center justify-center rounded-[8px] border border-white/5 bg-gradient-to-b from-white/[0.05] to-transparent mb-4 sm:mb-6 p-4 sm:p-8">
-                  <img src={selectedItem.asset} alt={selectedItem.name} className="max-h-full max-w-full object-contain drop-shadow-2xl" />
+              <div className="flex flex-col h-full min-h-min">
+                <div className="relative flex lg:flex-1 min-h-[160px] lg:min-h-[120px] w-full items-center justify-center rounded-[8px] border border-white/5 bg-gradient-to-b from-white/[0.03] to-transparent mb-6 p-6">
+                  <img src={selectedItem.asset} alt={selectedItem.name} className="max-h-full max-w-[80%] object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]" />
                 </div>
 
-                <div className="flex flex-col gap-1 mb-4 sm:mb-6 shrink-0">
-                  <h3 className="font-serif text-[20px] sm:text-[24px] tracking-wide text-white/90 uppercase leading-tight">
+                <div className="flex flex-col gap-1 mb-6 shrink-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className={`w-2 h-2 rotate-45 ${getRarityColor(selectedItem.rarity)} shadow-[0_0_8px_currentColor]`} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">
+                      {selectedItem.rarity} {selectedItem.category}
+                    </span>
+                  </div>
+                  <h3 className="font-serif text-[24px] sm:text-[28px] tracking-wide text-white uppercase leading-tight mb-1">
                     {selectedItem.name}
                   </h3>
-                  <p className="text-[12px] sm:text-[13px] text-white/50">
-                    From <span className="font-medium text-white/80">{selectedItem.botName}</span>
+                  <p className="text-[12px] sm:text-[13px] text-white/40">
+                    Acquired from <span className="font-medium text-white/70">{selectedItem.botName}</span>
                   </p>
                 </div>
 
                 {selectedItem.status === "verified" ? (
-                  <div className="flex shrink-0 items-center gap-3 rounded-[6px] border border-[#10b981]/30 bg-[#10b981]/10 px-4 py-2.5 sm:py-3 mb-4 sm:mb-6">
+                  <div className="flex shrink-0 items-center gap-3 rounded-[6px] border border-[#10b981]/30 bg-[#10b981]/10 px-4 py-3 mb-6">
                     <ShieldCheck className="w-5 h-5 text-[#10b981]" />
                     <span className="text-[11px] font-bold tracking-widest text-[#10b981] uppercase">Verified & Filed</span>
                   </div>
                 ) : (
-                  <div className="flex shrink-0 items-center gap-3 rounded-[6px] border border-[#ff2a2a]/30 bg-[#ff2a2a]/10 px-4 py-2.5 sm:py-3 mb-4 sm:mb-6">
+                  <div className="flex shrink-0 items-center gap-3 rounded-[6px] border border-[#ff2a2a]/30 bg-[#ff2a2a]/10 px-4 py-3 mb-6">
                     <AlertCircle className="w-5 h-5 text-[#ff2a2a]" />
                     <span className="text-[11px] font-bold tracking-widest text-[#ff2a2a] uppercase">Held · Needs Appraisal</span>
                   </div>
                 )}
 
-                <div className="flex flex-col gap-3 sm:gap-4 shrink-0 text-[12px] sm:text-[13px] text-white/60 leading-relaxed pb-4 sm:pb-6">
-                  <div className="flex flex-col gap-1.5 border-b border-white/5 pb-3">
-                    <span className="text-[10px] font-bold tracking-widest text-white/40 uppercase">About</span>
-                    <p className="line-clamp-3 sm:line-clamp-none">{selectedItem.description}</p>
-                  </div>
+                <div className="flex flex-col gap-6 shrink-0 text-[13.5px] leading-relaxed pb-6">
+                  <p className="italic text-white/60 border-l-2 border-white/10 pl-4 py-0.5">
+                    "{selectedItem.description}"
+                  </p>
                   
-                  <div className="flex flex-col gap-1.5 border-b border-white/5 pb-3">
-                    <span className="text-[10px] font-bold tracking-widest text-white/40 uppercase">Tell</span>
-                    <p className="line-clamp-2 sm:line-clamp-none">{selectedItem.authenticityTell}</p>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] font-bold tracking-widest text-white/40 uppercase">Decoy</span>
-                    <p className="line-clamp-2 sm:line-clamp-none">{selectedItem.decoyWarning}</p>
+                  <div className="flex flex-col gap-2 rounded-[6px] border border-white/5 bg-white/[0.02] p-4">
+                    <span className="text-[10px] font-bold tracking-widest text-[#d4af37] uppercase flex items-center gap-2">
+                      <Search className="w-3 h-3" /> Authentication
+                    </span>
+                    <p className="text-white/80">{selectedItem.authenticityTell}</p>
                   </div>
                 </div>
 

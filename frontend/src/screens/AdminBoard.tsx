@@ -112,8 +112,17 @@ export default function AdminBoard(): React.JSX.Element {
 
   if (!authed) {
     return (
-      <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#18181B] p-6 text-[#F4F4F5] font-sans">
-        <div className="flex w-full max-w-[420px] flex-col items-center gap-6 rounded-[2px] border border-[#3F3F46] bg-[#27272A] p-8">
+      <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden p-6 text-[#F4F4F5] font-sans">
+        {/* Background Image */}
+        <div
+          className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: "url('/backgrounds/logintheme2.png')" }}
+        />
+        {/* Dark overlay for readability */}
+        <div className="absolute inset-0 z-0 bg-black/60" />
+        {/* Subtle red gradient overlay */}
+        <div className="absolute inset-0 z-0 bg-gradient-to-b from-red-900/10 via-transparent to-red-900/20" />
+        <div className="z-10 flex w-full max-w-[420px] flex-col items-center gap-6 rounded-[2px] border border-[#3F3F46] bg-[#27272A]/90 p-8 backdrop-blur-sm">
           <BoardSeal />
           <div className="text-center">
             <h1 className="font-mono text-[20px] font-bold tracking-wider text-[#F4F4F5] uppercase">
@@ -147,7 +156,16 @@ export default function AdminBoard(): React.JSX.Element {
   }
 
   return (
-    <main className="flex min-h-[100dvh] flex-col items-center justify-start bg-[#18181B] p-6 sm:p-8 lg:p-10 select-none text-[#F4F4F5] font-sans">
+    <main className="relative flex min-h-[100dvh] flex-col items-center justify-start overflow-hidden p-6 sm:p-8 lg:p-10 select-none text-[#F4F4F5] font-sans">
+      {/* Background Image */}
+      <div
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url('/backgrounds/logintheme2.png')" }}
+      />
+      {/* Dark overlay for readability */}
+      <div className="absolute inset-0 z-0 bg-black/60" />
+      {/* Subtle red gradient overlay */}
+      <div className="absolute inset-0 z-0 bg-gradient-to-b from-red-900/10 via-transparent to-red-900/20" />
       <div className="z-10 flex w-full max-w-[1200px] flex-col items-center">
         <header className="mb-8 flex flex-col items-center text-center">
           <div className="mb-3 flex items-center gap-2">
@@ -164,8 +182,8 @@ export default function AdminBoard(): React.JSX.Element {
           </p>
         </header>
 
-        <div className="w-full rounded-[2px] border border-[#3F3F46] bg-[#27272A] p-6 sm:p-8">
-          <div className="mb-3 grid grid-cols-12 items-center border-b border-[#3F3F46] bg-[#18181B] px-6 py-4 font-mono text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA]">
+        <div className="w-full rounded-[2px] border border-[#3F3F46] bg-[#27272A]/90 p-6 sm:p-8 backdrop-blur-sm">
+          <div className="mb-3 grid grid-cols-12 items-center border-b border-[#3F3F46] bg-[#18181B]/80 px-6 py-4 font-mono text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA]">
             <div className="col-span-2 text-center sm:col-span-1">RANK</div>
             <div className="col-span-4 pl-2 sm:col-span-4">SQUAD</div>
             <div className="col-span-2 text-center sm:col-span-2">HINT</div>

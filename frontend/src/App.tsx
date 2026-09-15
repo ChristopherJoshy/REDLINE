@@ -6,7 +6,6 @@ import AdminBoard from "@/screens/AdminBoard";
 import GatedArena, { GatesPanel } from "@/screens/GatedArena";
 import FullscreenLock from "@/shell/FullscreenLock";
 import AntiTamper from "@/shell/AntiTamper";
-import IntelModal from "@/components/IntelModal";
 import { me, logout, type IdentifyResult } from "@/api/teams";
 import { apiFetch } from "@/api/client";
 import { Users, User, Trophy, LogOut, Shield, Coins } from "lucide-react";
@@ -25,7 +24,6 @@ export default function App(): React.JSX.Element {
   const [shellAccentInk, setShellAccentInk] = useState("#ffffff");
   const [activeTab, setActiveTab] = useState<"arena" | "leaderboard" | "intel" | "about">("arena");
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [showIntel, setShowIntel] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
   const onLockChange = useCallback((v: boolean) => setLocked(v), []);
@@ -227,13 +225,7 @@ export default function App(): React.JSX.Element {
             >
               LEADERBOARD
             </button>
-            <button
-              type="button"
-              onClick={() => setShowIntel(true)}
-              className="relative px-4 py-4 text-[11px] font-[family-name:var(--font-code)] font-bold tracking-[0.25em] text-[var(--color-text-3)] hover:text-white transition-colors"
-            >
-              INTEL
-            </button>
+
             <button
               type="button"
               onClick={() => setShowAbout(true)}
@@ -323,9 +315,6 @@ export default function App(): React.JSX.Element {
           </div>
         </div>
       )}
-
-      {showIntel && <IntelModal onClose={() => setShowIntel(false)} />}
-
       {showAbout && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
           <div className="redline-panel max-w-lg w-full rounded-[12px] border border-white/10 p-6 flex flex-col gap-4">

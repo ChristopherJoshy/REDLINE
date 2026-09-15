@@ -1,12 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
-import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/api/client";
-import {
-  ShieldAlert,
-  Download,
-  Database,
-} from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 
 interface BoardRow {
   name: string;
@@ -37,8 +32,6 @@ export default function AdminBoard(): React.JSX.Element {
   const [adminCode, setAdminCode] = useState(() => localStorage.getItem("redline_admin_code") ?? "");
   const [authed, setAuthed] = useState(false);
   const [error, setError] = useState("");
-  const [showTools, setShowTools] = useState(false);
-  const [backup, setBackup] = useState("");
 
   useEffect(() => {
     if (adminCode === "") return;
@@ -88,31 +81,6 @@ export default function AdminBoard(): React.JSX.Element {
         setAuthed(true);
       })
       .catch(() => setError("Network unreachable."));
-  }
-
-  async function download(table: string): Promise<void> {
-    const res = await apiFetch(`/api/admin/export.csv?table=${table}`, {
-      headers: { "x-admin-code": adminCode },
-    });
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${table}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function snapshot(): Promise<void> {
-    const res = await apiFetch("/api/admin/backup", {
-      method: "POST",
-      headers: { "x-admin-code": adminCode },
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { file: string };
-      setBackup(data.file);
-    }
   }
 
   if (!authed) {
@@ -204,7 +172,7 @@ export default function AdminBoard(): React.JSX.Element {
                 {rows.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20 text-center">
                     <BoardSeal />
-                    <p className="mt-4 font-mono text-[16px] font-bold text-[#F5F5F5] uppercase tracking-[0.2em]">
+                    <p className="board-glow mt-4 font-mono text-[16px] font-bold text-[#F5F5F5] uppercase tracking-[0.2em]">
                       No Active Telemetry
                     </p>
                     <p className="mt-1 text-[13px] text-[#8A8A8A]">
@@ -226,13 +194,13 @@ export default function AdminBoard(): React.JSX.Element {
                         }`}
                       >
                         <div className="col-span-2 flex items-center justify-center sm:col-span-1">
-                          <span className={`font-mono text-[14px] font-bold ${topRank ? "text-[#FF1A14]" : "text-[#8A8A8A]"}`}>
+                          <span className={`font-mono text-[14px] font-bold ${topRank ? "board-glow text-[#FF1A14]" : "text-[#8A8A8A]"}`}>
                             #{rank.toString().padStart(2, "0")}
                           </span>
                         </div>
 
                         <div className="col-span-4 min-w-0 pl-2 sm:col-span-4">
-                          <span className="block truncate font-sans text-[16px] font-bold text-[#F5F5F5]">
+                          <span className="board-glow block truncate font-sans text-[16px] font-bold text-[#F5F5F5]">
                             {r.name}
                           </span>
                         </div>
@@ -244,7 +212,7 @@ export default function AdminBoard(): React.JSX.Element {
                         </div>
 
                         <div className="col-span-2 text-right sm:col-span-2">
-                          <span className="font-mono text-[22px] font-bold text-[#F5F5F5]">
+                          <span className="board-glow font-mono text-[22px] font-bold text-[#F5F5F5]">
                             {r.elo}
                           </span>
                         </div>
@@ -267,57 +235,6 @@ export default function AdminBoard(): React.JSX.Element {
           </div>
         </div>
 
-        <footer className="mt-6 flex w-full items-center justify-between px-2 text-[12px] text-[#8A8A8A]">
-          <div className="flex items-center gap-2">
-            <span className="inline-block h-2 w-2 rounded-full bg-[#00D9A6] shadow-[0_0_8px_rgba(0,217,166,0.8)]" aria-hidden="true" />
-            <span className="font-mono text-[11px] uppercase tracking-wider">Live · 5s sync</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowTools((v) => !v)}
-            className="border border-[#3F3F46] bg-[#090909]/90 px-3 py-1.5 font-mono text-[11px] text-[#F5F5F5] uppercase tracking-wider hover:border-[#E10600]/60 transition"
-            aria-expanded={showTools}
-          >
-            {showTools ? "Hide Tools" : "System Tools"}
-          </button>
-        </footer>
-
-        {showTools && (
-          <section
-            aria-label="Organizer tools"
-            className="mt-4 flex w-full flex-wrap items-center justify-between gap-4 border border-[#2a2a2a] bg-[#090909]/90 p-6"
-          >
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="mr-2 font-mono text-[12px] font-bold uppercase tracking-wider text-[#8A8A8A]">Data Export:</span>
-              {["elo_log", "chat_logs", "team_inventory"].map((t) => (
-                <Button
-                  key={t}
-                  variant="ghost"
-                  className="h-10 border border-[#3F3F46] bg-[#050505] px-3 font-mono text-[12px] text-[#F5F5F5] hover:border-[#E10600]/60"
-                  onClick={() => void download(t)}
-                >
-                  <Download className="mr-1.5 h-3.5 w-3.5 text-[#8A8A8A]" />
-                  <span>{t}.csv</span>
-                </Button>
-              ))}
-              <Button
-                variant="ghost"
-                className="h-10 border border-[#3F3F46] bg-[#050505] px-3 font-mono text-[12px] text-[#F5F5F5] hover:border-[#E10600]/60"
-                onClick={() => void snapshot()}
-              >
-                <Database className="mr-1.5 h-3.5 w-3.5 text-[#8A8A8A]" />
-                <span>Snapshot DB</span>
-              </Button>
-            </div>
-
-            {backup !== "" && (
-              <p className="font-mono text-[12px] text-[#00D9A6]">
-                Snapshot Saved: {backup}
-              </p>
-            )}
-          </section>
-        )}
       </div>
     </main>
   );

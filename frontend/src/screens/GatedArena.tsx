@@ -105,6 +105,11 @@ function PortalGate({ onEnter }: { onEnter: (boss: BotId) => void }): React.JSX.
     }
   }
 
+  // Auto-join round 2 on mount
+  useEffect(() => {
+    void step();
+  }, []);
+
   // After gacha animation finishes → portal transition
   if (travelBoss !== null) {
     const boss = travelBoss;
@@ -122,26 +127,18 @@ function PortalGate({ onEnter }: { onEnter: (boss: BotId) => void }): React.JSX.
       <div className="relative flex flex-col items-center gap-4">
         <span aria-hidden="true" className="acc-bar block h-[3px] w-12 rounded-full" />
         <h2 className="font-[family-name:var(--font-vault)] text-[26px] font-bold tracking-[0.06em] text-white">
-          The vault stands open
+          {error ? "Access Denied" : "The vault stands open"}
         </h2>
         <p className="max-w-[52ch] text-center text-[14px] text-[var(--color-text-3)]">
-          One boss waits inside. Step through when ready.
+          {error ? "There was an issue opening the vault." : "Assigning your boss..."}
         </p>
-        <button
-          type="button"
-          onClick={() => void step()}
-          disabled={loading}
-          className="redline-cta flex min-h-[52px] items-center gap-3 rounded-[8px] px-8 py-4 text-[16px] font-semibold active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {loading ? (
-            <>
-              <span className="block h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-              <span>Opening…</span>
-            </>
-          ) : (
-            <span>Step through</span>
-          )}
-        </button>
+        
+        {!error && loading && (
+          <div className="mt-4 flex items-center justify-center">
+             <span className="block h-8 w-8 rounded-full border-2 border-white/30 border-t-[#EF4444] animate-spin" />
+          </div>
+        )}
+
         {error !== "" && (
           <div className="flex flex-col items-center gap-2">
             <p role="alert" className="acc-text text-[14px]">{error}</p>

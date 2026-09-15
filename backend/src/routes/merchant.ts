@@ -100,10 +100,24 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
         elo: elo.after,
         delta: elo.delta,
         reason: `verified:${hit}`,
+        baseDelta: elo.baseDelta,
+        speedBonus: elo.speedBonus,
+        completionRank: elo.completionRank,
+        elapsedSecs: elo.elapsedSecs,
       }));
       db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", session.teamId, hit, "merchant/success-thank-you");
       bus.broadcast(session.teamId, bus.frame("sound_play", { botId: "merchant", soundId: "merchant/success-thank-you", src: "/sounds/merchant/success-thank-you.mp3" }));
-      return { result: "verified", botId: hit, eloDelta: elo.delta, credits, soundId: "merchant/success-thank-you" };
+      return {
+        result: "verified",
+        botId: hit,
+        eloDelta: elo.delta,
+        baseEloDelta: elo.baseDelta,
+        speedBonus: elo.speedBonus,
+        completionRank: elo.completionRank,
+        elapsedSecs: elo.elapsedSecs,
+        credits,
+        soundId: "merchant/success-thank-you",
+      };
     }
 
     if (decoyHit !== undefined) {
@@ -161,7 +175,7 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
       botId,
     );
     if (filed?.status === "verified") {
-      return reply.code(400).send({ error: "mark filed — no clues needed" });
+      return reply.code(400).send({ error: "mark filed â€” no clues needed" });
     }
     const owned = db.get<{ bot_id: string }>(
       "SELECT bot_id FROM merchant_clues WHERE team_id = ? AND bot_id = ? AND tier = ?",
@@ -185,13 +199,13 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
       cost,
     );
     if (paid.changes === 0) {
-      return reply.code(402).send({ error: "not enough credits — sell a genuine article first" });
+      return reply.code(402).send({ error: "not enough credits â€” sell a genuine article first" });
     }
     db.run("INSERT INTO merchant_clues (team_id, bot_id, tier) VALUES (?, ?, ?)", session.teamId, botId, tier);
     db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final) VALUES (?, ?, ?, ?)", session.teamId, "merchant", "assistant", `Sealed ${CLUE_LABEL[tier]} for ${botId}: ${clue}`);
     return true;
     });
-    if (!purchased) return reply.code(402).send({ error: "not enough credits � sell a genuine article first" });
+    if (!purchased) return reply.code(402).send({ error: "not enough credits — sell a genuine article first" });
     return { botId, tier, clue, credits: creditBalance(session.teamId), owned: false as const };
   });
 }

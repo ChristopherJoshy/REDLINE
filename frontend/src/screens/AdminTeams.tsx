@@ -1,3 +1,4 @@
+import AssessmentControls from "@/components/AssessmentControls";
 import { useState, useEffect, useMemo } from "react";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import { createTeam, type CreateTeamResult } from "@/api/teams";
@@ -147,7 +148,7 @@ export default function AdminTeams(): React.JSX.Element {
   const [authError, setAuthError] = useState<string>("");
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
 
-  const [tab, setTab] = useState<"teams" | "stream" | "broadcast" | "create" | "gates" | "diagnostics" | "settings">("teams");
+  const [tab, setTab] = useState<"teams" | "stream" | "broadcast" | "create" | "gates" | "proctoring" | "diagnostics" | "settings">("teams");
   useDocumentTitle(`Console · ${tab[0]?.toUpperCase() ?? ""}${tab.slice(1)} — REDLINE Arena`);
   
   // On mount: if a stored adminCode exists, verify it with the backend
@@ -1014,6 +1015,18 @@ export default function AdminTeams(): React.JSX.Element {
               <Lock className="w-4 h-4" />
               <span>Gates & Vault</span>
             </button>
+              <button
+                type="button"
+                onClick={() => setTab("proctoring")}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-md text-[13px] font-bold  tracking-wider font-mono transition cursor-pointer ${
+                  tab === "proctoring"
+                    ? "bg-brass text-text-1 border border-brass"
+                    : "bg-surface-1 border border-border text-text-3 hover:bg-border hover:text-text-1"
+                }`}
+              >
+                <ShieldAlert className="w-4 h-4" />
+                <span>Proctoring</span>
+              </button>
 
             <button
               type="button"
@@ -1637,6 +1650,7 @@ export default function AdminTeams(): React.JSX.Element {
         )}
 
         {tab === "gates" && <RoundControls adminCode={adminCode} />}
+        {tab === "proctoring" && <AssessmentControls adminCode={adminCode} />}
 
         {/* TAB 6: SYSTEM DIAGNOSTICS */}
         {tab === "diagnostics" && (
@@ -2236,9 +2250,9 @@ export default function AdminTeams(): React.JSX.Element {
                   type="button"
                   onClick={() => void handleBatchInventoryOverride("obtained")}
                   disabled={busy}
-                  className="px-3 py-1.5 rounded-md bg-bg-0 border border-border text-text-1 hover:bg-border text-[11px] font-bold  transition cursor-pointer disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-md bg-surface-1 border border-border text-text-3 hover:text-text-1 hover:border-text-1 text-[11px] font-bold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
                 >
-                  Hold All
+                  <span>Hold All</span>
                 </button>
 
                 <button

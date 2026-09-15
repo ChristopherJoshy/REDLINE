@@ -19,6 +19,7 @@ import {
 } from "../llm/keyPool.js";
 import { tokenTracker } from "../llm/tokenTracker.js";
 import { round2Status, round2TimeLeft, round2Duration } from "./gates.js";
+import { normalizeAssessmentSettings, readAssessmentSettings } from "../assessment/settings.js";
 
 const EXPORT_TABLES = ["elo_log", "chat_logs", "team_inventory"] as const;
 const announcementsHistory: AnnouncementData[] = [];
@@ -621,6 +622,25 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     } catch (err) {
       return reply.code(400).send({ error: err instanceof Error ? err.message : "Failed to toggle key" });
     }
+  });
+
+  app.get("/api/admin/assessment", async (req, reply) => {
+    if (!guard(req)) return reply.code(401).send({ error: "unauthorized" });
+    return readAssessmentSettings(db);
+  });
+
+  app.post("/api/admin/assessment", async (req, reply) => {
+    if (!guard(req)) return reply.code(401).send({ error: "unauthorized" });
+    const settings = normalizeAssessmentSettings(req.body);
+    db.run(
+      "INSERT INTO game_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      "assessment_settings",
+      JSON.stringify(settings),
+    );
+    if (bus !== undefined) {
+      bus.broadcastAll(bus.frame("assessment_settings_sync", settings));
+    }
+    return settings;
   });
 }
 

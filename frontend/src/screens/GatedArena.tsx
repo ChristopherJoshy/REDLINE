@@ -12,8 +12,9 @@ import { Button } from "@/components/ui/button";
 
 function Waiting({ title, children }: { title: string; children: React.ReactNode }): React.JSX.Element {
   useDocumentTitle(`${title} — REDLINE`);
-  return <section className="flex min-h-0 flex-1 items-center justify-center px-6 py-16">
-    <div className="w-full max-w-lg text-center"><LockKeyhole className="mx-auto mb-6 h-9 w-9 text-brass" aria-hidden="true" />
+  const isStatusCheck = title === "Checking round status";
+  return <section className={`flex min-h-0 flex-1 items-center justify-center px-6 py-16 ${isStatusCheck ? "round-status-shell" : ""}`}>
+    <div className="w-full max-w-lg text-center"><LockKeyhole className="mx-auto mb-6 h-9 w-9 text-redline" aria-hidden="true" />
       <h1 className="font-display text-3xl font-bold text-text-1">{title}</h1><div className="mt-4 text-text-2">{children}</div>
     </div>
   </section>;
@@ -70,7 +71,13 @@ export default function GatedArena({ teamId, displayName, locked }: { teamId: st
   if (r2.status === "active") {
     if (!gates.qualified) return <Waiting title="Round 1 complete"><p>Round 2 is now underway for the five finalists. Thank you for playing.</p></Waiting>;
     if (!boss) return <PortalGate onEnter={setBoss} />;
-    return <RoundTwoScreen teamId={teamId} boss={boss} locked={locked || Boolean(error)} onRoundEnd={() => { void getGates().then(setGates).catch(() => {}); }} />;
+    return <RoundTwoScreen
+      teamId={teamId}
+      boss={boss}
+      locked={locked || Boolean(error)}
+      secondsRemaining={remainingSeconds(r2, now)}
+      onRoundEnd={() => { void getGates().then(setGates).catch(() => {}); }}
+    />;
   }
   if (r1.status === "not_started") return <Waiting title="Round 1 has not begun"><p>Your team is ready. The organizers will start a 30-second countdown when play is about to begin.</p><p role="status" className="mt-6 text-sm text-text-3">{error || "Waiting for the organizers"}</p></Waiting>;
   if (r1.status === "ended" || remainingSeconds(r1, now) === 0) return <Waiting title="Round 1 has ended"><p>Chats and submissions are closed. Wait here for the organizers to start Round 2.</p></Waiting>;

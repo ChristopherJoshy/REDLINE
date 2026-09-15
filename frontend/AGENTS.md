@@ -1,6 +1,6 @@
 # AGENTS.md — frontend
 
-Baseline: root `AGENTS.md`. Taste + palette: root `DESIGN.md` (normative; tokens live in `src/index.css`).
+Baseline: root `AGENTS.md`. Taste + palette: root `DESIGN.md` (normative; preserve the original REDLINE black/red theme; tokens live in `src/index.css`).
 
 ## Rules
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AnyEvent, BotId, InventoryDelta } from "@contracts/events";
-import { createFrame, parseEvent } from "@/ws/client";
+import { createFrame, parseEvent, wsUrl } from "@/ws/client";
 import { playSound } from "@/chat/sound";
 import { apiUrl, apiFetch } from "@/api/client";
 import { getLocks, type BotLockMap } from "@/api/locks";
@@ -22,40 +22,6 @@ interface BotState {
 
 const ROSTER: BotId[] = ["wick", "spidey", "escanor", "stark", "joker", "light", "levi", "deadpool", "itachi", "aizen", "merchant"];
 
-function wsUrl(): string {
-  let url = "";
-  const envWs = import.meta.env.VITE_WS_URL;
-  if (typeof envWs === "string" && envWs.trim() !== "") {
-    url = envWs.trim();
-  } else {
-    const envApi = import.meta.env.VITE_API_URL;
-    if (typeof envApi === "string" && envApi.trim() !== "") {
-      try {
-        const u = new URL(envApi);
-        const proto = u.protocol === "https:" ? "wss:" : "ws:";
-        url = `${proto}//${u.host}/ws`;
-      } catch {
-        // ignore invalid URL
-      }
-    }
-  }
-  if (!url) {
-    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    url = `${proto}//${window.location.host}/ws`;
-  }
-
-  try {
-    const token = localStorage.getItem("redline_session_token");
-    if (token) {
-      const parsed = new URL(url);
-      parsed.searchParams.set("token", token);
-      return parsed.toString();
-    }
-  } catch {
-    // LocalStorage might be restricted
-  }
-  return url;
-}
 
 export function useBotStream(teamId: string, round: "r1" | "r2" = "r1"): {
   bots: Record<BotId, BotState>;
@@ -187,6 +153,8 @@ export function useBotStream(teamId: string, round: "r1" | "r2" = "r1"): {
       window.dispatchEvent(new CustomEvent("arena:round2_start", { detail: event.data }));
     } else if (event.event === "round2_extend") {
       window.dispatchEvent(new CustomEvent("arena:round2_extend", { detail: event.data }));
+    } else if (event.event === "assessment_settings_sync") {
+      window.dispatchEvent(new CustomEvent("arena:assessment_settings", { detail: event.data }));
     }
   }, []);
 
@@ -289,6 +257,30 @@ export function useBotStream(teamId: string, round: "r1" | "r2" = "r1"): {
       socketRef.current?.close();
     };
   }, [teamId, round, apply]);
+
+  useEffect(() => {
+    function sendPresence(): void {
+      const socket = socketRef.current;
+      if (socket?.readyState !== WebSocket.OPEN) return;
+      socket.send(JSON.stringify(createFrame("visibility_change", {
+        status: document.hidden ? "away" : "online",
+      })));
+    }
+    function reportViolation(event: Event): void {
+      const detail = (event as CustomEvent<{ type?: unknown }>).detail;
+      const type = detail?.type;
+      if (type !== "fullscreen_exit" && type !== "tab_switch" && type !== "copy_paste" && type !== "right_click") return;
+      const socket = socketRef.current;
+      if (socket?.readyState !== WebSocket.OPEN) return;
+      socket.send(JSON.stringify(createFrame("security_violation", { type })));
+    }
+    document.addEventListener("visibilitychange", sendPresence);
+    window.addEventListener("arena:security_violation", reportViolation);
+    return () => {
+      document.removeEventListener("visibilitychange", sendPresence);
+      window.removeEventListener("arena:security_violation", reportViolation);
+    };
+  }, []);
 
   const send = useCallback(
     (botId: BotId, text: string) => {

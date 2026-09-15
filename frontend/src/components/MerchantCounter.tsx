@@ -17,6 +17,7 @@ interface Receipt {
   title: string;
   line: string;
   flash: string;
+  detail?: string;
 }
 
 export default function MerchantCounter({
@@ -113,6 +114,9 @@ export default function MerchantCounter({
           title: "Genuine article",
           line: `${itemName(item)} is filed. The mark is closed.`,
           flash: typeof res.eloDelta === "number" ? `+${res.eloDelta} ELO` : "",
+          ...(typeof res.completionRank === "number" ? {
+            detail: `#${res.completionRank} fastest for this mark${res.speedBonus ? ` · +${res.speedBonus} speed bonus` : ""}`,
+          } : {}),
         });
       } else {
         setReceipt({ ok: false, title: "Not genuine", line: res.line, flash: "" });
@@ -147,8 +151,8 @@ export default function MerchantCounter({
 
   return (
     <div className="flex h-full w-full items-start justify-center p-4 sm:p-8 overflow-y-auto min-h-0 bg-transparent">
-      <div className="w-full max-w-[860px] rounded-[8px] border border-border bg-surface-1   flex flex-col relative overflow-hidden">
-        <div className="absolute inset-0 bg-surface-1   pointer-events-none" />
+      <div className="w-full max-w-[860px] rounded-[8px] border border-border bg-surface-1 flex flex-col relative overflow-hidden">
+        <div className="absolute inset-0 bg-surface-1/50 pointer-events-none" />
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-5">
           <div className="flex items-center gap-3">
@@ -241,6 +245,7 @@ export default function MerchantCounter({
                         {receipt.flash}
                       </p>
                     )}
+                    {receipt.detail !== undefined && <p className="mt-1 text-[12px] text-text-3">{receipt.detail}</p>}
                   </div>
                 </div>
               </div>

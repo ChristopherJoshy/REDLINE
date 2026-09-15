@@ -18,6 +18,7 @@ export class Bus {
   private teamSockets = new Map<string, Set<WebSocket>>();
   private alive = new Map<WebSocket, boolean>();
   private teams = new Map<WebSocket, string>();
+  private members = new Map<WebSocket, { teamId: string; displayName: string; status: "online" | "away" }>();
   private ring: RingEntry[] = [];
   private listeners = new Map<string, Set<(event: ServerEvent) => void>>();
 
@@ -44,13 +45,54 @@ export class Bus {
     });
   }
 
+  setMember(
+    socket: WebSocket,
+    displayName: string,
+    status: "online" | "away" = "online",
+    enforceSingleTab = false,
+  ): void {
+    const teamId = this.teams.get(socket);
+    if (!teamId) return;
+
+    if (enforceSingleTab && displayName !== "") {
+      for (const [otherSocket, member] of this.members.entries()) {
+        if (member.teamId === teamId && member.displayName === displayName && otherSocket !== socket) {
+          otherSocket.close(4009, "Duplicate tab");
+          this.remove(otherSocket);
+        }
+      }
+    }
+
+    this.members.set(socket, { teamId, displayName, status });
+    this.broadcastPresence(teamId);
+  }
+
+  memberOf(socket: WebSocket): { teamId: string; displayName: string; status: "online" | "away" } | undefined {
+    return this.members.get(socket);
+  }
+
   remove(socket: WebSocket): void {
     const teamId = this.teams.get(socket);
+    const hadMember = this.members.has(socket);
     if (teamId !== undefined) {
       this.teamSockets.get(teamId)?.delete(socket);
     }
     this.teams.delete(socket);
     this.alive.delete(socket);
+    this.members.delete(socket);
+    if (teamId && hadMember) {
+      this.broadcastPresence(teamId);
+    }
+  }
+
+  private broadcastPresence(teamId: string): void {
+    const membersList: { displayName: string; status: "online" | "away" | "offline" }[] = [];
+    for (const member of this.members.values()) {
+      if (member.teamId === teamId && member.displayName !== "") {
+        membersList.push({ displayName: member.displayName, status: member.status });
+      }
+    }
+    this.broadcast(teamId, this.frame("presence_sync", { members: membersList }));
   }
 
   teamOf(socket: WebSocket): string | undefined {

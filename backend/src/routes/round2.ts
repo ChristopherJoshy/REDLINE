@@ -19,6 +19,7 @@ const DISSOLVE: Record<BossId, string> = {
   itachi: "The crow dissolves into crows. That was the test, not the transfer.",
   aizen: "Dull glass, no pulse, no weight. Residue of hypnosis. Bring me something real.",
 };
+const openerInFlight = new Set<string>();
 
 export async function r2Submit(
   db: DatabaseAdapter,
@@ -78,6 +79,10 @@ export async function r2Submit(
       elo: elo.after,
       delta: elo.delta,
       reason: `verified:${boss}`,
+      baseDelta: elo.baseDelta,
+      speedBonus: elo.speedBonus,
+      completionRank: elo.completionRank,
+      elapsedSecs: elo.elapsedSecs,
     }));
     db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", teamId, boss, "merchant/success-thank-you");
     bus.broadcast(teamId, bus.frame("sound_play", { botId: boss, soundId: "merchant/success-thank-you", src: "/sounds/merchant/success-thank-you.mp3" }));
@@ -127,6 +132,9 @@ export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, 
     if (spoken > 0) {
       return { already: true as const };
     }
+    const openerKey = `${session.teamId}:${boss}`;
+    if (openerInFlight.has(openerKey)) return { already: true as const };
+    openerInFlight.add(openerKey);
     const prompt = boss === "itachi" ? ITACHI_P1_PROMPT : AIZEN_P1_PROMPT;
     bus.broadcast(session.teamId, bus.frame("bot_typing", { teamId: session.teamId, botId: boss, typing: true }));
     const messages: ChatMessage[] = [
@@ -154,6 +162,8 @@ export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, 
       bus.broadcast(session.teamId, bus.frame("bot_error", { botId: boss, message: "inference failed, retry", retryable: true }));
       bus.broadcast(session.teamId, bus.frame("bot_typing", { teamId: session.teamId, botId: boss, typing: false }));
       return reply.code(502).send({ error: "inference failed" });
+    } finally {
+      openerInFlight.delete(openerKey);
     }
   });
 }

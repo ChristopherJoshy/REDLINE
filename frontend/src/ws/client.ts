@@ -10,6 +10,39 @@ export function createFrame<T extends ClientEvent>(event: T["event"], data: T["d
   } as T;
 }
 
+export function wsUrl(): string {
+  let url = "";
+  const envWs = import.meta.env.VITE_WS_URL;
+  if (typeof envWs === "string" && envWs.trim() !== "") {
+    url = envWs.trim();
+  } else {
+    const envApi = import.meta.env.VITE_API_URL;
+    if (typeof envApi === "string" && envApi.trim() !== "") {
+      try {
+        const u = new URL(envApi);
+        const proto = u.protocol === "https:" ? "wss:" : "ws:";
+        url = `${proto}//${u.host}/ws`;
+      } catch {
+        // ignore invalid URL
+      }
+    }
+  }
+  if (!url) {
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    url = `${proto}//${window.location.host}/ws`;
+  }
+  try {
+    const u = new URL(url);
+    if (u.protocol === "https:") u.protocol = "wss:";
+    if (u.protocol === "http:") u.protocol = "ws:";
+    const token = localStorage.getItem("redline_session_token");
+    if (token) u.searchParams.set("token", token);
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 export function parseEvent(raw: string): AnyEvent {
   const frame = JSON.parse(raw) as AnyEvent;
   if (typeof frame.id !== "string" || typeof frame.event !== "string") {

@@ -21,10 +21,13 @@ export default function FullscreenLock({ onLockChange }: { onLockChange: (locked
     request();
     function sync(): void {
       const isLocked = document.fullscreenElement !== null;
+      const wasLocked = lockedRef.current;
+      lockedRef.current = isLocked;
       setLocked(isLocked);
       onLockChange(isLocked);
-      if (!isLocked) {
+      if (!isLocked && wasLocked) {
         logAttempt();
+        window.dispatchEvent(new CustomEvent("arena:security_violation", { detail: { type: "fullscreen_exit" } }));
       }
     }
     function onHidden(): void {

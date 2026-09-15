@@ -11,6 +11,7 @@ import { registerAdminRoutes } from "./routes/admin.js";
 import { registerGateRoutes } from "./routes/gates.js";
 import { roundState } from "./rounds/state.js";
 import { registerRound2Routes } from "./routes/round2.js";
+import { readAssessmentSettings } from "./assessment/settings.js";
 import { registerMerchantRoutes } from "./routes/merchant.js";
 import { Bus } from "./ws/bus.js";
 import { BotLocks, lockable } from "./chat/locks.js";
@@ -173,6 +174,8 @@ async function boot(): Promise<void> {
         return;
       }
       if (event.event === "hello") {
+        const assessmentSettings = readAssessmentSettings(db);
+        bus.setMember(socket, session.displayName, "online", assessmentSettings.singleTabMode);
         if (typeof event.data.lastEventId === "string") {
           bus.replay(socket, session.teamId, event.data.lastEventId);
         }
@@ -182,6 +185,7 @@ async function boot(): Promise<void> {
           "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
           session.teamId,
         );
+        bus.send(socket, bus.frame("assessment_settings_sync", assessmentSettings));
         const teamRow = db.get<{ elo: number; clue_credits: number }>("SELECT elo, clue_credits FROM teams WHERE id = ?", session.teamId);
         const credits = teamRow?.clue_credits ?? 0;
         bus.send(socket, bus.frame("inventory_sync", { items, credits }));
@@ -208,6 +212,22 @@ async function boot(): Promise<void> {
         bus.send(socket, bus.frame("bot_locks", { locks: locks.snapshot(session.teamId) }));
       } else if (event.event === "ping") {
         bus.send(socket, bus.frame("pong", {}));
+      } else if (event.event === "visibility_change") {
+        const member = bus.memberOf(socket);
+        if (member) {
+          bus.setMember(socket, member.displayName, event.data.status, false);
+        }
+      } else if (event.event === "security_violation") {
+        const member = bus.memberOf(socket);
+        if (member) {
+          db.run(
+            "INSERT INTO security_logs (team_id, display_name, violation_type, detail) VALUES (?, ?, ?, ?)",
+            session.teamId,
+            member.displayName,
+            event.data.type,
+            "",
+          );
+        }
       } else if (event.event === "chat_send") {
         if (event.data.teamId && event.data.teamId !== session.teamId) {
           return;

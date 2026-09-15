@@ -11,12 +11,25 @@ export interface Gates extends RoundSnapshot {
   round2TimeLeft: number;
 }
 
+function isRoundState(value: unknown): boolean {
+  if (value === null || typeof value !== "object") return false;
+  const state = value as { status?: unknown; startsAt?: unknown; endsAt?: unknown; durationSecs?: unknown };
+  return (state.status === "not_started" || state.status === "countdown" || state.status === "active" || state.status === "ended")
+    && (typeof state.startsAt === "string" || state.startsAt === null)
+    && (typeof state.endsAt === "string" || state.endsAt === null)
+    && typeof state.durationSecs === "number";
+}
+
 export async function getGates(): Promise<Gates> {
   const res = await apiFetch("/api/gates");
   if (!res.ok) {
     throw new Error("no gates");
   }
-  return (await res.json()) as Gates;
+  const data = await res.json() as Partial<Gates>;
+  if (!isRoundState(data.round1) || !isRoundState(data.round2) || typeof data.serverNow !== "string") {
+    throw new Error("The event server is running an incompatible round-status protocol.");
+  }
+  return data as Gates;
 }
 
 async function adminPost(path: string, code: string, body?: Record<string, unknown>): Promise<unknown> {

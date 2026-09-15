@@ -399,6 +399,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
       className="bot-theme relative flex flex-col flex-1 min-h-0 overflow-hidden"
       style={botThemeStyle}
     >
+      <img aria-hidden="true" src={pageBg} className="arena-atmosphere pointer-events-none absolute inset-0 h-full w-full object-cover" />
       <div className="relative z-10 flex flex-col flex-1 min-h-0">
       {lockNotice !== null && (
         <div role="alert" className="flex items-center justify-between gap-3 border-b border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-4 py-2.5 sm:px-8">

@@ -7,10 +7,11 @@ Baseline: root `AGENTS.md`. Player-facing copy tone follows root `DESIGN.md` (me
 - Single LAN process: HTTP + WS + static (`/sounds/`, `/bosses/`). `DatabaseAdapter` hides `bun:sqlite` / better-sqlite3. WAL on; every handover/ELO/submission mutation in `db.transaction()`.
 - Reasoning traces stay server-side (`reasoning_traces`); clients get final text deltas only. WS contract in `src/contracts/events.ts` is single-sourced.
 - Submission pipeline: strip -> decode -> un-reverse -> NFKC + leet fold -> match hashed answers (pepper server-side) -> LLM guard. Silent fail, never which-check-fired.
-- ELO: `R' = R + K*(S-E)`, K=32 (40 provisional); teams start 600. Log every delta. Rewind truncates context (genuinely forgets).
+- ELO: `R' = R + K*(S-E)`, K=32 (40 provisional); teams start 600. On a verified bot-specific item, completion ranks 1–7 also earn `+12/+9/+7/+5/+3/+2/+1`; calculate rank and elapsed time from server state inside the transaction and log the complete audit trail. Rewind truncates context (genuinely forgets).
+- Character prompts are server-only. `direction.ts` is the final visible-dialogue contract: direct conversation in the bot's own voice, no screenplay/action formatting or reasoning output, while protected item checks remain private.
 - Secrets: answer hashes + `JOIN_CODE_PEPPER` server-only. Admin routes auth-gated; exports (`.db`/`.json`/`.csv`) admin-only.
 - Telemetry: Token tracker monitors cumulative prompt/completion tokens and rolling TPS (5s window) with SQLite `game_state` persistence. Telemetry is exposed strictly to authenticated admin diagnostics routes (`/api/admin/system-health`), never to player clients.
-- DO NOT: ship purple-box content, add timers, expose reasoning bytes on WS/history, add cloud DB.
+- DO NOT: ship purple-box content, expose reasoning bytes on WS/history, add cloud DB, or accept a client-provided timer or completion time. Round timers are a server-authoritative game rule and are exposed only through typed round snapshots.
 
 ## Commands
 

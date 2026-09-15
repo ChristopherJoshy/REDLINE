@@ -25,7 +25,6 @@ export interface Frame<TEvent extends string, TData> {
 
 export interface HelloData {
   teamId: string;
-  displayName: string;
   round: Round;
   lastEventId?: string;
 }
@@ -108,6 +107,10 @@ export interface EloUpdateData {
   elo: number;
   delta: number;
   reason: string;
+  baseDelta?: number;
+  speedBonus?: number;
+  completionRank?: number;
+  elapsedSecs?: number;
 }
 
 export interface ChatSyncData {
@@ -145,10 +148,37 @@ export interface Round2ExtendData {
   newEndsAt: string;
 }
 
+export interface PresenceMember {
+  displayName: string;
+  status: "online" | "away" | "offline";
+}
+
+export interface PresenceSyncData {
+  members: PresenceMember[];
+}
+
+export interface AssessmentSettingsData {
+  requireFullscreen: boolean;
+  detectTabSwitches: boolean;
+  singleTabMode: boolean;
+  disableRightClick: boolean;
+  disableCopyPaste: boolean;
+}
+
+export interface VisibilityChangeData {
+  status: "online" | "away";
+}
+
+export interface SecurityViolationData {
+  type: "fullscreen_exit" | "tab_switch" | "copy_paste" | "right_click";
+}
+
 export type ClientEvent =
   | Frame<"hello", HelloData>
   | Frame<"ping", Record<string, never>>
-  | Frame<"chat_send", ChatSendData>;
+  | Frame<"chat_send", ChatSendData>
+  | Frame<"visibility_change", VisibilityChangeData>
+  | Frame<"security_violation", SecurityViolationData>;
 
 export type ServerEvent =
   | Frame<"hello_ack", { resumeFrom?: string }>
@@ -169,6 +199,8 @@ export type ServerEvent =
   | Frame<"round2_countdown", Round2CountdownData>
   | Frame<"round2_start", Round2StartData>
   | Frame<"round2_end", Round2EndData>
-  | Frame<"round2_extend", Round2ExtendData>;
+  | Frame<"round2_extend", Round2ExtendData>
+  | Frame<"presence_sync", PresenceSyncData>
+  | Frame<"assessment_settings_sync", AssessmentSettingsData>;
 export type AnyEvent = ClientEvent | ServerEvent;
 

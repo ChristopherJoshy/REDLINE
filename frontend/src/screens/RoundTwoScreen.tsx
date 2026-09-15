@@ -13,19 +13,21 @@ import CelebrationOverlay from "@/components/CelebrationOverlay";
 import { getCover } from "@/api/profiles";
 import { submitItem } from "@/api/merchant";
 import { apiFetch } from "@/api/client";
-import { Send } from "lucide-react";
+import { Clock3, Eye, Send, ShieldCheck } from "lucide-react";
 import { DUR, EASE, reducedMotion } from "@/lib/motionTokens";
+import { formatClock } from "@/lib/useRoundClock";
 
 interface RoundTwoScreenProps {
   teamId: string;
   boss: BotId;
   locked: boolean;
+  secondsRemaining: number;
   onRoundEnd?: () => void;
 }
 
 type Reveal = "blackout" | "sigil" | "open";
 
-export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: RoundTwoScreenProps): React.JSX.Element {
+export default function RoundTwoScreen({ teamId, boss, locked, secondsRemaining, onRoundEnd }: RoundTwoScreenProps): React.JSX.Element {
   const { bots, send, connected, inventory, rewind } = useBotStream(teamId, "r2");
   const [reveal, setReveal] = useState<Reveal>("blackout");
   const [draft, setDraft] = useState("");
@@ -70,7 +72,10 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
     setOfferBusy(true);
     setOfferError("");
     try {
-      await submitItem(item.itemKey);
+      const result = await submitItem(item.itemKey);
+      if (result.result === "dissolve" || result.result === "troll") {
+        setOfferError(result.line);
+      }
     } catch (err) {
       setOfferError(err instanceof Error ? err.message : "Offering failed");
     } finally {
@@ -244,13 +249,10 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
   }
 
   return (
-    <div
-      className="bot-theme relative flex flex-col flex-1 min-h-0"
-
-    >
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-surface-1" />
+    <div className={`bot-theme boss-stage boss-stage-${boss} relative flex min-h-0 flex-1 flex-col overflow-hidden`}>
+      <img aria-hidden="true" src={chatBg} className="arena-atmosphere pointer-events-none absolute inset-0 h-full w-full object-cover" />
       <div className="relative flex min-h-0 flex-1 flex-col">
-      <header className="acc-border flex items-center justify-between gap-2 border-b bg-surface-1 px-4 py-3 ">
+      <header className="acc-border flex flex-wrap items-center justify-between gap-3 border-b bg-surface-1/95 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3 min-w-0">
           <span className="acc-border acc-glow block w-10 h-10 rounded-[8px] overflow-hidden border shrink-0">
             <img src={lore?.avatar ?? "/characters/itachi.jpg"} alt={lore?.name} className={`w-full h-full object-cover ${lore ? AVATAR_FOCUS[lore.id] : "object-center"}`} />
@@ -260,7 +262,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
             <h3 className="font-[family-name:var(--font-vault)] text-[17px] font-bold text-text-1 flex items-center gap-2">
               <span className="truncate">{lore?.name}</span>
               <span className="redline-chip rounded-[6px] px-2 py-0.5 text-[11px] font-[family-name:var(--font-body)] font-semibold text-[var(--color-text-2)]">
-                Round 2
+                Vault encounter
               </span>
             </h3>
             <p className="text-[12px] text-[var(--color-text-3)] truncate">
@@ -270,13 +272,17 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
         </div>
 
         <div className="flex items-center gap-2">
+          <span className="flex min-h-[36px] items-center gap-2 rounded-[6px] border border-border-strong bg-surface-2 px-3 font-mono text-xs font-semibold tabular-nums text-text-1" role="timer" aria-label={`${secondsRemaining} seconds remaining in Round 2`}>
+            <Clock3 size={15} aria-hidden="true" />{formatClock(secondsRemaining)}
+          </span>
           {phase === "p2" ? (
-            <span className="rounded-[6px] border border-border bg-surface-1 px-3 py-1 text-moss text-[12px] font-semibold">
+            <span className="hidden min-h-[36px] items-center gap-2 rounded-[6px] border border-moss-border bg-moss-wash px-3 text-moss text-[12px] font-semibold sm:flex">
+              <ShieldCheck size={15} aria-hidden="true" />
               {boss === "itachi" ? "Illusion broken" : "Hypnosis broken"}
             </span>
           ) : (
-            <span className="acc-wash rounded-[6px] border px-3 py-1 text-[12px] font-semibold">
-              Phase 1
+            <span className="hidden min-h-[36px] items-center gap-2 rounded-[6px] border px-3 text-[12px] font-semibold acc-wash sm:flex">
+              <Eye size={15} aria-hidden="true" />Phase 1
             </span>
           )}
           <RewindButton botId={boss} onRewind={rewind} />
@@ -284,7 +290,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
       </header>
 
       {/* Chat Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 max-w-[900px] w-full mx-auto" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions">
+      <div className="redline-scroll flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 max-w-[900px] w-full mx-auto" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions">
         {state.messages.map((m, i) =>
           m.role === "ally" ? (
             <div key={i} className="r2-chat-msg acc-border self-center my-1 max-w-[500px] rounded-[8px] border border-dashed bg-surface-1 p-3.5 text-[14px] text-[var(--color-text-1)]">
@@ -392,7 +398,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
         )}
       </div>
 
-      <form onSubmit={submit} className="acc-border border-t bg-surface-1 p-3  sm:p-4">
+      <form onSubmit={submit} className="acc-border border-t bg-surface-1/95 p-3 sm:p-4">
         <p role="status" className="mx-auto mb-2 max-w-[900px] text-xs text-text-3">{!connected ? "Reconnecting… Your draft is safe." : !locked ? "Resume fullscreen to continue." : state.typing ? "Waiting for a reply. You can prepare your next message." : "Messages are shared with your team."}</p>
         <div className="mx-auto flex w-full max-w-[900px] items-center gap-3">
           <input

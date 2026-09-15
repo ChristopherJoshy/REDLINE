@@ -1,0 +1,1 @@
+import Database from "better-sqlite3"; const db = new Database("data/redline.db"); try { db.exec("ALTER TABLE teams ADD COLUMN is_qualified INTEGER NOT NULL DEFAULT 0;"); console.log("Column added."); } catch (e) { console.log(e.message); }

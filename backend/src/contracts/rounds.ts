@@ -1,5 +1,5 @@
 export type RoundNumber = 1 | 2;
-export type RoundStatus = "not_started" | "countdown" | "active" | "ended";
+export type RoundStatus = "not_started" | "countdown" | "active" | "ended" | "paused";
 
 export interface RoundState {
   status: RoundStatus;

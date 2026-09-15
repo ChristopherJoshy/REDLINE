@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import { createTeam, type CreateTeamResult } from "@/api/teams";
-import { getGates, openVault, endRound1, startRound1, startRound2, stopRound2, extendRound2, type Gates } from "@/api/gates";
+import { getGates, openVault, endRound1, extendRound1, reduceRound1, pauseRound1, resumeRound1, startRound1, startRound2, stopRound2, extendRound2, reduceRound2, pauseRound2, resumeRound2, type Gates } from "@/api/gates";
 import { apiFetch } from "@/api/client";
 import { CHARACTERS } from "@/data/characterLore";
 import AssessmentControls from "@/components/AssessmentControls";
@@ -261,7 +261,10 @@ export default function AdminTeams(): React.JSX.Element {
   const [teams, setTeams] = useState<AdminTeamOverview[]>([]);
   const [gates, setGates] = useState<Gates | null>(null);
   const [round2, setRound2] = useState<Round2State>({ status: "off", timeLeft: 0, duration: 1800 });
-  const [roundDurationMins, setRoundDurationMins] = useState(30);
+  const [roundDurationMins, setRoundDurationMins] = useState(60);
+  const [showR2Select, setShowR2Select] = useState(false);
+  const [r2DurationMins, setR2DurationMins] = useState(30);
+  const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(new Set());
   const [activityStream, setActivityStream] = useState<ActivityEvent[]>([]);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
@@ -2880,6 +2883,98 @@ export default function AdminTeams(): React.JSX.Element {
                 className="flex-1 py-3 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 font-bold text-[13px] uppercase tracking-wider text-[#F4F4F5] cursor-pointer transition disabled:opacity-50"
               >
                 {busy ? "Rewinding…" : "Confirm Rewind"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showR2Select && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl bg-[#18181B] border border-[#3F3F46] rounded-[2px] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="px-6 py-4 border-b border-[#3F3F46] flex items-center justify-between shrink-0">
+              <h2 className="font-mono text-[18px] font-bold text-[#F4F4F5] uppercase">Select Round 2 Teams</h2>
+              <button onClick={() => setShowR2Select(false)} className="text-[#A1A1AA] hover:text-[#F4F4F5]">✕</button>
+            </div>
+            <div className="p-6 flex-1 overflow-y-auto">
+              <div className="mb-6 flex gap-4">
+                <label className="flex-1 flex flex-col gap-2 font-mono text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA]">
+                  Round 2 Duration (minutes)
+                  <input type="number" min="1" max="1440" value={r2DurationMins} onChange={(e) => setR2DurationMins(Math.max(1, Math.min(1440, Number(e.target.value) || 1)))} className="h-10 w-full rounded-[2px] border border-[#3F3F46] bg-[#27272A] px-3 font-mono text-[#F4F4F5] focus:border-[#EF4444] focus:outline-none" />
+                </label>
+              </div>
+              <p className="font-mono text-[13px] text-[#A1A1AA] mb-4">
+                Select the teams that will move on to Round 2. Only selected teams can enter the Nether Vault.
+              </p>
+              <div className="flex gap-2 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTeamIds(new Set(teams.map(t => t.id)))}
+                  className="px-3 py-1.5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono text-[11px] uppercase transition cursor-pointer"
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTeamIds(new Set())}
+                  className="px-3 py-1.5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono text-[11px] uppercase transition cursor-pointer"
+                >
+                  Deselect All
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[...teams].sort((a, b) => b.elo - a.elo).map(team => {
+                  const selected = selectedTeamIds.has(team.id);
+                  return (
+                    <button
+                      key={team.id}
+                      type="button"
+                      onClick={() => {
+                        const next = new Set(selectedTeamIds);
+                        if (selected) next.delete(team.id);
+                        else next.add(team.id);
+                        setSelectedTeamIds(next);
+                      }}
+                      className={`text-left p-3 rounded-[2px] border transition flex items-center justify-between ${
+                        selected ? 'bg-[#EF4444]/10 border-[#EF4444] text-[#F4F4F5]' : 'bg-[#27272A] border-[#3F3F46] text-[#A1A1AA]'
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-mono text-[14px] font-bold uppercase">{team.name}</span>
+                        <span className="font-mono text-[11px]">Elo: {team.elo}</span>
+                      </div>
+                      <div className={`w-5 h-5 rounded-sm border flex items-center justify-center ${selected ? 'bg-[#EF4444] border-[#EF4444]' : 'border-[#A1A1AA]'}`}>
+                        {selected && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="p-6 border-t border-[#3F3F46] flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowR2Select(false)}
+                className="px-5 py-2.5 rounded-[2px] border border-[#3F3F46] bg-transparent hover:bg-[#3F3F46]/50 font-bold text-[13px] uppercase tracking-wider text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await startRound2(adminCode, r2DurationMins * 60, Array.from(selectedTeamIds));
+                    const g = await getGates();
+                    setGates(g);
+                    notify(`Round 2 scheduled for ${selectedTeamIds.size} teams.`);
+                    setShowR2Select(false);
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : "Could not start Round 2.");
+                  }
+                }}
+                className="px-5 py-2.5 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 font-bold text-[13px] uppercase tracking-wider text-[#F4F4F5] cursor-pointer transition flex items-center gap-2"
+              >
+                <Unlock className="w-4 h-4" />
+                <span>Start With {selectedTeamIds.size} Teams</span>
               </button>
             </div>
           </div>

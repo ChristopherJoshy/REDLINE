@@ -57,6 +57,11 @@ export function openDatabase(path: string, schemaPath: string): DatabaseAdapter 
     // column already exists
   }
   try {
+    driver.exec("ALTER TABLE teams ADD COLUMN round2_eligible INTEGER NOT NULL DEFAULT 0;");
+  } catch {
+    // column already exists
+  }
+  try {
     driver.exec("ALTER TABLE cover_profiles ADD COLUMN bot_id TEXT NOT NULL DEFAULT '*';");
   } catch {
     // column already exists

@@ -86,8 +86,12 @@ function PortalGate({ onEnter }: { onEnter: (boss: BotId) => void }): React.JSX.
         throw new Error("bad boss");
       }
       setTravel(boss);
-    } catch {
-      setError("The vault is sealed.");
+    } catch (e: any) {
+      if (e.message === "not_selected") {
+        setError("Your team was not selected for Round 2.");
+      } else {
+        setError("The vault is sealed.");
+      }
     }
   }
   if (travel !== null) {

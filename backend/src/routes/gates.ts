@@ -6,7 +6,7 @@ import type { Bus } from "../ws/bus.js";
 import { env } from "../env.js";
 import { adminOk } from "../auth/codes.js";
 import { sessionOf } from "./teams.js";
-import { extendRound, roundSnapshot, roundState, startRound, stopRound } from "../rounds/state.js";
+import { extendRound, roundSnapshot, roundState, startRound, stopRound, pauseRound, resumeRound, reduceRound } from "../rounds/state.js";
 
 export const ROUND1_SIZE = 8;
 function admin(req: { headers: Record<string, string | string[] | undefined> }): boolean {
@@ -30,6 +30,9 @@ export function round2TimeLeft(db: DatabaseAdapter): number {
 export function isQualified(db: DatabaseAdapter, teamId: string): boolean {
   return db.get<{ is_qualified: number }>("SELECT is_qualified FROM teams WHERE id = ?", teamId)?.is_qualified === 1;
 }
+export function isRound2Eligible(db: DatabaseAdapter, teamId: string): boolean {
+  return db.get<{ round2_eligible: number }>("SELECT round2_eligible FROM teams WHERE id = ?", teamId)?.round2_eligible === 1;
+}
 export function solvedCount(db: DatabaseAdapter, teamId: string): number {
   return db.get<{ n: number }>("SELECT COUNT(*) AS n FROM team_inventory WHERE team_id = ? AND status = 'verified' AND bot_id NOT IN ('itachi', 'aizen')", teamId)?.n ?? 0;
 }
@@ -51,7 +54,7 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
   for (const round of [1, 2] as const) {
     app.post(`/api/admin/start-round${round}`, async (req, reply) => {
       if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
-      const body = (req.body ?? {}) as { durationSecs?: unknown; endsAt?: unknown };
+      const body = (req.body ?? {}) as { durationSecs?: unknown; endsAt?: unknown; selectedTeamIds?: string[] };
       const now = Date.now();
       const duration = typeof body.endsAt === "string" ? Math.floor((Date.parse(body.endsAt) - now - 30_000) / 1000) : body.durationSecs;
       if (typeof duration !== "number" || !Number.isInteger(duration) || duration < 1 || duration > 86400) {
@@ -62,7 +65,14 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
           const started = startRound(db, round, duration, now);
           if (round === 2) {
             db.run("INSERT INTO elo_log (team_id, delta, before_rating, after_rating, reason) SELECT id, 600 - elo, elo, 600, 'round2_start_reset' FROM teams");
-            db.run("UPDATE teams SET elo = 600");
+            db.run("UPDATE teams SET elo = 600, round2_eligible = 0");
+            
+            // Set eligible teams
+            if (Array.isArray(body.selectedTeamIds) && body.selectedTeamIds.length > 0) {
+              const placeholders = body.selectedTeamIds.map(() => "?").join(",");
+              db.run(`UPDATE teams SET round2_eligible = 1 WHERE id IN (${placeholders})`, ...body.selectedTeamIds);
+            }
+            
             db.run("INSERT INTO game_state (key, value) VALUES ('vault_open', '1') ON CONFLICT(key) DO UPDATE SET value = '1'");
           }
           return started;
@@ -73,17 +83,50 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
         return reply.code(409).send({ error: error instanceof Error ? error.message : "Could not start round." });
       }
     });
+
     app.post(`/api/admin/extend-round${round}`, async (req, reply) => {
       if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
       const body = (req.body ?? {}) as { addSecs?: unknown };
       if (typeof body.addSecs !== "number") return reply.code(400).send({ error: "addSecs is required." });
-      const addSecs = body.addSecs;
       try {
-        const state = db.transaction(() => extendRound(db, round, addSecs));
-        if (round === 2 && state.endsAt) bus.broadcastAll(bus.frame("round2_extend", { addedSecs: addSecs, newEndsAt: state.endsAt }));
+        const state = db.transaction(() => extendRound(db, round, body.addSecs as number));
+        if (round === 2 && state.endsAt) bus.broadcastAll(bus.frame("round2_extend", { addedSecs: body.addSecs, newEndsAt: state.endsAt }));
         return { ok: true, ...roundSnapshot(db) };
       } catch (error) {
         return reply.code(400).send({ error: error instanceof Error ? error.message : "Could not extend round." });
+      }
+    });
+    
+    app.post(`/api/admin/reduce-round${round}`, async (req, reply) => {
+      if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
+      const body = (req.body ?? {}) as { reduceSecs?: unknown };
+      if (typeof body.reduceSecs !== "number") return reply.code(400).send({ error: "reduceSecs is required." });
+      try {
+        const state = db.transaction(() => reduceRound(db, round, body.reduceSecs as number));
+        // We could emit a round2_extend with negative secs, but clients polling /api/gates will catch up anyway.
+        return { ok: true, ...roundSnapshot(db) };
+      } catch (error) {
+        return reply.code(400).send({ error: error instanceof Error ? error.message : "Could not reduce round." });
+      }
+    });
+
+    app.post(`/api/admin/pause-round${round}`, async (req, reply) => {
+      if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
+      try {
+        db.transaction(() => pauseRound(db, round));
+        return { ok: true, ...roundSnapshot(db) };
+      } catch (error) {
+        return reply.code(400).send({ error: error instanceof Error ? error.message : "Could not pause round." });
+      }
+    });
+
+    app.post(`/api/admin/resume-round${round}`, async (req, reply) => {
+      if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
+      try {
+        db.transaction(() => resumeRound(db, round));
+        return { ok: true, ...roundSnapshot(db) };
+      } catch (error) {
+        return reply.code(400).send({ error: error instanceof Error ? error.message : "Could not resume round." });
       }
     });
   }
@@ -106,6 +149,7 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
   app.post("/api/round2/enter", async (req, reply) => {
     const session = sessionOf(req);
     if (!session) return reply.code(401).send({ error: "no session" });
+    if (!isRound2Eligible(db, session.teamId)) return reply.code(403).send({ error: "not_selected" });
     if (round2Status(db) !== "active" || !vaultOpen(db) || !isQualified(db, session.teamId)) return reply.code(403).send({ error: "vault sealed or not qualified" });
     const existing = db.get<{ boss: string }>("SELECT boss FROM r2_assignments WHERE team_id = ?", session.teamId);
     if (existing) return { boss: existing.boss as BotId };

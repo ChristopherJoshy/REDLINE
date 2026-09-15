@@ -1079,7 +1079,7 @@ export default function AdminTeams(): React.JSX.Element {
             className="flex items-center gap-2 px-4 py-2.5 rounded-[2px] border border-[#EF4444] bg-[#18181B] text-[#EF4444] font-mono text-[13px] font-bold uppercase tracking-wider hover:bg-[#EF4444] hover:text-[#F4F4F5] transition"
           >
             <Trophy className="w-4 h-4" />
-            <span>Clocktower Citadel Board ↗</span>
+            <span>Leaderboard ↗</span>
           </a>
         </div>
 

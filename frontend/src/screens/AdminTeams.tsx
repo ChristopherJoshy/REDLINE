@@ -1858,6 +1858,7 @@ export default function AdminTeams(): React.JSX.Element {
                       type="button"
                       onClick={async () => {
                         await stopRound2(adminCode);
+                        setRound2({ status: "off", timeLeft: 0, duration: 1800 });
                         const g = await getGates();
                         setGates(g);
                         notify("Round 2 stopped!");

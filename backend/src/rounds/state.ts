@@ -41,9 +41,6 @@ export function roundSnapshot(db: DatabaseAdapter, now = Date.now()): RoundSnaps
 
 export function startRound(db: DatabaseAdapter, round: RoundNumber, durationSecs: number, now = Date.now()): RoundState {
   if (!Number.isInteger(durationSecs) || durationSecs < 1 || durationSecs > MAX_DURATION_SECS) throw new Error("Duration must be between 1 second and 24 hours.");
-  const current = roundState(db, round, now);
-  if (current.status !== "not_started") throw new Error(`Round ${round} has already started.`);
-  if (round === 1 && roundState(db, 2, now).status !== "not_started") throw new Error("Round 2 has already started.");
   save(db, round, { startsAt: new Date(now + COUNTDOWN_MS).toISOString(), endsAt: new Date(now + COUNTDOWN_MS + durationSecs * 1000).toISOString(), stopped: false });
   return roundState(db, round, now);
 }

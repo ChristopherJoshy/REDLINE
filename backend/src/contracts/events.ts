@@ -173,6 +173,13 @@ export interface SecurityViolationData {
   type: "fullscreen_exit" | "tab_switch" | "copy_paste" | "right_click";
 }
 
+export interface AdminTelemetryData {
+  tps: number;
+  peakTps: number;
+  tokensIn: number;
+  tokensOut: number;
+}
+
 export type ClientEvent =
   | Frame<"hello", HelloData>
   | Frame<"ping", Record<string, never>>
@@ -201,6 +208,6 @@ export type ServerEvent =
   | Frame<"round2_end", Round2EndData>
   | Frame<"round2_extend", Round2ExtendData>
   | Frame<"presence_sync", PresenceSyncData>
-  | Frame<"assessment_settings_sync", AssessmentSettingsData>;
+  | Frame<"assessment_settings_sync", AssessmentSettingsData>
+  | Frame<"admin_telemetry", AdminTelemetryData>;
 export type AnyEvent = ClientEvent | ServerEvent;
-

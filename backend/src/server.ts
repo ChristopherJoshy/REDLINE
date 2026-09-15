@@ -18,6 +18,7 @@ import { BotLocks, lockable } from "./chat/locks.js";
 import { registerLockRoutes } from "./routes/locks.js";
 import { handleChatSend } from "./chat/handler.js";
 import { parseCookies, verifySessionToken } from "./auth/codes.js";
+import { tokenTracker } from "./llm/tokenTracker.js";
 import type { BotId, ClientEvent, InventoryDelta } from "./contracts/events.js";
 
 // src/ and dist/ are both one level below the backend root.
@@ -140,12 +141,13 @@ app.get("/api/stream", async (req, reply) => {
 });
 
 async function boot(): Promise<void> {
+  let telemetryInterval: ReturnType<typeof setInterval>;
   // Touch env at boot so missing keys fail closed here, not mid-event.
   void env.groqApiKey;
   void env.zenApiKey;
   void env.joinCodePepper;
 
-  app.addHook("onClose", async () => { clearInterval(roundEvents); wss.close(); db.close(); });
+  app.addHook("onClose", async () => { clearInterval(roundEvents); clearInterval(telemetryInterval); wss.close(); db.close(); });
 
   await app.listen({ port: env.port, host: "0.0.0.0" });
   const wss = new WebSocketServer({ server: app.server });
@@ -163,11 +165,18 @@ async function boot(): Promise<void> {
       token = parseCookies(req.headers.cookie)["redline_session"];
     }
     const session = token === undefined ? undefined : verifySessionToken(token, env.joinCodePepper);
-    if (session === undefined) {
+    if (session === undefined && token !== env.adminCode) {
       socket.close(4401, "no session");
       return;
     }
-    bus.add(socket, session.teamId);
+    const teamId = session ? session.teamId : "ADMIN";
+    bus.add(socket, teamId);
+    
+    if (session === undefined) {
+      // Admin clients don't send hello/chat commands
+      return;
+    }
+
     socket.on("message", (raw) => {
       let event: ClientEvent;
       try {
@@ -260,6 +269,18 @@ async function boot(): Promise<void> {
       bus.broadcast(teamId, bus.frame("bot_locks", { locks: locks.snapshot(teamId) }));
     }
   }, PING_MS).unref();
+  telemetryInterval = setInterval(() => {
+    // We can just eagerly broadcast it. If no admins are listening, it just drops.
+    const tokens = tokenTracker.getMetrics();
+    bus.broadcast("ADMIN", bus.frame("admin_telemetry", {
+      tps: tokens.currentTps,
+      peakTps: tokens.peakTps,
+      tokensIn: tokens.promptTokens,
+      tokensOut: tokens.completionTokens,
+    }));
+  }, 500);
+  telemetryInterval.unref();
+  
   // Notifications follow the saved clock; gameplay checks the same deadline on every request.
   let previousRound2 = roundState(db, 2).status;
   const roundEvents = setInterval(() => {

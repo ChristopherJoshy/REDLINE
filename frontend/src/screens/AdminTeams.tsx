@@ -304,6 +304,28 @@ export default function AdminTeams(): React.JSX.Element {
     setTimeout(() => setSuccessToast(""), 3500);
   }
 
+  // WS for live telemetry
+  useEffect(() => {
+    if (!authed || adminCode === "") return;
+    let wsUrl = import.meta.env.VITE_WS_URL;
+    if (!wsUrl) {
+      const p = window.location.protocol === "https:" ? "wss:" : "ws:";
+      wsUrl = `${p}//${window.location.host}/ws`;
+    }
+    wsUrl += `?token=${encodeURIComponent(adminCode)}`;
+    
+    const ws = new WebSocket(wsUrl);
+    ws.onmessage = (e) => {
+      try {
+        const ev = JSON.parse(e.data);
+        if (ev.event === "admin_telemetry") {
+          setSystemHealth(prev => prev ? { ...prev, tokenMetrics: ev.data } : null);
+        }
+      } catch {}
+    };
+    return () => ws.close();
+  }, [authed, adminCode]);
+
   // Periodic polling for overview, stream, health (only active when authenticated)
   useEffect(() => {
     if (!authed || adminCode === "") return;

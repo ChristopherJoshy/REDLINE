@@ -48,15 +48,22 @@ export default function CelebrationOverlay({ botId, onClose }: { botId: BotId; o
   const cheerRef = useRef<HTMLParagraphElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
 
+  const audioStopper = useRef<{ stop: () => void } | null>(null);
+
   // Play celebration sound every time modal opens (first time or "celebrate again")
   useEffect(() => {
     unlockAudio();
     const soundSrc = CELEBRATION_SOUNDS[botId] ?? "/sounds/merchant/success-thank-you.mp3";
     try {
-      playSound(soundSrc);
+      audioStopper.current = playSound(soundSrc) as any;
     } catch {
       // Audio optional
     }
+    return () => {
+      if (audioStopper.current) {
+        audioStopper.current.stop();
+      }
+    };
   }, [botId]);
 
   // Win-state entrance choreography
@@ -147,13 +154,19 @@ export default function CelebrationOverlay({ botId, onClose }: { botId: BotId; o
 
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        if (audioStopper.current) audioStopper.current.stop();
+        onClose();
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   function handleClose(): void {
+    if (audioStopper.current) {
+      audioStopper.current.stop();
+    }
     if (reducedMotion()) { onClose(); return; }
     animate(cardRef.current!, {
       scale: [1, 0.92],

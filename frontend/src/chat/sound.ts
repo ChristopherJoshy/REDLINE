@@ -25,16 +25,30 @@ export function unlockAudio(): void {
   }
 }
 
-export function playSound(src: string): void {
+export function playSound(src: string): { stop: () => void } {
   const ac = ensure();
+  let activeNode: AudioBufferSourceNode | null = null;
+  let aborted = false;
+
+  const stopper = {
+    stop: () => {
+      aborted = true;
+      if (activeNode) {
+        try {
+          activeNode.stop();
+        } catch { /* ignore */ }
+      }
+    }
+  };
+
   if (ac === null || master === null) {
-    return;
+    return stopper;
   }
   void fetch(src)
     .then((r) => r.arrayBuffer())
     .then((buf) => ac.decodeAudioData(buf))
     .then((audio) => {
-      if (master === null) {
+      if (master === null || aborted) {
         return;
       }
       const node = ac.createBufferSource();
@@ -45,6 +59,9 @@ export function playSound(src: string): void {
       node.connect(gain);
       gain.connect(master);
       node.start();
+      activeNode = node;
     })
     .catch(() => {});
+
+  return stopper;
 }

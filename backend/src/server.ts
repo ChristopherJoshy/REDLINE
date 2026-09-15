@@ -29,6 +29,19 @@ const root = existsSync(join(__dirname, "..", "package.json"))
   : join(__dirname, "..", "..");
 const app = Fastify({ logger: true });
 
+// Accept requests with empty/missing content-type or empty bodies for parameterless POSTs
+app.addContentTypeParser("", (_req, _payload, done) => {
+  done(null, {});
+});
+app.addContentTypeParser("text/plain", { parseAs: "string" }, (_req, body, done) => {
+  try {
+    const str = typeof body === "string" ? body : body.toString("utf-8");
+    done(null, JSON.parse(str || "{}"));
+  } catch {
+    done(null, {});
+  }
+});
+
 app.addHook("onRequest", async (req, reply) => {
   // Open CORS: any origin may call the API. The client sends
   // credentials:include and auth can fall back to the session cookie,

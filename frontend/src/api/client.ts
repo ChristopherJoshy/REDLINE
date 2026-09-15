@@ -28,6 +28,16 @@ export function apiFetch(input: string, init?: RequestInit): Promise<Response> {
   } catch {
     // LocalStorage might be restricted
   }
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (method === "POST" || method === "PUT" || method === "PATCH") {
+    if (!headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+    if (init && init.body === undefined) {
+      init = { ...init, body: "{}" };
+    }
+  }
+
   return fetch(url, {
     credentials: "include",
     ...init,

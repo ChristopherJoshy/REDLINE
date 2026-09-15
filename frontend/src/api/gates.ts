@@ -103,7 +103,11 @@ export function resumeRound2(code: string): Promise<{ ok: boolean }> {
 }
 
 export async function enterRound2(): Promise<{ boss: string }> {
-  const res = await apiFetch("/api/round2/enter", { method: "POST" });
+  const res = await apiFetch("/api/round2/enter", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
   const data = (await res.json()) as { boss: string } & { error?: string };
   if (!res.ok) {
     throw new Error(data.error ?? "vault sealed");

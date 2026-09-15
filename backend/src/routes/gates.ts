@@ -55,10 +55,15 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
 
   app.get("/api/admin/round2/control", async (req, reply) => {
     if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
+    const unassigned = db.all<{ id: string }>("SELECT id FROM teams WHERE round2_eligible = 1 AND id NOT IN (SELECT team_id FROM r2_assignments)");
+    for (const t of unassigned) {
+      const boss: BotId = Math.random() < 0.5 ? "itachi" : "aizen";
+      db.run("INSERT INTO r2_assignments (team_id, boss) VALUES (?, ?)", t.id, boss);
+    }
     const teams = db.all<{ id: string; name: string; boss: string | null; phaseOverride: string | null }>(
       `SELECT t.id, t.name, a.boss,
         (SELECT value FROM game_state WHERE key = 'r2_phase_override:' || t.id || ':' || a.boss) AS phaseOverride
-       FROM teams t LEFT JOIN r2_assignments a ON a.team_id = t.id ORDER BY t.name`,
+       FROM teams t LEFT JOIN r2_assignments a ON a.team_id = t.id WHERE t.round2_eligible = 1 ORDER BY t.name`,
     );
     return { teams };
   });
@@ -118,6 +123,16 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
               db.run("UPDATE teams SET round2_eligible = 1, is_qualified = 1 WHERE is_qualified = 1");
             }
             
+            // Auto-assign random boss (Itachi or Aizen) for advancing teams
+            const advancing = db.all<{ id: string }>("SELECT id FROM teams WHERE round2_eligible = 1");
+            for (const t of advancing) {
+              const existing = db.get<{ boss: string }>("SELECT boss FROM r2_assignments WHERE team_id = ?", t.id);
+              if (!existing) {
+                const boss: BotId = Math.random() < 0.5 ? "itachi" : "aizen";
+                db.run("INSERT INTO r2_assignments (team_id, boss) VALUES (?, ?)", t.id, boss);
+              }
+            }
+
             db.run("INSERT INTO game_state (key, value) VALUES ('vault_open', '1') ON CONFLICT(key) DO UPDATE SET value = '1'");
           }
           return started;

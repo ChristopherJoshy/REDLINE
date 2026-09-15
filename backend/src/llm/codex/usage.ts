@@ -176,10 +176,20 @@ async function refreshAccount(server: CodexAppServer): Promise<void> {
   try {
     const res = asRecord(await server.call("account/read", {})) as Record<string, unknown> | undefined;
     if (res) {
-      const connected = res["connected"] ?? res["loggedIn"] ?? res["isLoggedIn"];
+      const nested = asRecord(res["account"]);
+      const connected =
+        res["connected"] ??
+        res["loggedIn"] ??
+        res["isLoggedIn"] ??
+        nested?.["connected"] ??
+        nested?.["loggedIn"] ??
+        nested?.["isLoggedIn"] ??
+        (typeof nested?.["email"] === "string" && nested["email"] !== "") ??
+        (typeof res["email"] === "string" && res["email"] !== "");
+      const planType = typeof res["planType"] === "string" ? res["planType"] : nested?.["planType"];
       cache.account = {
-        connected: connected === true || (typeof res["email"] === "string" && res["email"] !== ""),
-        ...(typeof res["planType"] === "string" ? { planType: res["planType"] as string } : {}),
+        connected: connected === true,
+        ...(typeof planType === "string" ? { planType } : {}),
       };
     }
   } catch (err) {

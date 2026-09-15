@@ -1817,14 +1817,24 @@ export default function AdminTeams(): React.JSX.Element {
 
                 <div className="rounded-[2px] border border-[#3F3F46] bg-[#18181B] p-4">
                   <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-                    <div><h3 className="font-mono text-[13px] font-bold uppercase text-[#F4F4F5]">Round 2 boss &amp; phase control</h3><p className="mt-1 text-[12px] text-[#A1A1AA]">Changes are audited and reset a team’s Round 2 progress when the boss changes.</p></div>
-                    <input value={r2Reason} onChange={(e) => setR2Reason(e.target.value)} aria-label="Reason for Round 2 override" className="h-9 min-w-[240px] rounded-[2px] border border-[#3F3F46] bg-[#27272A] px-2 text-xs text-[#F4F4F5]" />
+                    <div>
+                      <h3 className="font-mono text-[13px] font-bold uppercase text-[#F4F4F5]">Round 2 boss &amp; phase control</h3>
+                      <p className="mt-1 text-[12px] text-[#10B981]">⚡ Bots are auto-selected randomly (Itachi / Aizen) for all advancing teams.</p>
+                    </div>
+                    <input value={r2Reason} onChange={(e) => setR2Reason(e.target.value)} placeholder="Reason for override" aria-label="Reason for Round 2 override" className="h-9 min-w-[200px] rounded-[2px] border border-[#3F3F46] bg-[#27272A] px-2 text-xs text-[#F4F4F5]" />
                   </div>
                   <div className="flex flex-col gap-2">
                     {r2Control.filter((t) => t.boss !== null || gates.qualified).map((team) => (
                       <div key={team.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-t border-[#3F3F46] py-2">
-                        <span className="truncate text-sm text-[#F4F4F5]">{team.name}</span>
-                        <select value={team.boss ?? ""} onChange={(e) => void setR2Assignment(team.id, e.target.value).catch((err) => setError(err instanceof Error ? err.message : "Assignment failed"))} className="h-9 rounded-[2px] border border-[#3F3F46] bg-[#27272A] px-2 text-xs text-[#F4F4F5]"><option value="">Unassigned</option><option value="itachi">Itachi</option><option value="aizen">Aizen</option></select>
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="truncate text-sm text-[#F4F4F5]">{team.name}</span>
+                          {team.boss && (
+                            <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-[#EF4444]/20 border border-[#EF4444]/40 text-[#EF4444] uppercase font-bold">
+                              Auto: {team.boss}
+                            </span>
+                          )}
+                        </div>
+                        <select value={team.boss ?? ""} onChange={(e) => void setR2Assignment(team.id, e.target.value).catch((err) => setError(err instanceof Error ? err.message : "Assignment failed"))} className="h-9 rounded-[2px] border border-[#3F3F46] bg-[#27272A] px-2 text-xs text-[#F4F4F5]"><option value="">Auto / Unassigned</option><option value="itachi">Itachi</option><option value="aizen">Aizen</option></select>
                         <select disabled={!team.boss} value={team.phaseOverride ?? "auto"} onChange={(e) => team.boss && void setR2Phase(team.id, team.boss, e.target.value).catch((err) => setError(err instanceof Error ? err.message : "Phase update failed"))} className="h-9 rounded-[2px] border border-[#3F3F46] bg-[#27272A] px-2 text-xs text-[#F4F4F5]"><option value="auto">Auto phase</option><option value="p1">Force Phase 1</option><option value="p2">Force Phase 2</option></select>
                       </div>
                     ))}

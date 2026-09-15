@@ -50,6 +50,16 @@ const ROSTER: Array<{ id: BotId; label: string; num: string }> = [
   { id: "merchant", label: "The Merchant", num: "09" },
 ];
 
+const CHAT_PULSES = [
+  "border-[#E10600]/30 shadow-[0_0_20px_rgba(225,6,0,0.2)]",
+  "border-[#E10600]/10 shadow-[0_0_10px_rgba(225,6,0,0.05)]",
+];
+
+function stripThinking(text: string | undefined): string {
+  if (!text) return "";
+  return text.replace(/<think>[\s\S]*?(<\/think>|$)/g, "").trim();
+}
+
 export default function ArenaScreen({ teamId, displayName, locked }: { teamId: string; displayName: string; locked: boolean }): React.JSX.Element {
   useDocumentTitle("Arena | Redline");
 
@@ -861,10 +871,10 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                               {/* Message body */}
                               <div className="whitespace-pre-wrap">
                                 {isUser ? (
-                                  m.text
+                                  stripThinking(m.text)
                                 ) : (
                                   <MatrixText
-                                    text={m.text}
+                                    text={stripThinking(m.text)}
                                     isStreaming={false}
                                     animateOnMount={false}
                                     accentColor={botAccent}
@@ -906,7 +916,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                     })}
 
                     {/* Bot Typing Decrypting Signal */}
-                    {activeBot?.typing && activeBot.streaming === "" && (
+                    {activeBot?.typing && stripThinking(activeBot?.streaming) === "" && (
                       <div className="self-start flex gap-3">
                         <span className="block w-9 h-9 overflow-hidden shrink-0 border border-white/15 bg-black/60 shadow-[0_0_10px_rgba(0,0,0,0.5)]" aria-hidden="true">
                           <img src={CHARACTERS[chattingBotId]?.avatar} alt="" className={`w-full h-full object-cover ${CHARACTERS[chattingBotId] ? AVATAR_FOCUS[chattingBotId] : "object-center"}`} />
@@ -916,7 +926,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                     )}
 
                     {/* Bot Streaming Tokens with Matrix Decode */}
-                    {activeBot?.streaming !== "" && activeBot?.streaming !== undefined && (
+                    {stripThinking(activeBot?.streaming) !== "" && (
                       <div className="self-start flex gap-3 max-w-[85%]">
                         <span className="block w-9 h-9 overflow-hidden shrink-0 border border-white/15 bg-black/60 shadow-[0_0_10px_rgba(0,0,0,0.5)]" aria-hidden="true">
                           <img src={CHARACTERS[chattingBotId]?.avatar} alt="" className={`w-full h-full object-cover ${CHARACTERS[chattingBotId] ? AVATAR_FOCUS[chattingBotId] : "object-center"}`} />
@@ -924,7 +934,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                         <div className="px-4 py-3 border border-white/12 bg-[#080b0f]/85 backdrop-blur-md text-white text-[14.5px] leading-relaxed shadow-[0_8px_32px_rgba(0,0,0,0.7)]">
                           <p className="whitespace-pre-wrap">
                             <MatrixText
-                              text={activeBot.streaming}
+                              text={stripThinking(activeBot?.streaming)}
                               isStreaming={true}
                               accentColor={botAccent}
                             />

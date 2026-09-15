@@ -6,6 +6,12 @@ import MatrixText from "@/chat/MatrixText";
 import { useBotStream } from "@/chat/useBotStream";
 import { playSound, unlockAudio } from "@/chat/sound";
 import { AVATAR_FOCUS, CHARACTERS, CHAT_BACKGROUND } from "@/data/characterLore";
+
+function stripThinking(text: string | undefined): string {
+  if (!text) return "";
+  return text.replace(/<think>[\s\S]*?(<\/think>|$)/g, "").trim();
+}
+
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import RewindButton from "@/chat/RewindButton";
 import ProfileModal from "@/components/ProfileModal";
@@ -358,7 +364,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
               <span className="mb-1 block text-[12px] font-semibold text-[var(--color-text-3)]">
                 {m.name ?? "Relay"}{m.confirmed === true ? " · Confirmed" : ""}
               </span>
-              <p className="italic">"{m.text}"</p>
+              <p className="italic">"{stripThinking(m.text)}"</p>
             </div>
           ) : (
             <div
@@ -384,10 +390,10 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
               >
                 <p className="whitespace-pre-wrap">
                   {m.role === "user" ? (
-                    m.text
+                    stripThinking(m.text)
                   ) : (
                     <MatrixText
-                      text={m.text}
+                      text={stripThinking(m.text)}
                       isStreaming={false}
                       animateOnMount={i === state.messages.length - 1}
                       accentColor={lore?.accent ?? "#ff1e2d"}
@@ -430,7 +436,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
           </div>
         )}
 
-        {state.typing && state.streaming === "" && (
+        {state.typing && stripThinking(state.streaming) === "" && (
           <div className="self-start flex gap-3">
             <span className="redline-chip block w-8 h-8 rounded-[8px] overflow-hidden shrink-0" aria-hidden="true">
               <img src={lore?.avatar} alt="" className="w-full h-full object-cover" />
@@ -441,15 +447,15 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
           </div>
         )}
 
-        {state.streaming !== "" && (
+        {stripThinking(state.streaming) !== "" && (
           <div className="self-start flex gap-3 max-w-[85%]">
             <span className="redline-chip block w-8 h-8 rounded-[8px] overflow-hidden shrink-0" aria-hidden="true">
               <img src={lore?.avatar} alt="" className="w-full h-full object-cover" />
             </span>
-            <div className="rounded-[10px] border border-[rgba(255,255,255,0.09)] bg-[rgba(13,17,23,0.92)] px-4 py-3 text-[14.5px] leading-relaxed text-[var(--color-text-1)]">
+            <div className="rounded-[10px] bg-[#0b0c10]/80 backdrop-blur-md border border-white/10 px-4 py-3 text-[14.5px] leading-relaxed text-white/95">
               <p className="whitespace-pre-wrap">
                 <MatrixText
-                  text={state.streaming}
+                  text={stripThinking(state.streaming)}
                   isStreaming={true}
                   accentColor={lore?.accent ?? "#ff1e2d"}
                 />

@@ -179,6 +179,8 @@ export function useBotStream(teamId: string): {
       window.dispatchEvent(new CustomEvent("arena:round2_extend", { detail: event.data }));
     } else if (event.event === "assessment_settings_sync") {
       window.dispatchEvent(new CustomEvent("arena:assessment_settings", { detail: event.data }));
+    } else if (event.event === "game_reset") {
+      window.location.href = "/";
     }
   }, []);
 

@@ -660,5 +660,26 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     }
     return settings;
   });
+
+  app.post("/api/admin/reset-game", async (req, reply) => {
+    if (!guard(req)) return reply.code(401).send({ error: "unauthorized" });
+    db.transaction(() => {
+      db.run("DELETE FROM team_inventory");
+      db.run("DELETE FROM merchant_clues");
+      db.run("DELETE FROM elo_log");
+      db.run("DELETE FROM chat_logs");
+      db.run("DELETE FROM reasoning_traces");
+      db.run("DELETE FROM sound_events");
+      db.run("DELETE FROM r2_assignments");
+      db.run("DELETE FROM r2_scores");
+      db.run("DELETE FROM cover_profiles");
+      db.run("DELETE FROM game_state");
+      db.run("UPDATE teams SET elo = 600, is_qualified = 0, clue_credits = 0");
+    });
+    if (bus !== undefined) {
+      bus.broadcastAll(bus.frame("game_reset", {}));
+    }
+    return { ok: true };
+  });
 }
 

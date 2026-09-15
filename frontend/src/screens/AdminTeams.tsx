@@ -1880,6 +1880,21 @@ export default function AdminTeams(): React.JSX.Element {
                   >
                     Freeze / End Round 1 Only
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm("Are you SURE? This will WIPE all inventory, chat logs, and game progress, and reset ALL Elos back to 600. Players will be returned to the waiting screen.")) return;
+                      await apiFetch("/api/admin/reset-game", { method: "POST", headers: { "x-admin-code": adminCode } });
+                      setRound2({ status: "off", timeLeft: 0, duration: 1800 });
+                      const g = await getGates();
+                      setGates(g);
+                      notify("GAME RESET. All players sent back to wait screen.");
+                    }}
+                    className="py-3.5 px-4 rounded-[2px] border border-[#EF4444] bg-[#EF4444] hover:bg-[#EF4444]/80 text-[#F4F4F5] font-mono font-bold text-[13px] uppercase tracking-wider transition cursor-pointer"
+                  >
+                    Hard Reset All Rounds
+                  </button>
                 </div>
               </div>
             )}

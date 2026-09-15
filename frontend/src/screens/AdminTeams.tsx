@@ -5,6 +5,7 @@ import { getGates, openVault, endRound1, extendRound1, reduceRound1, pauseRound1
 import { apiFetch } from "@/api/client";
 import { CHARACTERS } from "@/data/characterLore";
 import AssessmentControls from "@/components/AssessmentControls";
+import CodexPanel from "@/components/CodexPanel";
 import { 
   Users, 
   UserPlus, 
@@ -154,7 +155,7 @@ export default function AdminTeams(): React.JSX.Element {
   const [authError, setAuthError] = useState<string>("");
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
 
-  const [tab, setTab] = useState<"squads" | "stream" | "broadcast" | "create" | "gates" | "diagnostics" | "settings">("squads");
+  const [tab, setTab] = useState<"squads" | "stream" | "broadcast" | "create" | "gates" | "diagnostics" | "codex" | "settings">("squads");
   useDocumentTitle(`Console · ${tab[0]?.toUpperCase() ?? ""}${tab.slice(1)} — REDLINE Arena`);
   
   // On mount: if a stored adminCode exists, verify it with the backend
@@ -1104,6 +1105,19 @@ export default function AdminTeams(): React.JSX.Element {
             >
               <Cpu className="w-4 h-4" />
               <span>Diagnostics</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTab("codex")}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-[2px] text-[13px] font-bold uppercase tracking-wider font-mono transition cursor-pointer ${
+                tab === "codex"
+                  ? "bg-[#EF4444] text-[#F4F4F5] border border-[#EF4444]"
+                  : "bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:bg-[#3F3F46] hover:text-[#F4F4F5]"
+              }`}
+            >
+              <Zap className="w-4 h-4" />
+              <span>Codex Luna</span>
             </button>
 
             <button
@@ -2104,6 +2118,9 @@ export default function AdminTeams(): React.JSX.Element {
             )}
           </div>
         )}
+
+        {/* TAB: CODEX LUNA (no settings-pin lock by requirement) */}
+        {tab === "codex" && <CodexPanel />}
 
         {/* TAB 7: API SETTINGS & KEY ROTATION POOL */}
         {tab === "settings" && (

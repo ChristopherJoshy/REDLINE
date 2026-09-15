@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { BotId, InventoryDelta } from "../contracts/events.js";
 import type { DatabaseAdapter } from "../db/database.js";
 import type { ChatMessage, ToolCall } from "../llm/groq.js";
-import { streamChat } from "../llm/groq.js";
+import { streamPrimaryR1 } from "../llm/primary.js";
 import { BOT_TOOLS, parseHandover, parseSoundId } from "../bots/tools.js";
 import { awardItem } from "../bots/inventory.js";
 import { coverBrief } from "../bots/coverLens.js";
@@ -89,7 +89,7 @@ If the user passes your quiz gate and earns the item, YOU MUST call the handover
     let fullText = "";
     const toolCalls: ToolCall[] = [];
     const guardFlags: string[] = [];
-    for await (const item of streamChat(messages, BOT_TOOLS, db)) {
+    for await (const item of streamPrimaryR1(messages, BOT_TOOLS, db, teamId, botId)) {
       if (item.kind === "delta") {
         fullText += item.text;
         bus.broadcast(teamId, bus.frame("bot_token", { botId, delta: item.text }));

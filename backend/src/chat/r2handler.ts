@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { InventoryDelta } from "../contracts/events.js";
 import type { DatabaseAdapter } from "../db/database.js";
 import type { ChatMessage, ToolCall } from "../llm/groq.js";
-import { streamZenChat } from "../llm/zen.js";
+import { streamPrimaryR2 } from "../llm/primary.js";
 import { parseHandover, parseSoundId } from "../bots/tools.js";
 import { awardItem } from "../bots/inventory.js";
 import { round2Status } from "../routes/gates.js";
@@ -78,7 +78,7 @@ On every R2 user turn, call evaluate_challenger exactly once with an integer ELO
     const toolCalls: ToolCall[] = [];
     const guardFlags: string[] = [];
     let reasoning = "";
-    for await (const item of streamZenChat(messages, R2_TOOLS, db)) {
+    for await (const item of streamPrimaryR2(messages, R2_TOOLS, db, teamId, boss)) {
       if (item.kind === "delta") {
         fullText += item.text;
         bus.broadcast(teamId, bus.frame("bot_token", { botId: boss, delta: item.text }));

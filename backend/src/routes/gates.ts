@@ -28,10 +28,12 @@ export function round2TimeLeft(db: DatabaseAdapter): number {
   return end ? Math.max(0, Math.ceil((Date.parse(end) - Date.now()) / 1000)) : 0;
 }
 export function isQualified(db: DatabaseAdapter, teamId: string): boolean {
-  return db.get<{ is_qualified: number }>("SELECT is_qualified FROM teams WHERE id = ?", teamId)?.is_qualified === 1;
+  const row = db.get<{ is_qualified: number; round2_eligible: number }>("SELECT is_qualified, round2_eligible FROM teams WHERE id = ?", teamId);
+  return (row?.is_qualified === 1) || (row?.round2_eligible === 1);
 }
 export function isRound2Eligible(db: DatabaseAdapter, teamId: string): boolean {
-  return db.get<{ round2_eligible: number }>("SELECT round2_eligible FROM teams WHERE id = ?", teamId)?.round2_eligible === 1;
+  const row = db.get<{ is_qualified: number; round2_eligible: number }>("SELECT is_qualified, round2_eligible FROM teams WHERE id = ?", teamId);
+  return (row?.round2_eligible === 1) || (row?.is_qualified === 1);
 }
 export function solvedCount(db: DatabaseAdapter, teamId: string): number {
   return db.get<{ n: number }>("SELECT COUNT(*) AS n FROM team_inventory WHERE team_id = ? AND status = 'verified' AND bot_id NOT IN ('itachi', 'aizen')", teamId)?.n ?? 0;
@@ -70,7 +72,9 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
             // Set eligible teams
             if (Array.isArray(body.selectedTeamIds) && body.selectedTeamIds.length > 0) {
               const placeholders = body.selectedTeamIds.map(() => "?").join(",");
-              db.run(`UPDATE teams SET round2_eligible = 1 WHERE id IN (${placeholders})`, ...body.selectedTeamIds);
+              db.run(`UPDATE teams SET round2_eligible = 1, is_qualified = 1 WHERE id IN (${placeholders})`, ...body.selectedTeamIds);
+            } else {
+              db.run("UPDATE teams SET round2_eligible = 1, is_qualified = 1 WHERE is_qualified = 1");
             }
             
             db.run("INSERT INTO game_state (key, value) VALUES ('vault_open', '1') ON CONFLICT(key) DO UPDATE SET value = '1'");
@@ -149,8 +153,15 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
   app.post("/api/round2/enter", async (req, reply) => {
     const session = sessionOf(req);
     if (!session) return reply.code(401).send({ error: "no session" });
-    if (!isRound2Eligible(db, session.teamId)) return reply.code(403).send({ error: "not_selected" });
-    if (round2Status(db) !== "active" || !vaultOpen(db) || !isQualified(db, session.teamId)) return reply.code(403).send({ error: "vault sealed or not qualified" });
+    if (!isRound2Eligible(db, session.teamId) && !isQualified(db, session.teamId)) {
+      return reply.code(403).send({ error: "not_selected" });
+    }
+    if (round2Status(db) !== "active") {
+      return reply.code(403).send({ error: "Round 2 is not active yet." });
+    }
+    // Ensure vault is marked open once round 2 is active
+    db.run("INSERT INTO game_state (key, value) VALUES ('vault_open', '1') ON CONFLICT(key) DO UPDATE SET value = '1'");
+
     const existing = db.get<{ boss: string }>("SELECT boss FROM r2_assignments WHERE team_id = ?", session.teamId);
     if (existing) return { boss: existing.boss as BotId };
     const boss: BotId = Math.random() < 0.5 ? "itachi" : "aizen";

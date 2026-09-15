@@ -110,6 +110,24 @@ npm test            # workspace test suites
 Enter-to-play, inventory + merchant, and gates → portal → Round-2 flows should be
 walked live before doors open.
 
+### Codex primary (GPT-5.6 Luna) — optional
+
+Gameplay prefers Codex GPT-5.6 Luna (R1 effort `low`, R2 effort `medium`) via a
+long-lived local `codex app-server` child process, and falls back to the existing
+Groq → Zen stack when Codex is unavailable. If Codex is down, the event continues
+on Groq/Zen with no code changes.
+
+Backend host requirements:
+
+- Install the Codex CLI on the backend host (`codex --version` must work; override
+  with `CODEX_BIN`).
+- Connect the account once from **Admin → Codex Luna → Connect with ChatGPT**.
+- Persist `CODEX_HOME` (auth state) on durable storage, or reconnect after the
+  instance is replaced. Never commit it; it is gitignored.
+- Optional tuning: `CODEX_ENABLED`, `CODEX_RUNTIME_DIR`, `CODEX_MAX_CONCURRENCY`,
+  `CODEX_RPC_TIMEOUT_MS`, `CODEX_FIRST_ACTIVITY_TIMEOUT_MS`, `CODEX_TURN_TIMEOUT_MS`
+  (see `.env.example`). Boot never fails when Codex is missing.
+
 ---
 
 ## Deploying the frontend (Vercel)
@@ -149,7 +167,7 @@ When these variables are configured, the frontend automatically connects to the 
 │       ├── bots/           # persona/boss prompts — server-only, never bundled
 │       ├── chat/           # Round-1 + Round-2 chat handlers
 │       ├── routes/         # teams, merchant, gates, round2, admin
-│       ├── llm/            # Groq + Zen streaming clients
+│       ├── llm/            # Codex primary (GPT-5.6 Luna) + Groq + Zen fallback clients
 │       ├── contracts/      # single-source WS event schemas
 │       ├── db/             # schema.sql + adapter (SQLite file)
 │       ├── elo/            # ratings

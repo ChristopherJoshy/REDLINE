@@ -23,5 +23,16 @@ export const env = {
   get adminSettingsPin(): string | undefined {
     return process.env["ADMIN_SETTINGS_PIN"];
   },
+  get codexEnabled(): boolean {
+    return (process.env["CODEX_ENABLED"] ?? "true").toLowerCase() !== "false";
+  },
+  get codexBin(): string | undefined {
+    const v = process.env["CODEX_BIN"];
+    return v && v.trim() !== "" ? v.trim() : undefined;
+  },
+  get codexHome(): string | undefined {
+    const v = process.env["CODEX_HOME"];
+    return v && v.trim() !== "" ? v.trim() : undefined;
+  },
   port: Number(process.env["PORT"] ?? 3001),
 } as const;

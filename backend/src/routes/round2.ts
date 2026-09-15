@@ -4,7 +4,7 @@ import type { BotId, InventoryDelta } from "../contracts/events.js";
 import type { DatabaseAdapter } from "../db/database.js";
 import type { Bus } from "../ws/bus.js";
 import type { ChatMessage } from "../llm/groq.js";
-import { streamZenChat } from "../llm/zen.js";
+import { streamPrimaryR2 } from "../llm/primary.js";
 import { sessionOf } from "./teams.js";
 import { R2_TOOLS, bossKeys, bossOf, escalationUsed, isBoss, r2Phase, userTurns, type BossId } from "../bots/r2.js";
 import { ITACHI_P1_PROMPT, ITACHI_META } from "../bots/itachi.prompt.js";
@@ -143,7 +143,7 @@ export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, 
     ];
     let fullText = "";
     try {
-      for await (const item of streamZenChat(messages, R2_TOOLS, db)) {
+      for await (const item of streamPrimaryR2(messages, R2_TOOLS, db, session.teamId, boss)) {
         if (item.kind === "delta") {
           fullText += item.text;
           bus.broadcast(session.teamId, bus.frame("bot_token", { botId: boss, delta: item.text }));

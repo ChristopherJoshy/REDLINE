@@ -18,6 +18,11 @@ backend/backups/
 !.env.example
 *.local
 
+# Codex App Server auth + isolated runtime (may contain account credentials)
+.codex-home/
+backend/data/codex-runtime/
+.codex/
+
 # Hosting / logs / coverage
 .vercel/
 *.log

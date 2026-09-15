@@ -11,6 +11,8 @@ import { registerAdminRoutes } from "./routes/admin.js";
 import { registerGateRoutes } from "./routes/gates.js";
 import { roundState } from "./rounds/state.js";
 import { registerRound2Routes } from "./routes/round2.js";
+import { registerCodexRoutes } from "./routes/codex.js";
+import { sharedAppServer } from "./llm/codex/appServer.js";
 import { readAssessmentSettings } from "./assessment/settings.js";
 import { registerMerchantRoutes } from "./routes/merchant.js";
 import { Bus } from "./ws/bus.js";
@@ -76,6 +78,7 @@ registerLockRoutes(app, locks, bus);
 registerMerchantRoutes(app, db, bus);
 registerGateRoutes(app, db, bus);
 registerRound2Routes(app, db, bus);
+registerCodexRoutes(app);
 registerAdminRoutes(app, db, root, bus, locks);
 
 app.post("/api/fullscreen-log", async (req, reply) => {
@@ -147,7 +150,7 @@ async function boot(): Promise<void> {
   void env.zenApiKey;
   void env.joinCodePepper;
 
-  app.addHook("onClose", async () => { clearInterval(roundEvents); clearInterval(telemetryInterval); wss.close(); db.close(); });
+  app.addHook("onClose", async () => { clearInterval(roundEvents); clearInterval(telemetryInterval); wss.close(); db.close(); try { sharedAppServer().close(); } catch { /* ignore */ } });
 
   await app.listen({ port: env.port, host: "0.0.0.0" });
   const wss = new WebSocketServer({ server: app.server });

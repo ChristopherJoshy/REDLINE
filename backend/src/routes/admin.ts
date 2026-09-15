@@ -18,6 +18,7 @@ import {
   type LlmProvider,
 } from "../llm/keyPool.js";
 import { tokenTracker } from "../llm/tokenTracker.js";
+import { codexHealthSummary } from "./codex.js";
 import { round2Status, round2TimeLeft, round2Duration } from "./gates.js";
 import { normalizeAssessmentSettings, readAssessmentSettings } from "../assessment/settings.js";
 
@@ -553,6 +554,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       peakTps: tokenMetrics.peakTps,
       averageTps: tokenMetrics.averageTps,
       totalLlmRequests: tokenMetrics.totalRequests,
+      ...codexHealthSummary(),
     };
   });
 

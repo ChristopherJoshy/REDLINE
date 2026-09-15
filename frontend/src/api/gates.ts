@@ -35,11 +35,15 @@ async function adminPost(path: string, code: string, body?: Record<string, unkno
     init.body = JSON.stringify(body);
   }
   const res = await apiFetch(path, init);
-  const data = (await res.json()) as unknown;
+  const data = (await res.json()) as { error?: unknown };
   if (!res.ok) {
-    throw new Error("admin failed");
+    throw new Error(typeof data.error === "string" ? data.error : "admin request failed");
   }
   return data;
+}
+
+export function startRound1(code: string, durationSecs: number): Promise<{ ok: boolean; countdownEndsAt: string; duration: number }> {
+  return adminPost("/api/admin/start-round1", code, { durationSecs }) as Promise<{ ok: boolean; countdownEndsAt: string; duration: number }>;
 }
 
 export function endRound1(code: string): Promise<unknown> {
@@ -54,8 +58,8 @@ export function openVault(code: string): Promise<unknown> {
   return adminPost("/api/admin/open-vault", code);
 }
 
-export function startRound2(code: string, durationSecs?: number): Promise<{ ok: boolean; countdownEndsAt: string; duration: number }> {
-  return adminPost("/api/admin/start-round2", code, durationSecs !== undefined ? { durationSecs } : undefined) as Promise<{ ok: boolean; countdownEndsAt: string; duration: number }>;
+export function startRound2(code: string, durationSecs = 1800): Promise<{ ok: boolean; countdownEndsAt: string; duration: number }> {
+  return adminPost("/api/admin/start-round2", code, { durationSecs }) as Promise<{ ok: boolean; countdownEndsAt: string; duration: number }>;
 }
 
 export function stopRound2(code: string): Promise<unknown> {

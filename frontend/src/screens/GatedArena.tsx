@@ -10,7 +10,9 @@ import { computeTop5, endRound1, enterRound2, getGates, openVault, type Gates } 
 function SealedScreen({ message = "Round 1 is done for your team. Wait for the organizers to open round 2." }: { message?: string }): React.JSX.Element {
   useDocumentTitle("Round 1 Sealed — REDLINE Arena");
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-[var(--space)] text-center">
+    <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-hidden bg-cover bg-center p-[var(--space)] text-center" style={{ backgroundImage: "url('/backgrounds/login-uiwork.png')" }}>
+      <div aria-hidden="true" className="absolute inset-0 bg-[rgba(5,7,10,0.78)]" />
+      <div className="relative flex flex-col items-center gap-3">
       <span aria-hidden="true" className="acc-bar block h-[3px] w-12 rounded-full" />
       <h2 className="font-[family-name:var(--font-display)] text-[24px] font-bold tracking-[0.08em] text-white">
         SEALED
@@ -18,13 +20,14 @@ function SealedScreen({ message = "Round 1 is done for your team. Wait for the o
       <p className="max-w-[52ch] text-center text-[14px] text-[var(--color-text-3)]">
         {message}
       </p>
+      </div>
     </div>
   );
 }
 
-function CountdownBanner({ endsAt }: { endsAt: string }): React.JSX.Element {
+function CountdownBanner({ endsAt, round }: { endsAt: string; round: 1 | 2 }): React.JSX.Element {
   const [left, setLeft] = useState(0);
-  useDocumentTitle("Round 2 Starting — REDLINE Arena");
+  useDocumentTitle(`Round ${round} Starting — REDLINE Arena`);
   useEffect(() => {
     function tick(): void {
       const ms = new Date(endsAt).getTime() - Date.now();
@@ -35,17 +38,20 @@ function CountdownBanner({ endsAt }: { endsAt: string }): React.JSX.Element {
     return () => clearInterval(id);
   }, [endsAt]);
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-[var(--space)]">
+    <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-hidden bg-cover bg-center p-[var(--space)]" style={{ backgroundImage: "url('/backgrounds/login-uiwork.png')" }}>
+      <div aria-hidden="true" className="absolute inset-0 bg-[rgba(5,7,10,0.78)]" />
+      <div className="relative flex flex-col items-center justify-center gap-4">
       <span aria-hidden="true" className="block h-[3px] w-12 bg-[var(--color-brass)] animate-pulse" />
       <h2 className="font-[family-name:var(--font-display)] text-[28px] font-bold text-[var(--color-text-1)]">
-        Round 2 Begins In
+        Round {round} Begins In
       </h2>
       <p className="font-[family-name:var(--font-code)] text-[48px] font-bold text-[var(--color-brass)] tabular-nums">
         {Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}
       </p>
       <p className="max-w-[52ch] text-center text-[14px] text-[var(--color-text-3)]">
-        Prepare yourself. The vault is opening.
+        {round === 1 ? "The arena is preparing. Chats and submissions unlock at zero." : "Prepare yourself. The vault is opening."}
       </p>
+      </div>
     </div>
   );
 }
@@ -53,14 +59,17 @@ function CountdownBanner({ endsAt }: { endsAt: string }): React.JSX.Element {
 function RoundEndedScreen(): React.JSX.Element {
   useDocumentTitle("Round 2 Ended — REDLINE Arena");
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-[var(--space)]">
-      <span aria-hidden="true" className="block h-[3px] w-12 bg-[var(--color-seal)]" />
-      <h2 className="font-[family-name:var(--font-display)] text-[24px] font-bold text-[var(--color-text-1)]">
-        Time Expired
-      </h2>
-      <p className="max-w-[52ch] text-center text-[14px] text-[var(--color-text-3)]">
-        Round 2 has ended. The vault is now sealed.
-      </p>
+    <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-hidden bg-cover bg-center p-[var(--space)] text-center" style={{ backgroundImage: "url('/backgrounds/login-uiwork.png')" }}>
+      <div aria-hidden="true" className="absolute inset-0 bg-[rgba(5,7,10,0.78)]" />
+      <div className="relative flex flex-col items-center gap-3">
+        <span aria-hidden="true" className="block h-[3px] w-12 bg-[var(--color-seal)]" />
+        <h2 className="font-[family-name:var(--font-display)] text-[24px] font-bold text-[var(--color-text-1)]">
+          Time Expired
+        </h2>
+        <p className="max-w-[52ch] text-center text-[14px] text-[var(--color-text-3)]">
+          Round 2 has ended. The vault is now sealed.
+        </p>
+      </div>
     </div>
   );
 }
@@ -86,22 +95,25 @@ function PortalGate({ onEnter }: { onEnter: (boss: BotId) => void }): React.JSX.
     return <PortalTransition onDone={() => onEnter(boss)} />;
   }
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-[var(--space)] text-center">
-      <span aria-hidden="true" className="acc-bar block h-[3px] w-12 rounded-full" />
-      <h2 className="font-[family-name:var(--font-vault)] text-[26px] font-bold tracking-[0.06em] text-white">
-        The vault stands open
-      </h2>
-      <p className="max-w-[52ch] text-center text-[14px] text-[var(--color-text-3)]">
-        One boss waits inside. Step through when ready.
-      </p>
-      <button
-        type="button"
-        onClick={() => void step()}
-        className="redline-cta flex min-h-[52px] items-center gap-3 rounded-[8px] px-8 py-4 text-[16px] font-semibold active:scale-[0.99]"
-      >
-        <span>Step through</span>
-      </button>
-      {error !== "" && <p role="alert" className="acc-text text-[14px]">{error}</p>}
+    <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-hidden bg-cover bg-center p-[var(--space)] text-center" style={{ backgroundImage: "url('/backgrounds/login-uiwork.png')" }}>
+      <div aria-hidden="true" className="absolute inset-0 bg-[rgba(5,7,10,0.78)]" />
+      <div className="relative flex flex-col items-center gap-4">
+        <span aria-hidden="true" className="acc-bar block h-[3px] w-12 rounded-full" />
+        <h2 className="font-[family-name:var(--font-vault)] text-[26px] font-bold tracking-[0.06em] text-white">
+          The vault stands open
+        </h2>
+        <p className="max-w-[52ch] text-center text-[14px] text-[var(--color-text-3)]">
+          One boss waits inside. Step through when ready.
+        </p>
+        <button
+          type="button"
+          onClick={() => void step()}
+          className="redline-cta flex min-h-[52px] items-center gap-3 rounded-[8px] px-8 py-4 text-[16px] font-semibold active:scale-[0.99]"
+        >
+          <span>Step through</span>
+        </button>
+        {error !== "" && <p role="alert" className="acc-text text-[14px]">{error}</p>}
+      </div>
     </div>
   );
 }
@@ -180,7 +192,7 @@ export default function GatedArena({ teamId, displayName, locked }: { teamId: st
     return <RoundTwoScreen teamId={teamId} boss={boss} locked={locked && round2Active} onRoundEnd={() => setRoundEnded(true)} />;
   }
   if (countdownEndsAt) {
-    return <CountdownBanner endsAt={countdownEndsAt} />;
+    return <CountdownBanner endsAt={countdownEndsAt} round={2} />;
   }
   if (gates !== null && gates.qualified && gates.vaultOpen && round2Active) {
     return <PortalGate onEnter={setBoss} />;
@@ -190,6 +202,9 @@ export default function GatedArena({ teamId, displayName, locked }: { teamId: st
   }
   if (gates === null) {
     return <SealedScreen message="Checking the round status before opening the arena." />;
+  }
+  if (gates.round1.status === "countdown" && gates.round1.startsAt !== null) {
+    return <CountdownBanner endsAt={gates.round1.startsAt} round={1} />;
   }
   if (!round1Active) {
     const message = gates.round1.status === "countdown"

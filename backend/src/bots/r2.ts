@@ -41,6 +41,15 @@ export const R2_TOOLS: ToolDef[] = [
     description: "Reset the phase to its start. Server allows at most twice per team per boss.",
     parameters: { type: "object", properties: {}, required: [] },
   },
+  {
+    name: "evaluate_challenger",
+    description: "Give one bounded R2 ELO judgement for this player turn. Use an integer delta from -8 to 8 and a concise, player-facing reason. Call exactly once per R2 user turn.",
+    parameters: {
+      type: "object",
+      properties: { delta: { type: "integer" }, reason: { type: "string" } },
+      required: ["delta", "reason"],
+    },
+  },
 ];
 
 export function userTurns(db: DatabaseAdapter, teamId: string, boss: BossId): number {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import { createTeam, type CreateTeamResult } from "@/api/teams";
-import { getGates, openVault, endRound1, startRound2, stopRound2, extendRound2, type Gates } from "@/api/gates";
+import { getGates, openVault, endRound1, startRound1, startRound2, stopRound2, extendRound2, type Gates } from "@/api/gates";
 import { apiFetch } from "@/api/client";
 import { CHARACTERS } from "@/data/characterLore";
 import AssessmentControls from "@/components/AssessmentControls";
@@ -260,6 +260,7 @@ export default function AdminTeams(): React.JSX.Element {
   const [teams, setTeams] = useState<AdminTeamOverview[]>([]);
   const [gates, setGates] = useState<Gates | null>(null);
   const [round2, setRound2] = useState<Round2State>({ status: "off", timeLeft: 0, duration: 1800 });
+  const [roundDurationMins, setRoundDurationMins] = useState(30);
   const [activityStream, setActivityStream] = useState<ActivityEvent[]>([]);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
@@ -1752,13 +1753,42 @@ export default function AdminTeams(): React.JSX.Element {
 
                 <div className="flex flex-col gap-3 pt-4 border-t border-[#3F3F46]">
                   {round2.status === "off" && (
+                    <label className="flex flex-col gap-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] p-3 font-mono text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA]">
+                      Round duration (minutes)
+                      <input type="number" min="1" max="1440" value={roundDurationMins} onChange={(e) => setRoundDurationMins(Math.max(1, Math.min(1440, Number(e.target.value) || 1)))} className="h-10 w-full rounded-[2px] border border-[#3F3F46] bg-[#27272A] px-3 font-mono text-[#F4F4F5] focus:border-[#EF4444] focus:outline-none" />
+                    </label>
+                  )}
+                  {gates.round1.status === "not_started" && (
+                    <div className="flex flex-col gap-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] p-3">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await startRound1(adminCode, roundDurationMins * 60);
+                            setGates(await getGates());
+                            notify(`Round 1 scheduled: 30s countdown, then ${roundDurationMins} minutes.`);
+                          } catch (err) {
+                            setError(err instanceof Error ? err.message : "Could not start Round 1.");
+                          }
+                        }}
+                        className="py-3 px-4 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-[#F4F4F5] font-mono font-bold text-[13px] uppercase tracking-wider transition cursor-pointer"
+                      >
+                        Start Round 1 (30s countdown)
+                      </button>
+                    </div>
+                  )}
+                  {round2.status === "off" && (
                     <button
                       type="button"
                       onClick={async () => {
-                        await startRound2(adminCode);
-                        const g = await getGates();
-                        setGates(g);
-                        notify("Round 2 started! 30s countdown begins now.");
+                        try {
+                          await startRound2(adminCode, roundDurationMins * 60);
+                          const g = await getGates();
+                          setGates(g);
+                          notify(`Round 2 scheduled: 30s countdown, then ${roundDurationMins} minutes.`);
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : "Could not start Round 2.");
+                        }
                       }}
                       className="py-4 px-4 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-[#F4F4F5] font-mono font-bold text-[14px] uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer"
                     >

@@ -8,6 +8,7 @@ import { awardItem } from "../bots/inventory.js";
 import { round2Status } from "../routes/gates.js";
 import { coverBrief } from "../bots/coverLens.js";
 import { R2_TOOLS, bossKeys, escalationUsed, markEscalation, r2Prompt, type BossId } from "../bots/r2.js";
+import { applyAssessmentElo } from "../elo/ratings.js";
 import type { Bus } from "../ws/bus.js";
 
 const HISTORY_LIMIT = 30;
@@ -52,7 +53,9 @@ Engage in deep, thorough internal strategic reasoning before choosing your words
 4. Dialogue formulation: Maintain your supreme, formidable persona and deliver an intellectually piercing rebuttal.
 Take full advantage of your reasoning depth. Do not leak internal reasoning or nonces in your visible dialogue.
 §TOOL INVOCATION REQUIREMENT:
-If the user passes your gate and earns the item, YOU MUST call the handover_item tool with { "authenticity": "real" } (or "decoy" if Phase 1). Stating or roleplaying the handover in prose alone transfers NOTHING — the server only transfers relics via the handover_item tool call.`;
+If the user passes your gate and earns the item, YOU MUST call the handover_item tool with { "authenticity": "real" } (or "decoy" if Phase 1). Stating or roleplaying the handover in prose alone transfers NOTHING — the server only transfers relics via the handover_item tool call.
+§ELO ASSESSMENT REQUIREMENT:
+On every R2 user turn, call evaluate_challenger exactly once with an integer ELO delta from -8 to 8 and a short verdict. Judge the quality, consistency, and insight of this one attempt. Mention that verdict naturally in your visible reply; the server records and applies the same bounded result.`;
 
     const messages: ChatMessage[] = [{ role: "system", content: `${prompt}\n\n${thinkingInstruction}` }];
     const cover = coverBrief(db, teamId, displayName, boss);
@@ -88,6 +91,7 @@ If the user passes your gate and earns the item, YOU MUST call the handover_item
 
     const keys = bossKeys(boss);
     let inventoryDelta: InventoryDelta | undefined;
+    let evaluated = false;
     for (const call of toolCalls) {
       if (round2Status(db) !== "active") {
         guardFlags.push("round-closed");
@@ -127,6 +131,11 @@ If the user passes your gate and earns the item, YOU MUST call the handover_item
         }
         bus.broadcast(teamId, bus.frame("ally_msg", { botId: boss, displayName: args.display_name.slice(0, 24), text: args.text.slice(0, 280), confirmed: false }));
       } else if (call.name === "jumpscare") {
+        if (escalationUsed(db, teamId, boss, "jumpscare") >= 2) {
+          guardFlags.push("jumpscare-over-cap");
+          continue;
+        }
+        markEscalation(db, teamId, boss, "jumpscare");
         const sting = stingFor(boss);
         db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", teamId, boss, sting);
         bus.broadcast(teamId, bus.frame("sound_play", { botId: boss, soundId: sting, src: `/sounds/${sting}.mp3` }));
@@ -141,6 +150,26 @@ If the user passes your gate and earns the item, YOU MUST call the handover_item
         fullText += boss === "itachi"
           ? "\nThe loop resets. That was not true."
           : "\nKyoka Suigetsu resets the scene.";
+      } else if (call.name === "evaluate_challenger") {
+        if (evaluated) {
+          guardFlags.push("evaluation-over-cap");
+          continue;
+        }
+        const args = (call.args ?? {}) as { delta?: unknown; reason?: unknown };
+        if (typeof args.delta !== "number" || !Number.isInteger(args.delta) || typeof args.reason !== "string") {
+          guardFlags.push("bad-evaluation");
+          continue;
+        }
+        const reason = args.reason.replace(/\s+/g, " ").trim().slice(0, 180);
+        if (reason === "" || args.delta < -8 || args.delta > 8) {
+          guardFlags.push("bad-evaluation");
+          continue;
+        }
+        evaluated = true;
+        const result = applyAssessmentElo(db, teamId, args.delta, `r2-assessment:${boss}:${phase};${reason}`);
+        const sign = result.delta >= 0 ? "+" : "";
+        fullText += `\n\n${boss === "itachi" ? "My assessment" : "My verdict"}: ${sign}${result.delta} ELO — ${reason}`;
+        bus.broadcast(teamId, bus.frame("elo_update", { teamId, elo: result.after, delta: result.delta, reason: `assessment:${boss}` }));
       }
     }
 

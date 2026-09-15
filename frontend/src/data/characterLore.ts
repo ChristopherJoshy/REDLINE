@@ -318,8 +318,8 @@ export const CHAT_BACKGROUND: Record<BotId, string> = {
   levi: "/backgrounds/leavy-ackerman.png",
   deadpool: "/backgrounds/deadpool.png",
   merchant: "/backgrounds/merchant_bg.png",
-  itachi: "/backgrounds/dark_castle_night.jpg",
-  aizen: "/backgrounds/gothic_citadel.jpg",
+  itachi: "/backgrounds/itachi-vault.png",
+  aizen: "/backgrounds/aizen-vault.png",
 };
 
 // Photo presentation: full-body cosplay shots keep the mask in frame via

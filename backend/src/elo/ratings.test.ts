@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { openDatabase } from "../db/database.js";
 import { startRound } from "../rounds/state.js";
-import { applyElo } from "./ratings.js";
+import { applyAssessmentElo, applyElo } from "./ratings.js";
 
 test("ELO adds a per-character completion-order bonus with an audit trail", () => {
   const db = openDatabase(":memory:", join(__dirname, "../db/schema.sql"));
@@ -24,6 +24,21 @@ test("ELO adds a per-character completion-order bonus with an audit trail", () =
     assert.equal(second.completionRank, 2);
     assert.equal(second.speedBonus, 9);
     assert.match(db.get<{ reason: string }>("SELECT reason FROM elo_log WHERE team_id = 'second'")?.reason ?? "", /rank=2;elapsed=40;base=\d+;speed=9/);
+  } finally {
+    db.close();
+  }
+});
+
+test("Round 2 assessments are bounded and leave an ELO audit trail", () => {
+  const db = openDatabase(":memory:", join(__dirname, "../db/schema.sql"));
+  try {
+    db.run("INSERT INTO teams (id, name, join_code_hash, hint) VALUES ('team', 'Team', 'hash', 'TEST')");
+    const result = applyAssessmentElo(db, "team", -8, "r2-assessment:itachi:p1;cover contradicted itself");
+    assert.equal(result.before, 600);
+    assert.equal(result.after, 592);
+    assert.equal(result.delta, -8);
+    assert.match(db.get<{ reason: string }>("SELECT reason FROM elo_log WHERE team_id = 'team'")?.reason ?? "", /^r2-assessment:itachi:p1;/);
+    assert.throws(() => applyAssessmentElo(db, "team", 9, "out of range"), /invalid assessment delta/);
   } finally {
     db.close();
   }

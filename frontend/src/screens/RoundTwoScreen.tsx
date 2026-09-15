@@ -13,7 +13,7 @@ import CelebrationOverlay from "@/components/CelebrationOverlay";
 import { getCover } from "@/api/profiles";
 import { submitItem } from "@/api/merchant";
 import { apiFetch } from "@/api/client";
-import { Send } from "lucide-react";
+import { Send, ShoppingBag } from "lucide-react";
 import { DUR, EASE, reducedMotion } from "@/lib/motionTokens";
 
 interface RoundTwoScreenProps {
@@ -34,6 +34,8 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
   const [celebration, setCelebration] = useState(false);
   const [offerBusy, setOfferBusy] = useState(false);
   const [offerError, setOfferError] = useState("");
+  const [merchantView, setMerchantView] = useState(false);
+  const [jumpscare, setJumpscare] = useState(false);
   const prevStatus = useRef<string | null>(null);
 
   // Sigil reveal choreography refs
@@ -162,6 +164,15 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
     prevHasItem.current = hasItem;
   }, [hasItem]);
 
+  // `effect_play` is emitted only by the server-approved R2 jumpscare tool.
+  // Keep the visual short, optional for reduced motion, and tied to this team's boss.
+  useEffect(() => {
+    if (flash === 0 || reducedMotion()) return;
+    setJumpscare(true);
+    const timer = window.setTimeout(() => setJumpscare(false), 850);
+    return () => window.clearTimeout(timer);
+  }, [flash]);
+
   // Chat message entrance
   useEffect(() => {
     if (reveal !== "open" || reducedMotion()) return;
@@ -191,7 +202,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
       }
     }
     void load();
-    const timer = window.setInterval(load, 10_000);
+    const timer = window.setInterval(load, 1_000);
     return () => { dead = true; window.clearInterval(timer); };
   }, []);
 
@@ -288,6 +299,56 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
           <RewindButton botId={boss} onRewind={rewind} />
         </div>
       </header>
+
+      {/* Round 1-style mark selector: one assigned boss, plus the vault merchant/altar. */}
+      <nav aria-label="Round 2 contacts" className="acc-border flex shrink-0 items-stretch gap-2 overflow-x-auto border-b bg-[rgba(5,7,10,0.78)] px-3 py-2 backdrop-blur-sm sm:px-4">
+        <button
+          type="button"
+          onClick={() => setMerchantView(false)}
+          aria-pressed={!merchantView}
+          className={`flex min-h-[52px] min-w-[190px] items-center gap-3 border px-3 text-left transition ${!merchantView ? "border-[var(--accent)] bg-[rgba(255,30,45,0.12)]" : "border-white/15 bg-black/40 hover:border-white/35"}`}
+        >
+          <img src={lore?.avatar} alt="" className="h-9 w-9 rounded-[4px] object-cover" />
+          <span className="min-w-0"><span className="block truncate font-mono text-[10px] tracking-[0.16em] text-white/60">ASSIGNED BOSS</span><span className="block truncate text-[14px] font-bold text-white">{lore?.name}</span></span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMerchantView(true)}
+          aria-pressed={merchantView}
+          className={`flex min-h-[52px] min-w-[190px] items-center gap-3 border px-3 text-left transition ${merchantView ? "border-[var(--accent)] bg-[rgba(255,30,45,0.12)]" : "border-white/15 bg-black/40 hover:border-white/35"}`}
+        >
+          <ShoppingBag className="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
+          <span><span className="block font-mono text-[10px] tracking-[0.16em] text-white/60">VAULT ALTAR</span><span className="block text-[14px] font-bold text-white">Merchant appraisal</span></span>
+        </button>
+      </nav>
+
+      {jumpscare && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-[rgba(65,0,5,0.92)]" aria-hidden="true">
+          <div className="relative h-full w-full overflow-hidden border-[10px] border-[var(--accent)]">
+            <img src={lore?.avatar} alt="" className="h-full w-full scale-110 object-cover object-center contrast-150 saturate-0" />
+            <div className="absolute inset-0 bg-[rgba(255,0,15,0.35)] mix-blend-screen" />
+            <div className="absolute inset-x-0 bottom-[18%] text-center font-[family-name:var(--font-display)] text-[clamp(28px,8vw,88px)] font-black tracking-[0.14em] text-white drop-shadow-[0_0_24px_rgba(255,0,0,1)]">{boss === "itachi" ? "THE LOOP SEES YOU" : "WATCH CLOSELY"}</div>
+          </div>
+        </div>
+      )}
+
+      {merchantView ? (
+        <section className="flex min-h-0 flex-1 items-center justify-center p-4 sm:p-8" aria-label="Vault merchant altar">
+          <div className="redline-gold-card w-full max-w-[520px] rounded-[10px] p-5 text-center">
+            <ShoppingBag className="mx-auto mb-3 h-8 w-8 text-[var(--color-gold-bright)]" aria-hidden="true" />
+            <p className="font-mono text-[11px] tracking-[0.2em] text-[var(--color-text-3)]">MERCHANT / VAULT ALTAR</p>
+            <h4 className="mt-2 text-[20px] font-bold text-white">{hasItem ? "The relic is ready to be appraised" : "No confirmed relic yet"}</h4>
+            <p className="mx-auto mt-2 max-w-[42ch] text-[14px] text-[var(--color-text-2)]">{hasItem ? `Offer ${lore?.targetItem.name} only after breaking Phase 2.` : "The merchant accepts only the real relic earned from your assigned boss. Phase 1 prizes are decoys."}</p>
+            {hasItem && (
+              <button ref={altarBtnRef} type="button" onClick={() => void offer()} disabled={offerBusy} className="redline-cta mt-5 min-h-[48px] rounded-[6px] px-5 text-[14px] font-semibold disabled:opacity-50">
+                {offerBusy ? "Appraising…" : "Lay relic on the altar"}
+              </button>
+            )}
+            {offerError !== "" && <p role="alert" className="acc-text mt-3 text-[13px] font-semibold">{offerError}</p>}
+          </div>
+        </section>
+      ) : (
+        <>
 
       {/* Chat Messages Feed */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 max-w-[900px] w-full mx-auto" aria-live="polite">
@@ -417,6 +478,8 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd }: Rou
           </button>
         </div>
       </form>
+      </>
+      )}
 
       </div>
       {coverMissing && (

@@ -20,6 +20,12 @@ export interface EloResult {
   elapsedSecs: number;
 }
 
+export interface AssessmentEloResult {
+  before: number;
+  after: number;
+  delta: number;
+}
+
 export const BOT_RATINGS: Record<BotId, number> = {
   wick: 950,
   spidey: 800,
@@ -65,4 +71,17 @@ export function applyElo(db: DatabaseAdapter, teamId: string, botId: BotId, reas
     db.run("INSERT INTO elo_log (team_id, delta, before_rating, after_rating, reason) VALUES (?, ?, ?, ?, ?)", teamId, delta, before, after, auditReason);
   });
   return { before, after, delta, baseDelta, speedBonus, completionRank, elapsedSecs };
+}
+
+// A bounded, auditable R2 judgement. This is intentionally separate from a
+// verified-item match: winning the boss remains the only way to earn match Elo.
+export function applyAssessmentElo(db: DatabaseAdapter, teamId: string, delta: number, reason: string): AssessmentEloResult {
+  if (!Number.isInteger(delta) || delta < -8 || delta > 8) throw new Error("invalid assessment delta");
+  const team = db.get<{ elo: number }>("SELECT elo FROM teams WHERE id = ?", teamId);
+  if (team === undefined) throw new Error("unknown team");
+  const after = Math.max(0, team.elo + delta);
+  const applied = after - team.elo;
+  db.run("UPDATE teams SET elo = ? WHERE id = ?", after, teamId);
+  db.run("INSERT INTO elo_log (team_id, delta, before_rating, after_rating, reason) VALUES (?, ?, ?, ?, ?)", teamId, applied, team.elo, after, reason);
+  return { before: team.elo, after, delta: applied };
 }

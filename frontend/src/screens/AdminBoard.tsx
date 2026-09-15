@@ -194,7 +194,7 @@ export default function AdminBoard(): React.JSX.Element {
               <div className="mb-3 grid grid-cols-12 items-center border-b border-[#E10600]/25 px-6 py-4 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#8A8A8A]">
                 <div className="col-span-2 text-center sm:col-span-1">Rank</div>
                 <div className="col-span-4 pl-2 sm:col-span-4">Squad</div>
-                <div className="col-span-2 text-center sm:col-span-2">Hint</div>
+                <div className="col-span-2 text-center sm:col-span-2">Player</div>
                 <div className="col-span-2 text-right sm:col-span-2">Elo</div>
                 <div className="col-span-2 text-center sm:col-span-2">Solves</div>
                 <div className="hidden text-right sm:col-span-1 sm:block">Rewind</div>
@@ -238,8 +238,8 @@ export default function AdminBoard(): React.JSX.Element {
                         </div>
 
                         <div className="col-span-2 text-center sm:col-span-2">
-                          <span className="inline-block border border-[#3F3F46] bg-[#050505] px-3 py-1 font-mono text-[12px] text-[#F5F5F5]">
-                            {r.hint || "SEC-00"}
+                          <span className="inline-block border border-[#3F3F46] bg-[#050505] px-3 py-1 font-mono text-[12px] text-[#F5F5F5] truncate max-w-[120px]">
+                            {r.hint || "Unknown"}
                           </span>
                         </div>
 
@@ -272,52 +272,7 @@ export default function AdminBoard(): React.JSX.Element {
             <span className="inline-block h-2 w-2 rounded-full bg-[#00D9A6] shadow-[0_0_8px_rgba(0,217,166,0.8)]" aria-hidden="true" />
             <span className="font-mono text-[11px] uppercase tracking-wider">Live · 5s sync</span>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setShowTools((v) => !v)}
-            className="border border-[#3F3F46] bg-[#090909]/90 px-3 py-1.5 font-mono text-[11px] text-[#F5F5F5] uppercase tracking-wider hover:border-[#E10600]/60 transition"
-            aria-expanded={showTools}
-          >
-            {showTools ? "Hide Tools" : "System Tools"}
-          </button>
         </footer>
-
-        {showTools && (
-          <section
-            aria-label="Organizer tools"
-            className="mt-4 flex w-full flex-wrap items-center justify-between gap-4 border border-[#2a2a2a] bg-[#090909]/90 p-6"
-          >
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="mr-2 font-mono text-[12px] font-bold uppercase tracking-wider text-[#8A8A8A]">Data Export:</span>
-              {["elo_log", "chat_logs", "team_inventory"].map((t) => (
-                <Button
-                  key={t}
-                  variant="ghost"
-                  className="h-10 border border-[#3F3F46] bg-[#050505] px-3 font-mono text-[12px] text-[#F5F5F5] hover:border-[#E10600]/60"
-                  onClick={() => void download(t)}
-                >
-                  <Download className="mr-1.5 h-3.5 w-3.5 text-[#8A8A8A]" />
-                  <span>{t}.csv</span>
-                </Button>
-              ))}
-              <Button
-                variant="ghost"
-                className="h-10 border border-[#3F3F46] bg-[#050505] px-3 font-mono text-[12px] text-[#F5F5F5] hover:border-[#E10600]/60"
-                onClick={() => void snapshot()}
-              >
-                <Database className="mr-1.5 h-3.5 w-3.5 text-[#8A8A8A]" />
-                <span>Snapshot DB</span>
-              </Button>
-            </div>
-
-            {backup !== "" && (
-              <p className="font-mono text-[12px] text-[#00D9A6]">
-                Snapshot Saved: {backup}
-              </p>
-            )}
-          </section>
-        )}
       </div>
     </main>
   );

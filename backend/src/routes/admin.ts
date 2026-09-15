@@ -134,7 +134,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       return reply.code(401).send({ error: "unauthorized" });
     }
     const rows = db.all<BoardRow>(
-      `SELECT t.name, t.hint, t.elo,
+      `SELECT t.name, (SELECT display_name FROM team_members m WHERE m.team_id = t.id ORDER BY rowid ASC LIMIT 1) AS hint, t.elo,
         (SELECT COUNT(*) FROM team_inventory i WHERE i.team_id = t.id AND i.status = 'verified') AS solved,
         (SELECT COUNT(*) FROM elo_log l WHERE l.team_id = t.id AND (l.reason LIKE 'rewind:%' OR l.reason LIKE 'admin_rewind:%')) AS rewinds,
         (SELECT MAX(i.verified_at) FROM team_inventory i WHERE i.team_id = t.id AND i.status = 'verified') AS lastSolve

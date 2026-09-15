@@ -42,6 +42,7 @@ async function* streamChatWithKey(
 
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
+    signal: AbortSignal.timeout(90_000),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
@@ -118,6 +119,9 @@ async function* streamChatWithKey(
       }
     }
   }
+  if (!finish || finish === "length" || finish === "content_filter") {
+    throw new Error("Groq response did not complete successfully");
+  }
   const ordered = [...calls.entries()].sort((a, b) => a[0] - b[0]);
   for (const [, slot] of ordered) {
     let args: unknown = {};
@@ -151,9 +155,14 @@ export async function* streamChat(
   tools: ToolDef[],
   db?: DatabaseAdapter,
 ): AsyncGenerator<StreamYield> {
+  let started = false;
   try {
-    yield* runWithRotation("groq", (key) => streamChatWithKey(key, messages, tools), db);
+    for await (const chunk of runWithRotation("groq", (key) => streamChatWithKey(key, messages, tools), db)) {
+      started = true;
+      yield chunk;
+    }
   } catch (groqErr) {
+    if (started) throw groqErr;
     console.warn("[StreamChat] Groq provider failed or exhausted, attempting OpenCode Zen (Muse Spark 1.3 Free) fallback...", groqErr);
     try {
       for await (const chunk of streamZenChat(messages, tools, db)) {

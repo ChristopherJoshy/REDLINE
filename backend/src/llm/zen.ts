@@ -32,6 +32,7 @@ export async function* streamZenChatWithKey(
 
   const res = await fetch(ZEN_RESPONSES_URL, {
     method: "POST",
+    signal: AbortSignal.timeout(90_000),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
@@ -57,6 +58,8 @@ export async function* streamZenChatWithKey(
   let buf = "";
   let reasoning = "";
   const emittedCalls = new Set<string>();
+  const calls: Array<{ id: string; name: string; args: unknown }> = [];
+  let completed = false;
 
   for (;;) {
     const { done, value } = await reader.read();
@@ -110,28 +113,21 @@ export async function* streamZenChatWithKey(
             } catch {
               args = {};
             }
-            yield { kind: "tool", call: { id: callId, name, args } };
+            calls.push({ id: callId, name, args });
           }
         }
       }
 
-      // 3. Incremental function call completion event
-      if (type === "response.function_call_arguments.done") {
-        const itemId = String(payload["item_id"] ?? randomUUID());
-        if (!emittedCalls.has(itemId)) {
-          emittedCalls.add(itemId);
-          const name = String(payload["name"] ?? "");
-          let args: unknown = {};
-          try {
-            args = JSON.parse(String(payload["arguments"] ?? "{}")) as unknown;
-          } catch {
-            args = {};
-          }
-          yield { kind: "tool", call: { id: itemId, name, args } };
-        }
+      if (type === "response.completed") completed = true;
+      if (type === "response.failed" || type === "response.incomplete" || type === "error") {
+        throw new Error("Zen response did not complete successfully");
       }
+
     }
   }
+
+  if (!completed) throw new Error("Zen response ended before completion");
+  for (const call of calls) yield { kind: "tool", call };
 
   const durationMs = Date.now() - startTime;
   const promptEstimate = messages.reduce((acc, m) => acc + Math.max(1, Math.ceil(m.content.length / 3.8)), 0);

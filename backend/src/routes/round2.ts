@@ -1,3 +1,4 @@
+import { directCharacter } from "../bots/direction.js";
 import type { FastifyInstance } from "fastify";
 import type { BotId, InventoryDelta } from "../contracts/events.js";
 import type { DatabaseAdapter } from "../db/database.js";
@@ -10,6 +11,8 @@ import { ITACHI_P1_PROMPT, ITACHI_META } from "../bots/itachi.prompt.js";
 import { AIZEN_P1_PROMPT, AIZEN_META } from "../bots/aizen.prompt.js";
 import { foldAnswer, matchesAny, variants } from "../portal/normalize.js";
 import { applyElo } from "../elo/ratings.js";
+import { round2Status } from "./gates.js";
+import { parseSoundId } from "../bots/tools.js";
 import { env } from "../env.js";
 
 const DISSOLVE: Record<BossId, string> = {
@@ -24,6 +27,9 @@ export async function r2Submit(
   boss: BossId,
   text: string,
 ): Promise<{ result: "verified"; botId: BossId; eloDelta: number; score: number } | { result: "dissolve"; botId: BossId; line: string } | { result: "troll"; line: string }> {
+  if (round2Status(db) !== "active" || bossOf(teamId, db) !== boss) {
+    return { result: "troll", line: "The vault is sealed." };
+  }
   const forms = variants(text);
   const keys = bossKeys(boss);
   const phase = r2Phase(db, teamId, boss);
@@ -32,10 +38,14 @@ export async function r2Submit(
     if (phase !== "p2") {
       return { result: "dissolve", botId: boss, line: DISSOLVE[boss] };
     }
-    const verified = db.get<{ status: string }>("SELECT status FROM team_inventory WHERE team_id = ? AND bot_id = ?", teamId, boss);
+    const verified = db.get<{ status: string; is_real: number }>("SELECT status, is_real FROM team_inventory WHERE team_id = ? AND bot_id = ?", teamId, boss);
     if (verified?.status === "verified") {
       return { result: "verified", botId: boss, eloDelta: 0, score: 0 };
     }
+    if (verified?.status !== "obtained" || verified.is_real !== 1) {
+      return { result: "troll", line: "The vault does not answer vagueness." };
+    }
+    const { elo, score, credits } = db.transaction(() => {
     db.run(
       "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, verified_at, attempt_count) VALUES (?, ?, ?, 1, 'verified', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1) ON CONFLICT(team_id, bot_id) DO UPDATE SET status = 'verified', verified_at = excluded.verified_at, attempt_count = team_inventory.attempt_count + 1",
       teamId,
@@ -56,7 +66,8 @@ export async function r2Submit(
     const bounty = boss === "itachi" ? ITACHI_META.bounty : AIZEN_META.bounty;
     db.run("UPDATE teams SET clue_credits = clue_credits + ? WHERE id = ?", bounty, teamId);
     const credits = db.get<{ clue_credits: number }>("SELECT clue_credits FROM teams WHERE id = ?", teamId)?.clue_credits ?? 0;
-    const delta: InventoryDelta = { botId: boss, itemKey: keys.itemKey, status: "verified" };
+      return { elo, score, credits };
+    });
     const items = db.all<InventoryDelta>(
       "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
       teamId,
@@ -106,6 +117,7 @@ export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, 
     if (!isBoss(body.boss as BotId) || bossOf(session.teamId, db) !== body.boss) {
       return reply.code(403).send({ error: "not your vault" });
     }
+    if (round2Status(db) !== "active") return reply.code(403).send({ error: "round 2 not active" });
     const boss = body.boss as BossId;
     const spoken = db.get<{ n: number }>(
       "SELECT COUNT(*) AS n FROM chat_logs WHERE team_id = ? AND bot_id = ? AND role = 'assistant'",
@@ -118,18 +130,18 @@ export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, 
     const prompt = boss === "itachi" ? ITACHI_P1_PROMPT : AIZEN_P1_PROMPT;
     bus.broadcast(session.teamId, bus.frame("bot_typing", { teamId: session.teamId, botId: boss, typing: true }));
     const messages: ChatMessage[] = [
-      { role: "system", content: prompt },
+      { role: "system", content: directCharacter(boss, prompt) },
       { role: "user", content: "[The challenger steps into the vault. Deliver your Phase-1 opener: one short speech.]" },
     ];
     let fullText = "";
     try {
-      for await (const item of streamZenChat(messages, R2_TOOLS)) {
+      for await (const item of streamZenChat(messages, R2_TOOLS, db)) {
         if (item.kind === "delta") {
           fullText += item.text;
           bus.broadcast(session.teamId, bus.frame("bot_token", { botId: boss, delta: item.text }));
         } else if (item.kind === "tool" && item.call.name === "play_sound") {
-          const id = (item.call.args as { sound_id?: unknown }).sound_id;
-          if (typeof id === "string" && /^[a-z]+\/[a-z0-9-]+$/.test(id)) {
+          const id = parseSoundId(item.call.args);
+          if (id !== undefined && round2Status(db) === "active") {
             db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", session.teamId, boss, id);
             bus.broadcast(session.teamId, bus.frame("sound_play", { botId: boss, soundId: id, src: `/sounds/${id}.mp3` }));
           }

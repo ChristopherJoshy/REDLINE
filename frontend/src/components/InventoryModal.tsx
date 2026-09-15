@@ -64,42 +64,42 @@ export default function InventoryModal({ isOpen, onClose, inventory, credits = 0
 
   const getRarityColor = (rarity: string) => {
     switch(rarity.toLowerCase()) {
-      case 'mythic': return 'bg-purple-500';
-      case 'legendary': return 'bg-yellow-400';
-      case 'epic': return 'bg-pink-500';
-      case 'rare': return 'bg-blue-400';
-      case 'uncommon': return 'bg-red-500';
-      case 'common': return 'bg-gray-300';
-      default: return 'bg-gray-400';
+      case 'mythic': return 'bg-brass-wash';
+      case 'legendary': return 'bg-brass-wash';
+      case 'epic': return 'bg-brass-wash';
+      case 'rare': return 'bg-brass-wash';
+      case 'uncommon': return 'bg-brass-wash';
+      case 'common': return 'bg-brass-wash';
+      default: return 'bg-brass-wash';
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="inv-title">
-      <div ref={containerRef} className="relative flex w-full max-w-[1200px] h-[90vh] max-h-[850px] flex-col rounded-[12px] bg-[#090b0e] border border-white/5 overflow-hidden shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-1  p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="inv-title">
+      <div ref={containerRef} className="relative flex w-full max-w-[1200px] h-[90dvh] max-h-[850px] flex-col rounded-[8px] bg-surface-1 border border-border overflow-hidden ">
         
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-white/5 bg-black/20 px-6 py-4 shrink-0">
+        <header className="flex items-center justify-between border-b border-border bg-surface-1 px-6 py-4 shrink-0">
           <div className="flex items-center gap-4">
-            <span className="flex h-12 w-12 items-center justify-center rounded-[8px] border border-[#ff2a2a]/40 bg-[#ff2a2a]/10 text-[#ff2a2a]">
+            <span className="flex h-12 w-12 items-center justify-center rounded-[8px] border border-border bg-surface-1 text-text-1">
               <Box className="w-6 h-6" />
             </span>
             <div className="flex flex-col">
-              <h2 id="inv-title" className="font-serif text-[22px] tracking-wide text-white/90 uppercase">
+              <h2 id="inv-title" className="font-serif text-[22px] tracking-wide text-text-1 uppercase">
                 Inventory
               </h2>
-              <span className="text-[13px] text-white/50 tracking-wide">
+              <span className="text-[13px] text-text-1 tracking-wide">
                 Filed {verifiedCount} of 8 · Holding {enrichedItems.length} of 8
               </span>
             </div>
           </div>
           
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 rounded-[6px] border border-[#d4af37]/30 bg-[#d4af37]/5 px-4 py-2 text-[14px] font-medium text-[#d4af37] transition hover:bg-[#d4af37]/10">
+            <button className="flex items-center gap-2 rounded-[6px] border border-border bg-surface-1 px-4 py-2 text-[14px] font-medium text-text-1 transition hover:bg-surface-1">
               <Link className="w-4 h-4" />
               <span>240 credits</span>
             </button>
-            <button onClick={onClose} className="text-white/40 hover:text-white/80 transition p-2">
+            <button onClick={onClose} className="text-text-1 hover:text-text-1 transition p-2">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -107,28 +107,28 @@ export default function InventoryModal({ isOpen, onClose, inventory, credits = 0
 
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
           {/* Left Pane: Items List */}
-          <main className="flex w-full lg:w-[60%] flex-col border-b lg:border-b-0 lg:border-r border-white/5 p-6 lg:overflow-y-auto shrink-0 lg:shrink">
+          <main className="flex w-full lg:w-[60%] flex-col border-b lg:border-b-0 lg:border-r border-border p-6 lg:overflow-y-auto shrink-0 lg:shrink">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="font-serif text-[20px] text-white/90">Items</h3>
-              <span className="text-[14px] text-white/50">{enrichedItems.length} held</span>
+              <h3 className="font-serif text-[20px] text-text-1">Items</h3>
+              <span className="text-[14px] text-text-1">{enrichedItems.length} held</span>
             </div>
 
             <div className="flex gap-3 mb-6">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-1" />
                 <input 
                   type="text" 
                   placeholder="Search items..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-[6px] py-2 pl-9 pr-4 text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-white/20 transition"
+                  className="w-full bg-surface-2 border border-border rounded-[6px] py-2 pl-9 pr-4 text-[13px] text-text-1 placeholder-white/30 focus:outline-none focus:border-border transition"
                 />
               </div>
-              <button className="flex items-center justify-between gap-2 bg-white/5 border border-white/10 rounded-[6px] px-4 py-2 text-[13px] text-white/70 hover:bg-white/10 transition min-w-[140px]">
+              <button className="flex items-center justify-between gap-2 bg-surface-2 border border-border rounded-[6px] px-4 py-2 text-[13px] text-text-1 hover:bg-surface-2 transition min-w-[140px]">
                 <span>Sort: Default</span>
                 <span className="text-[10px]">▼</span>
               </button>
-              <button className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-[6px] px-4 py-2 text-[13px] text-white/70 hover:bg-white/10 transition">
+              <button className="flex items-center gap-2 bg-surface-2 border border-border rounded-[6px] px-4 py-2 text-[13px] text-text-1 hover:bg-surface-2 transition">
                 <Filter className="w-4 h-4" />
                 <span>All Items</span>
                 <span className="text-[10px] ml-1">▼</span>
@@ -144,19 +144,19 @@ export default function InventoryModal({ isOpen, onClose, inventory, credits = 0
                     onClick={() => setSelectedKey(item.itemKey)}
                     className={`group relative flex aspect-[4/5] flex-col rounded-[8px] border p-4 transition text-left overflow-hidden ${
                       isSelected 
-                        ? "border-[#ff2a2a] bg-gradient-to-b from-[#ff2a2a]/5 to-[#ff2a2a]/10" 
-                        : "border-white/5 bg-white/[0.02] hover:bg-white/[0.04]"
+                        ? "border-border bg-surface-1  " 
+                        : "border-border bg-surface-2/[0.02] hover:bg-surface-2/[0.04]"
                     }`}
                   >
                     <div className="flex-1 flex items-center justify-center p-2 mb-2">
-                      <img src={item.asset} alt={item.name} className="max-h-[100px] w-auto object-contain drop-shadow-lg transition-transform group-hover:scale-105" />
+                      <img src={item.asset} alt={item.name} className="max-h-[100px] w-auto object-contain  transition-transform group-hover:scale-105" />
                     </div>
                     <div className="flex flex-col gap-1.5 mt-auto">
-                      <span className={`text-[13px] font-semibold leading-tight line-clamp-2 ${isSelected ? "text-white" : "text-white/80"}`}>
+                      <span className={`text-[13px] font-semibold leading-tight line-clamp-2 ${isSelected ? "text-text-1" : "text-text-1"}`}>
                         {item.name}
                       </span>
                       <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rotate-45 ${getRarityColor(item.rarity)} shadow-[0_0_8px_rgba(0,0,0,0.5)]`} />
+                        <div className={`w-2 h-2 rotate-45 ${getRarityColor(item.rarity)} `} />
                       </div>
                     </div>
                   </button>
@@ -165,56 +165,56 @@ export default function InventoryModal({ isOpen, onClose, inventory, credits = 0
               
               {/* Fill empty slots to make it look full if needed */}
               {Array.from({ length: Math.max(0, 8 - filteredItems.length) }).map((_, i) => (
-                <div key={`empty-${i}`} className="aspect-[4/5] rounded-[8px] border border-white/5 bg-white/[0.01]" />
+                <div key={`empty-${i}`} className="aspect-[4/5] rounded-[8px] border border-border bg-surface-2/[0.01]" />
               ))}
             </div>
           </main>
 
           {/* Right Pane: Item Details */}
-          <aside className="flex w-full lg:w-[40%] flex-col p-6 bg-[#05070a]/50 relative shrink-0 lg:shrink lg:overflow-y-auto border-t lg:border-t-0 border-white/5">
+          <aside className="flex w-full lg:w-[40%] flex-col p-6 bg-surface-1 relative shrink-0 lg:shrink lg:overflow-y-auto border-t lg:border-t-0 border-border">
             {selectedItem ? (
               <div className="flex flex-col h-full min-h-min">
-                <div className="relative flex lg:flex-1 min-h-[160px] lg:min-h-[120px] w-full items-center justify-center rounded-[8px] border border-white/5 bg-gradient-to-b from-white/[0.03] to-transparent mb-6 p-6">
-                  <img src={selectedItem.asset} alt={selectedItem.name} className="max-h-full max-w-[80%] object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]" />
+                <div className="relative flex lg:flex-1 min-h-[160px] lg:min-h-[120px] w-full items-center justify-center rounded-[8px] border border-border bg-surface-1  mb-6 p-6">
+                  <img src={selectedItem.asset} alt={selectedItem.name} className="max-h-full max-w-[80%] object-contain " />
                 </div>
 
                 <div className="flex flex-col gap-1 mb-6 shrink-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <div className={`w-2 h-2 rotate-45 ${getRarityColor(selectedItem.rarity)} shadow-[0_0_8px_currentColor]`} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">
+                    <div className={`w-2 h-2 rotate-45 ${getRarityColor(selectedItem.rarity)} `} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-1">
                       {selectedItem.rarity} {selectedItem.category}
                     </span>
                   </div>
-                  <h3 className="font-serif text-[24px] sm:text-[28px] tracking-wide text-white uppercase leading-tight mb-1">
+                  <h3 className="font-serif text-[24px] sm:text-[28px] tracking-wide text-text-1 uppercase leading-tight mb-1">
                     {selectedItem.name}
                   </h3>
-                  <p className="text-[12px] sm:text-[13px] text-white/40">
-                    Acquired from <span className="font-medium text-white/70">{selectedItem.botName}</span>
+                  <p className="text-[12px] sm:text-[13px] text-text-1">
+                    Acquired from <span className="font-medium text-text-1">{selectedItem.botName}</span>
                   </p>
                 </div>
 
                 {selectedItem.status === "verified" ? (
-                  <div className="flex shrink-0 items-center gap-3 rounded-[6px] border border-[#10b981]/30 bg-[#10b981]/10 px-4 py-3 mb-6">
-                    <ShieldCheck className="w-5 h-5 text-[#10b981]" />
-                    <span className="text-[11px] font-bold tracking-widest text-[#10b981] uppercase">Verified & Filed</span>
+                  <div className="flex shrink-0 items-center gap-3 rounded-[6px] border border-border bg-surface-1 px-4 py-3 mb-6">
+                    <ShieldCheck className="w-5 h-5 text-text-1" />
+                    <span className="text-[11px] font-bold tracking-widest text-text-1 uppercase">Verified & Filed</span>
                   </div>
                 ) : (
-                  <div className="flex shrink-0 items-center gap-3 rounded-[6px] border border-[#ff2a2a]/30 bg-[#ff2a2a]/10 px-4 py-3 mb-6">
-                    <AlertCircle className="w-5 h-5 text-[#ff2a2a]" />
-                    <span className="text-[11px] font-bold tracking-widest text-[#ff2a2a] uppercase">Held · Needs Appraisal</span>
+                  <div className="flex shrink-0 items-center gap-3 rounded-[6px] border border-border bg-surface-1 px-4 py-3 mb-6">
+                    <AlertCircle className="w-5 h-5 text-text-1" />
+                    <span className="text-[11px] font-bold tracking-widest text-text-1 uppercase">Held · Needs Appraisal</span>
                   </div>
                 )}
 
                 <div className="flex flex-col gap-6 shrink-0 text-[13.5px] leading-relaxed pb-6">
-                  <p className="italic text-white/60 border-l-2 border-white/10 pl-4 py-0.5">
+                  <p className="italic text-text-1 border-l-2 border-border pl-4 py-0.5">
                     "{selectedItem.description}"
                   </p>
                   
-                  <div className="flex flex-col gap-2 rounded-[6px] border border-white/5 bg-white/[0.02] p-4">
-                    <span className="text-[10px] font-bold tracking-widest text-[#d4af37] uppercase flex items-center gap-2">
+                  <div className="flex flex-col gap-2 rounded-[6px] border border-border bg-surface-2/[0.02] p-4">
+                    <span className="text-[10px] font-bold tracking-widest text-text-1 uppercase flex items-center gap-2">
                       <Search className="w-3 h-3" /> Authentication
                     </span>
-                    <p className="text-white/80">{selectedItem.authenticityTell}</p>
+                    <p className="text-text-1">{selectedItem.authenticityTell}</p>
                   </div>
                 </div>
 
@@ -224,7 +224,7 @@ export default function InventoryModal({ isOpen, onClose, inventory, credits = 0
                       onOpenMerchant();
                       onClose();
                     }}
-                    className="mt-auto shrink-0 flex w-full items-center justify-center gap-3 rounded-[6px] bg-gradient-to-r from-[#cc0000] to-[#aa0000] px-6 py-4 text-[14px] font-medium text-white shadow-[0_0_20px_rgba(255,42,42,0.2)] transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                    className="mt-auto shrink-0 flex w-full items-center justify-center gap-3 rounded-[6px] bg-surface-1   px-6 py-4 text-[14px] font-medium text-text-1  transition-transform hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <Box className="w-5 h-5" />
                     <span>Take to merchant</span>
@@ -233,7 +233,7 @@ export default function InventoryModal({ isOpen, onClose, inventory, credits = 0
                 )}
               </div>
             ) : (
-              <div className="flex flex-1 flex-col items-center justify-center text-center text-white/30">
+              <div className="flex flex-1 flex-col items-center justify-center text-center text-text-1">
                 <Package className="w-16 h-16 mb-4 opacity-50" />
                 <p>Select an item to view details</p>
               </div>

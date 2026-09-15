@@ -1,6 +1,7 @@
 import { apiFetch } from "./client";
+import type { RoundNumber, RoundSnapshot } from "@contracts/rounds";
 
-export interface Gates {
+export interface Gates extends RoundSnapshot {
   round1Open: boolean;
   vaultOpen: boolean;
   qualified: boolean;
@@ -27,9 +28,20 @@ async function adminPost(path: string, code: string, body?: Record<string, unkno
   const res = await apiFetch(path, init);
   const data = (await res.json()) as unknown;
   if (!res.ok) {
-    throw new Error("admin failed");
+    throw new Error((data as { error?: string }).error ?? "Could not update round.");
   }
   return data;
+}
+
+export async function getAdminRounds(code: string): Promise<RoundSnapshot> {
+  const res = await apiFetch("/api/admin/rounds", { headers: { "x-admin-code": code } });
+  if (!res.ok) throw new Error("Could not load round controls.");
+  return await res.json() as RoundSnapshot;
+}
+
+export function controlRound(code: string, round: RoundNumber, action: "start" | "stop" | "extend", body?: Record<string, unknown>): Promise<RoundSnapshot> {
+  const path = action === "stop" && round === 1 ? "end-round1" : `${action}-round${round}`;
+  return adminPost(`/api/admin/${path}`, code, body) as Promise<RoundSnapshot>;
 }
 
 export function endRound1(code: string): Promise<unknown> {

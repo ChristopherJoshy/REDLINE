@@ -4,6 +4,7 @@ import type { DatabaseAdapter } from "../db/database.js";
 import type { ChatMessage, ToolCall } from "../llm/groq.js";
 import { streamChat } from "../llm/groq.js";
 import { BOT_TOOLS, parseHandover, parseSoundId } from "../bots/tools.js";
+import { awardItem } from "../bots/inventory.js";
 import { coverBrief } from "../bots/coverLens.js";
 import { BOTS, ROUND1_BOTS } from "../bots/registry.js";
 import { bossOf, isBoss } from "../bots/r2.js";
@@ -81,7 +82,7 @@ If the user passes your quiz gate and earns the item, YOU MUST call the handover
       if (row.role !== "user" && row.role !== "assistant") {
         continue;
       }
-      messages.push({ role: row.role, content: row.text_final });
+      messages.push({ role: row.role, content: row.role === "user" ? fence(randomUUID().replace(/-/g, ""), row.text_final) : row.text_final });
     }
     messages.push({ role: "user", content: fence(randomUUID().replace(/-/g, ""), text) });
 
@@ -99,6 +100,10 @@ If the user passes your quiz gate and earns the item, YOU MUST call the handover
 
     let inventoryDelta: InventoryDelta | undefined;
     for (const call of toolCalls) {
+      if (!round1Open(db)) {
+        guardFlags.push("round-closed");
+        break;
+      }
       if (call.name === "handover_item" && botId === "merchant") {
         // The merchant never transfers in chat; the counter owns all sales.
         guardFlags.push("merchant-no-handover");
@@ -114,16 +119,7 @@ If the user passes your quiz gate and earns the item, YOU MUST call the handover
         if (parsed.itemKey && parsed.itemKey.trim().toLowerCase() !== assignedKey.toLowerCase()) {
           guardFlags.push("item-mismatch");
         }
-        db.transaction(() => {
-          db.run(
-            "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, obtained_at) VALUES (?, ?, ?, ?, 'obtained', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) ON CONFLICT(team_id, bot_id) DO UPDATE SET item_key = excluded.item_key, is_real = excluded.is_real, status = 'obtained', obtained_at = excluded.obtained_at",
-            teamId,
-            botId,
-            assignedKey,
-            parsed.real ? 1 : 0,
-          );
-        });
-        inventoryDelta = { botId, itemKey: assignedKey, status: "obtained" };
+        inventoryDelta = awardItem(db, teamId, botId, assignedKey, parsed.real) ?? inventoryDelta;
       } else if (call.name === "play_sound") {
         const soundId = parseSoundId(call.args);
         if (soundId === undefined) {
@@ -133,26 +129,7 @@ If the user passes your quiz gate and earns the item, YOU MUST call the handover
         db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", teamId, botId, soundId);
         bus.broadcast(teamId, bus.frame("sound_play", { botId, soundId, src: `/sounds/${soundId}.mp3` }));
 
-        // Fallback: If the bot triggered their handover sound beat but omitted the explicit handover_item tool call
-        if (soundId.includes("handover") && inventoryDelta === undefined) {
-          const already = db.get<{ status: string }>(
-            "SELECT status FROM team_inventory WHERE team_id = ? AND bot_id = ?",
-            teamId,
-            botId,
-          );
-          if (!already || already.status === "locked") {
-            const assignedKey = entry.meta.itemKey;
-            db.transaction(() => {
-              db.run(
-                "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, obtained_at) VALUES (?, ?, ?, 1, 'obtained', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) ON CONFLICT(team_id, bot_id) DO UPDATE SET item_key = excluded.item_key, is_real = 1, status = 'obtained', obtained_at = excluded.obtained_at",
-                teamId,
-                botId,
-                assignedKey,
-              );
-            });
-            inventoryDelta = { botId, itemKey: assignedKey, status: "obtained" };
-          }
-        }
+
       }
     }
 

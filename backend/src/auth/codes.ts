@@ -84,7 +84,11 @@ export function parseCookies(header: string | undefined): Record<string, string>
     if (idx < 0) {
       continue;
     }
-    out[part.slice(0, idx).trim()] = decodeURIComponent(part.slice(idx + 1).trim());
+    try {
+      out[part.slice(0, idx).trim()] = decodeURIComponent(part.slice(idx + 1).trim());
+    } catch {
+      continue;
+    }
   }
   return out;
 }

@@ -20,8 +20,8 @@ export const env = {
   get adminCode(): string | undefined {
     return process.env["ADMIN_CODE"];
   },
-  get adminSettingsPin(): string {
-    return process.env["ADMIN_SETTINGS_PIN"] || "RL-SEC-8839";
+  get adminSettingsPin(): string | undefined {
+    return process.env["ADMIN_SETTINGS_PIN"];
   },
   port: Number(process.env["PORT"] ?? 3001),
 } as const;

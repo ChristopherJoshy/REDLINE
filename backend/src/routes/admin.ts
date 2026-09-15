@@ -48,7 +48,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
   function settingsPinGuard(req: { headers: Record<string, string | string[] | undefined> }): boolean {
     const header = req.headers["x-settings-pin"];
     const val = Array.isArray(header) ? header[0] : header;
-    return Boolean(val && val.trim() === env.adminSettingsPin.trim());
+    return adminOk(val?.trim(), env.adminSettingsPin);
   }
 
 
@@ -554,9 +554,10 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
 
   // Verify secondary Settings PIN
   app.post("/api/admin/settings/verify", async (req, reply) => {
+    if (!guard(req)) return reply.code(401).send({ error: "unauthorized" });
     const body = (req.body ?? {}) as { pin?: unknown };
     const pin = typeof body.pin === "string" ? body.pin.trim() : "";
-    if (pin === env.adminSettingsPin.trim()) {
+    if (adminOk(pin, env.adminSettingsPin)) {
       return { ok: true };
     }
     return reply.code(401).send({ error: "Invalid Settings PIN" });
@@ -564,7 +565,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
 
   // Get dynamic keys list
   app.get("/api/admin/keys", async (req, reply) => {
-    if (!guard(req) && !settingsPinGuard(req)) {
+    if (!guard(req) || !settingsPinGuard(req)) {
       return reply.code(401).send({ error: "unauthorized" });
     }
     return getKeyList(db);

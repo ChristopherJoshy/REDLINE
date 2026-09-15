@@ -8,7 +8,8 @@ import { openDatabase } from "./db/database.js";
 import { registerTeamRoutes, sessionOf } from "./routes/teams.js";
 import { registerProfileRoutes } from "./routes/profiles.js";
 import { registerAdminRoutes } from "./routes/admin.js";
-import { registerGateRoutes, round2Status, round2Timer, round2Duration, setRound2State } from "./routes/gates.js";
+import { registerGateRoutes } from "./routes/gates.js";
+import { roundState } from "./rounds/state.js";
 import { registerRound2Routes } from "./routes/round2.js";
 import { registerMerchantRoutes } from "./routes/merchant.js";
 import { Bus } from "./ws/bus.js";
@@ -236,33 +237,21 @@ async function boot(): Promise<void> {
     for (const teamId of locks.sweep()) {
       bus.broadcast(teamId, bus.frame("bot_locks", { locks: locks.snapshot(teamId) }));
     }
-    // Round 2 timer transitions
-    tickRound2(db, bus);
   }, PING_MS).unref();
+  // Notifications follow the saved clock; gameplay checks the same deadline on every request.
+  let previousRound2 = roundState(db, 2).status;
+  const roundEvents = setInterval(() => {
+    const current = roundState(db, 2);
+    if (current.status !== previousRound2) {
+      previousRound2 = current.status;
+      if (current.status === "active") bus.broadcastAll(bus.frame("round2_start", { durationSecs: current.durationSecs }));
+      if (current.status === "ended") bus.broadcastAll(bus.frame("round2_end", { reason: "expired" }));
+    }
+  }, 250);
+  roundEvents.unref();
+  app.addHook("onClose", async () => { clearInterval(roundEvents); wss.close(); db.close(); });
 }
 
 const PING_MS = 25_000;
-
-function tickRound2(db: ReturnType<typeof openDatabase>, bus: Bus): void {
-  const status = round2Status(db);
-  if (status === "off") return;
-  const timer = round2Timer(db);
-  if (!timer) return;
-  const now = Date.now();
-  const endMs = new Date(timer).getTime();
-  if (now >= endMs) {
-    if (status === "countdown") {
-      // Transition to active
-      const dur = round2Duration(db);
-      const activeEnd = new Date(now + dur * 1000).toISOString();
-      setRound2State(db, "active", activeEnd);
-      bus.broadcastAll(bus.frame("round2_start", { durationSecs: dur }));
-    } else {
-      // Active expired
-      setRound2State(db, "off", null);
-      bus.broadcastAll(bus.frame("round2_end", { reason: "expired" }));
-    }
-  }
-}
 
 void boot();

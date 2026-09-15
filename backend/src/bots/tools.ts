@@ -54,12 +54,7 @@ export function parseHandover(args: unknown): { itemKey?: string | undefined; re
   const itemKeyStr = typeof a.item_key === "string" ? a.item_key.trim() : undefined;
 
   if (!isReal && !isDecoy) {
-    // If authenticity was omitted or malformed, infer from item_key if present
-    if (itemKeyStr && itemKeyStr.toLowerCase().includes("decoy")) {
-      return { itemKey: itemKeyStr, real: false };
-    }
-    // Default to real if the LLM called handover_item
-    return { itemKey: itemKeyStr, real: true };
+    return undefined;
   }
   return { itemKey: itemKeyStr, real: isReal };
 }

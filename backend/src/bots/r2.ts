@@ -1,4 +1,5 @@
 // Round-2 engine: phase state, P1-decoy coercion, server-gated escalation kit.
+import { directCharacter } from "./direction.js";
 import type { BotId } from "../contracts/events.js";
 import type { DatabaseAdapter } from "../db/database.js";
 import { ITACHI_META, ITACHI_P1_PROMPT, ITACHI_P2_PROMPT } from "./itachi.prompt.js";
@@ -53,7 +54,7 @@ export function r2Phase(db: DatabaseAdapter, teamId: string, boss: BossId): R2Ph
 export function r2Prompt(db: DatabaseAdapter, teamId: string, boss: BossId): { prompt: string; phase: R2Phase; reveal: boolean } {
   const turns = userTurns(db, teamId, boss);
   const phase: R2Phase = turns >= PROMPTS[boss].releaseAt ? "p2" : "p1";
-  return { prompt: PROMPTS[boss][phase], phase, reveal: turns === PROMPTS[boss].releaseAt };
+  return { prompt: directCharacter(boss, PROMPTS[boss][phase]), phase, reveal: turns === PROMPTS[boss].releaseAt };
 }
 
 export function bossKeys(boss: BossId): { itemKey: string; decoyKey: string } {

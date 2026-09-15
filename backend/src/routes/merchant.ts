@@ -66,14 +66,18 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
 
     if (realHit !== undefined) {
       const hit: BotId = realHit;
-      const verified = db.get<{ status: string }>(
-        "SELECT status FROM team_inventory WHERE team_id = ? AND bot_id = ?",
+      const verified = db.get<{ status: string; is_real: number }>(
+        "SELECT status, is_real FROM team_inventory WHERE team_id = ? AND bot_id = ?",
         session.teamId,
         hit,
       );
       if (verified?.status === "verified") {
         return { result: "verified", botId: hit, already: true as const };
       }
+      if (verified?.status !== "obtained" || verified.is_real !== 1) {
+        return { result: "troll", line: roast(), soundId: "merchant/troll-not-enough-cash" };
+      }
+      const { elo, credits } = db.transaction(() => {
       db.run(
         "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, verified_at, attempt_count) VALUES (?, ?, ?, 1, 'verified', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1) ON CONFLICT(team_id, bot_id) DO UPDATE SET status = 'verified', verified_at = excluded.verified_at, attempt_count = team_inventory.attempt_count + 1",
         session.teamId,
@@ -84,7 +88,8 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
       const bounty = BOTS[hit]?.meta.bounty ?? 0;
       db.run("UPDATE teams SET clue_credits = clue_credits + ? WHERE id = ?", bounty, session.teamId);
       const credits = db.get<{ clue_credits: number }>("SELECT clue_credits FROM teams WHERE id = ?", session.teamId)?.clue_credits ?? 0;
-      const delta: InventoryDelta = { botId: hit, itemKey: BOTS[hit]?.meta.itemKey ?? "", status: "verified" };
+        return { elo, credits };
+      });
       const items = db.all<InventoryDelta>(
         "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
         session.teamId,
@@ -143,6 +148,7 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
+    if (!round1Open(db)) return reply.code(403).send({ error: "round sealed" });
     const body = (req.body ?? {}) as { botId?: unknown; tier?: unknown };
     const botId = typeof body.botId === "string" ? (body.botId as BotId) : undefined;
     const tier = body.tier === 1 || body.tier === 2 ? body.tier : undefined;
@@ -171,6 +177,7 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
       return { botId, tier, clue, credits: creditBalance(session.teamId), owned: true as const };
     }
     const cost = CLUE_COST[tier];
+    const purchased = db.transaction(() => {
     const paid = db.run(
       "UPDATE teams SET clue_credits = clue_credits - ? WHERE id = ? AND clue_credits >= ?",
       cost,
@@ -182,6 +189,9 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
     }
     db.run("INSERT INTO merchant_clues (team_id, bot_id, tier) VALUES (?, ?, ?)", session.teamId, botId, tier);
     db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final) VALUES (?, ?, ?, ?)", session.teamId, "merchant", "assistant", `Sealed ${CLUE_LABEL[tier]} for ${botId}: ${clue}`);
+    return true;
+    });
+    if (!purchased) return reply.code(402).send({ error: "not enough credits — sell a genuine article first" });
     return { botId, tier, clue, credits: creditBalance(session.teamId), owned: false as const };
   });
 }

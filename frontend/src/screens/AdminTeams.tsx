@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import { createTeam, type CreateTeamResult } from "@/api/teams";
-import { getGates, openVault, endRound1, startRound2, stopRound2, extendRound2, type Gates } from "@/api/gates";
+import RoundControls from "@/components/RoundControls";
 import { apiFetch } from "@/api/client";
 import { CHARACTERS } from "@/data/characterLore";
 import { 
@@ -70,11 +70,6 @@ interface AdminTeamOverview {
   locks?: Record<string, { displayName: string; since: string }>;
 }
 
-interface Round2State {
-  status: "off" | "countdown" | "active";
-  timeLeft: number;
-  duration: number;
-}
 
 interface ApiKeyRecord {
   id: number;
@@ -152,7 +147,7 @@ export default function AdminTeams(): React.JSX.Element {
   const [authError, setAuthError] = useState<string>("");
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
 
-  const [tab, setTab] = useState<"squads" | "stream" | "broadcast" | "create" | "gates" | "diagnostics" | "settings">("squads");
+  const [tab, setTab] = useState<"teams" | "stream" | "broadcast" | "create" | "gates" | "diagnostics" | "settings">("teams");
   useDocumentTitle(`Console · ${tab[0]?.toUpperCase() ?? ""}${tab.slice(1)} — REDLINE Arena`);
   
   // On mount: if a stored adminCode exists, verify it with the backend
@@ -257,8 +252,6 @@ export default function AdminTeams(): React.JSX.Element {
 
   // Data State
   const [teams, setTeams] = useState<AdminTeamOverview[]>([]);
-  const [gates, setGates] = useState<Gates | null>(null);
-  const [round2, setRound2] = useState<Round2State>({ status: "off", timeLeft: 0, duration: 1800 });
   const [activityStream, setActivityStream] = useState<ActivityEvent[]>([]);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
@@ -310,20 +303,16 @@ export default function AdminTeams(): React.JSX.Element {
     async function poll(): Promise<void> {
       try {
         const headers = { "x-admin-code": adminCode };
-        const [resOverview, resGates, resStream, resHealth, resAnnounce] = await Promise.all([
+        const [resOverview, resStream, resHealth, resAnnounce] = await Promise.all([
           apiFetch("/api/admin/overview", { headers }).catch(() => null),
-          getGates().catch(() => null),
           apiFetch("/api/admin/activity-stream", { headers }).catch(() => null),
           apiFetch("/api/admin/system-health", { headers }).catch(() => null),
           apiFetch("/api/admin/announcements", { headers }).catch(() => null),
         ]);
 
         if (resOverview && resOverview.ok && !dead) {
-          const data = (await resOverview.json()) as { teams: AdminTeamOverview[]; round2?: Round2State };
+          const data = (await resOverview.json()) as { teams: AdminTeamOverview[] };
           setTeams(data.teams);
-          if (data.round2) {
-            setRound2(data.round2);
-          }
           setError("");
         } else if (resOverview && resOverview.status === 401 && !dead) {
           handleLock();
@@ -331,7 +320,6 @@ export default function AdminTeams(): React.JSX.Element {
           return;
         }
 
-        if (resGates && !dead) setGates(resGates);
 
         if (resStream && resStream.ok && !dead) {
           const data = (await resStream.json()) as { stream: ActivityEvent[] };
@@ -359,20 +347,6 @@ export default function AdminTeams(): React.JSX.Element {
       clearInterval(timer);
     };
   }, [authed, adminCode]);
-
-  // Tick round2 timer locally between polls
-  useEffect(() => {
-    if (round2.status === "off") return;
-    const tick = setInterval(() => {
-      setRound2((prev) => {
-        if (prev.status === "off") return prev;
-        const next = Math.max(0, prev.timeLeft - 1);
-        if (next <= 0) return { ...prev, status: "off", timeLeft: 0 };
-        return { ...prev, timeLeft: next };
-      });
-    }, 1000);
-    return () => clearInterval(tick);
-  }, [round2.status]);
 
   // Load comms transcript when modal opens
   useEffect(() => {
@@ -696,9 +670,8 @@ export default function AdminTeams(): React.JSX.Element {
         setRewindConfirmTeam(null);
         const overviewRes = await apiFetch("/api/admin/overview", { headers: { "x-admin-code": adminCode } }).catch(() => null);
         if (overviewRes && overviewRes.ok) {
-          const data = (await overviewRes.json()) as { teams: AdminTeamOverview[]; round2?: Round2State };
+          const data = (await overviewRes.json()) as { teams: AdminTeamOverview[] };
           setTeams(data.teams);
-          if (data.round2) setRound2(data.round2);
         }
       }
     } catch {
@@ -711,7 +684,7 @@ export default function AdminTeams(): React.JSX.Element {
   async function handleResetTeam(team: AdminTeamOverview): Promise<void> {
     if (adminCode === "") return;
     const code = team.join_code || team.hint;
-    if (!window.confirm(`Permanently reset squad "${team.name}" (${code})? This removes the team, its operators, and all related game data. This cannot be undone.`)) {
+    if (!window.confirm(`Permanently reset team "${team.name}" (${code})? This removes the team, its operators, and all related game data. This cannot be undone.`)) {
       return;
     }
     setBusy(true);
@@ -721,14 +694,14 @@ export default function AdminTeams(): React.JSX.Element {
         headers: { "x-admin-code": adminCode },
       });
       if (res.ok) {
-        notify(`Squad ${team.name} (${code}) has been reset and removed.`);
+        notify(`Team ${team.name} (${code}) has been reset and removed.`);
         setTeams((prev) => prev.filter((x) => x.id !== team.id));
       } else {
         const d = (await res.json().catch(() => null)) as { error?: string } | null;
-        alert(d?.error ?? "Failed to reset squad");
+        alert(d?.error ?? "Failed to reset team");
       }
     } catch {
-      alert("Failed to reset squad");
+      alert("Failed to reset team");
     } finally {
       setBusy(false);
     }
@@ -786,7 +759,7 @@ export default function AdminTeams(): React.JSX.Element {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  // Filter squads by search query
+  // Filter teams by search query
   const filteredTeams = useMemo(() => {
     if (!searchQuery.trim()) return teams;
     const q = searchQuery.toLowerCase();
@@ -804,7 +777,7 @@ export default function AdminTeams(): React.JSX.Element {
       <div className="flex min-h-screen items-center justify-center bg-[var(--color-bg-0)] text-[var(--color-text-2)]">
         <div className="flex flex-col items-center gap-4">
           <div className="relative flex items-center justify-center w-16 h-16 rounded-[8px] bg-[var(--color-text-1)]/20 border border-[var(--color-border-strong)]">
-            <ShieldCheck className="w-8 h-8 text-[var(--color-brass)] animate-pulse" />
+            <ShieldCheck className="w-11 h-11 text-[var(--color-brass)] animate-pulse" />
           </div>
           <p className="text-[13px] font-mono text-[var(--color-text-faint)] tracking-wider">
             VERIFYING COMMAND CREDENTIALS...
@@ -816,29 +789,29 @@ export default function AdminTeams(): React.JSX.Element {
 
   if (!authed) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[#18181B] p-6 text-[#F4F4F5] font-sans">
-        <div className="w-full max-w-[440px] rounded-[2px] border border-[#3F3F46] bg-[#27272A] p-8">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-bg-0 p-6 text-text-1 font-sans">
+        <div className="w-full max-w-[440px] rounded-md border border-border bg-surface-1 p-8">
           <div className="mb-6 flex flex-col items-center text-center">
-            <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
-              <Lock className="h-6 w-6 text-[#EF4444]" />
+            <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-md border border-border bg-bg-0">
+              <Lock className="h-6 w-6 text-brass" />
             </span>
-            <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.25em] text-[#A1A1AA]">
+            <p className="mb-2 font-mono text-[11px]  tracking-[0.25em] text-text-3">
               REDLINE // PROVOCATEUR COMMAND
             </p>
-            <h1 className="font-mono text-[24px] font-bold text-[#F4F4F5] uppercase">
+            <h1 className="font-mono text-[24px] font-bold text-text-1 ">
               Command Auth
             </h1>
-            <p className="mt-1 max-w-[320px] text-[13px] text-[#A1A1AA]">
+            <p className="mt-1 max-w-[320px] text-[13px] text-text-3">
               Strike Teams, Guardrail Bypass, and Sector controls.
             </p>
           </div>
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <label className="flex items-center justify-between text-[12px] font-bold uppercase tracking-wider text-[#A1A1AA]">
+              <label className="flex items-center justify-between text-[12px] font-bold  tracking-wider text-text-3">
                 <span>Command Access Code</span>
               </label>
               <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#A1A1AA]">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-text-3">
                   <KeyRound className="w-4 h-4" />
                 </div>
                 <input
@@ -851,14 +824,14 @@ export default function AdminTeams(): React.JSX.Element {
                   autoFocus
                   placeholder="ACCESS CODE"
                   aria-label="Admin access code"
-                  className="h-12 w-full rounded-[2px] border border-[#3F3F46] bg-[#18181B] pl-10 pr-11 font-mono text-[14px] text-[#F4F4F5] placeholder:text-[#A1A1AA]/40 focus:border-[#EF4444] focus:outline-none transition"
+                  className="h-12 w-full rounded-md border border-border bg-bg-0 pl-10 pr-11 font-mono text-[14px] text-text-1 placeholder:text-text-3/40 focus:border-brass focus:outline-none transition"
                 />
                 <button
                   type="button"
                   onClick={() => setShowAuthCode(!showAuthCode)}
                   tabIndex={-1}
                   aria-label={showAuthCode ? "Hide code" : "Show code"}
-                  className="absolute inset-y-0 right-0 flex min-w-[44px] items-center justify-center pr-3.5 text-[#A1A1AA] hover:text-[#F4F4F5] transition"
+                  className="absolute inset-y-0 right-0 flex min-w-[44px] items-center justify-center pr-3.5 text-text-3 hover:text-text-1 transition"
                 >
                   {showAuthCode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -866,7 +839,7 @@ export default function AdminTeams(): React.JSX.Element {
             </div>
 
             {authError && (
-              <div className="flex items-center gap-2 rounded-[2px] border border-[#EF4444] bg-[#EF4444]/10 px-4 py-3 text-[12px] font-mono text-[#EF4444]">
+              <div className="flex items-center gap-2 rounded-md border border-brass bg-brass/10 px-4 py-3 text-[12px] font-mono text-brass">
                 <ShieldAlert className="w-4 h-4 shrink-0" />
                 <span>{authError}</span>
               </div>
@@ -875,7 +848,7 @@ export default function AdminTeams(): React.JSX.Element {
             <button
               type="submit"
               disabled={isVerifying || !authInput.trim()}
-              className="mt-2 flex h-12 min-h-[48px] w-full items-center justify-center gap-2 rounded-[2px] bg-[#EF4444] text-[14px] font-bold text-[#F4F4F5] uppercase tracking-wider hover:bg-[#EF4444]/90 disabled:opacity-50 transition cursor-pointer"
+              className="mt-2 flex h-12 min-h-[48px] w-full items-center justify-center gap-2 rounded-md bg-brass text-[14px] font-bold text-text-1  tracking-wider hover:bg-brass/90 disabled:opacity-50 transition cursor-pointer"
             >
               {isVerifying ? (
                 <span className="font-mono">Verifying Access...</span>
@@ -888,10 +861,10 @@ export default function AdminTeams(): React.JSX.Element {
             </button>
           </form>
 
-          <div className="mt-6 flex items-center justify-center border-t border-[#3F3F46] pt-4">
+          <div className="mt-6 flex items-center justify-center border-t border-border pt-4">
             <a
               href="/"
-              className="flex items-center gap-1.5 text-[12px] font-mono text-[#A1A1AA] hover:text-[#F4F4F5] transition"
+              className="flex items-center gap-1.5 text-[12px] font-mono text-text-3 hover:text-text-1 transition"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Back to Arena</span>
@@ -903,29 +876,29 @@ export default function AdminTeams(): React.JSX.Element {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#18181B] text-[#F4F4F5] font-sans">
+    <div className="flex min-h-screen flex-col bg-bg-0 text-text-1 font-sans">
       {successToast && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-[2px] border border-[#10B981] bg-[#27272A] px-5 py-4 text-[14px] font-semibold text-[#10B981] shadow-none">
-          <Check className="w-5 h-5 text-[#10B981]" />
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-md border border-moss bg-surface-1 px-5 py-4 text-[14px] font-semibold text-moss shadow-none">
+          <Check className="w-5 h-5 text-moss" />
           <span>{successToast}</span>
         </div>
       )}
 
-      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between border-b border-[#3F3F46] bg-[#27272A] px-6 py-4">
+      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between border-b border-border bg-surface-1 px-6 py-4">
         <div className="flex items-center gap-3">
-          <span aria-hidden="true" className="block h-8 w-[3px] bg-[#EF4444]" />
+          <span aria-hidden="true" className="block h-8 w-[3px] bg-brass" />
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-mono text-[20px] font-bold tracking-[0.1em] text-[#F4F4F5] uppercase">
+              <h1 className="font-mono text-[20px] font-bold tracking-[0.1em] text-text-1 ">
                 COMMAND HUB
               </h1>
-              <span className="flex items-center gap-1 rounded-[2px] border border-[#10B981]/50 bg-[#18181B] px-2 py-0.5 font-mono text-[11px] font-bold text-[#10B981] uppercase">
-                <Radio className="w-3 h-3 text-[#10B981]" />
+              <span className="flex items-center gap-1 rounded-md border border-moss/50 bg-bg-0 px-2 py-0.5 font-mono text-[11px] font-bold text-moss ">
+                <Radio className="w-3 h-3 text-moss" />
                 <span>Telemetry Live</span>
               </span>
             </div>
-            <p className="text-[12px] text-[#A1A1AA]">
-              Squads, Relic Solves & Gate Controls
+            <p className="text-[12px] text-text-3">
+              Teams, Relic Solves & Gate Controls
             </p>
           </div>
         </div>
@@ -933,40 +906,40 @@ export default function AdminTeams(): React.JSX.Element {
         {/* System Health Quick Strip & Auth controls */}
         <div className="flex items-center gap-3 mt-2 sm:mt-0">
           {systemHealth && (
-            <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-[2px] bg-[#18181B] border border-[#3F3F46] font-mono text-[12px] font-bold text-[#A1A1AA]">
-              <span className="flex items-center gap-1.5 text-[#10B981]">
-                <span className="w-2 h-2 rounded-none bg-[#10B981]" />
+            <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-md bg-bg-0 border border-border font-mono text-[12px] font-bold text-text-3">
+              <span className="flex items-center gap-1.5 text-moss">
+                <span className="w-2 h-2 rounded-none bg-moss" />
                 <span>{systemHealth.activeConnections} Clients</span>
               </span>
               <span>•</span>
-              <span className="text-[#F4F4F5]">Groq & Zen OK</span>
+              <span className="text-text-1">Groq & Zen OK</span>
             </div>
           )}
 
           {/* Admin Authorized Pill */}
-          <div className="flex items-center gap-1.5 px-3 py-2 rounded-[2px] bg-[#18181B] border border-[#3F3F46] text-[#10B981] font-mono text-[12px] font-bold">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
-            <span className="hidden sm:inline uppercase">Command Active</span>
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-bg-0 border border-border text-moss font-mono text-[12px] font-bold">
+            <ShieldCheck className="w-3.5 h-3.5 text-moss" />
+            <span className="hidden sm:inline ">Command Active</span>
           </div>
 
           {/* Lock HQ Button */}
           <button
             type="button"
             onClick={handleLock}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] text-[#F4F4F5] text-[12px] font-mono font-bold transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-border bg-bg-0 hover:bg-border text-text-1 text-[12px] font-mono font-bold transition cursor-pointer"
             title="Lock Admin Session and Require Access Code"
           >
-            <Lock className="w-3.5 h-3.5 text-[#A1A1AA]" />
+            <Lock className="w-3.5 h-3.5 text-text-3" />
             <span>Lock</span>
           </button>
 
           {/* Exit HQ Button */}
           <a
             href="/"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] text-[#F4F4F5] text-[12px] font-mono font-bold transition"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-border bg-bg-0 hover:bg-border text-text-1 text-[12px] font-mono font-bold transition"
             title="Exit to Arena"
           >
-            <LogOut className="w-3.5 h-3.5 text-[#A1A1AA]" />
+            <LogOut className="w-3.5 h-3.5 text-text-3" />
             <span className="hidden sm:inline">Exit</span>
           </a>
         </div>
@@ -975,28 +948,28 @@ export default function AdminTeams(): React.JSX.Element {
       {/* Main Container */}
       <div className="flex-1 max-w-[1400px] w-full mx-auto p-6 sm:p-8 lg:p-10 flex flex-col gap-8">
         {/* Navigation Tabs Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#3F3F46] pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setTab("squads")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-[2px] text-[13px] font-bold uppercase tracking-wider font-mono transition cursor-pointer ${
-                tab === "squads"
-                  ? "bg-[#EF4444] text-[#F4F4F5] border border-[#EF4444]"
-                  : "bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:bg-[#3F3F46] hover:text-[#F4F4F5]"
+              onClick={() => setTab("teams")}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-md text-[13px] font-bold  tracking-wider font-mono transition cursor-pointer ${
+                tab === "teams"
+                  ? "bg-brass text-text-1 border border-brass"
+                  : "bg-surface-1 border border-border text-text-3 hover:bg-border hover:text-text-1"
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Squads & Controls ({teams.length})</span>
+              <span>Teams & Controls ({teams.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setTab("stream")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-[2px] text-[13px] font-bold uppercase tracking-wider font-mono transition cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-md text-[13px] font-bold  tracking-wider font-mono transition cursor-pointer ${
                 tab === "stream"
-                  ? "bg-[#EF4444] text-[#F4F4F5] border border-[#EF4444]"
-                  : "bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:bg-[#3F3F46] hover:text-[#F4F4F5]"
+                  ? "bg-brass text-text-1 border border-brass"
+                  : "bg-surface-1 border border-border text-text-3 hover:bg-border hover:text-text-1"
               }`}
             >
               <Activity className="w-4 h-4" />
@@ -1006,10 +979,10 @@ export default function AdminTeams(): React.JSX.Element {
             <button
               type="button"
               onClick={() => setTab("broadcast")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-[2px] text-[13px] font-bold uppercase tracking-wider font-mono transition cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-md text-[13px] font-bold  tracking-wider font-mono transition cursor-pointer ${
                 tab === "broadcast"
-                  ? "bg-[#EF4444] text-[#F4F4F5] border border-[#EF4444]"
-                  : "bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:bg-[#3F3F46] hover:text-[#F4F4F5]"
+                  ? "bg-brass text-text-1 border border-brass"
+                  : "bg-surface-1 border border-border text-text-3 hover:bg-border hover:text-text-1"
               }`}
             >
               <Megaphone className="w-4 h-4" />
@@ -1019,23 +992,23 @@ export default function AdminTeams(): React.JSX.Element {
             <button
               type="button"
               onClick={() => setTab("create")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-[2px] text-[13px] font-bold uppercase tracking-wider font-mono transition cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-md text-[13px] font-bold  tracking-wider font-mono transition cursor-pointer ${
                 tab === "create"
-                  ? "bg-[#EF4444] text-[#F4F4F5] border border-[#EF4444]"
-                  : "bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:bg-[#3F3F46] hover:text-[#F4F4F5]"
+                  ? "bg-brass text-text-1 border border-brass"
+                  : "bg-surface-1 border border-border text-text-3 hover:bg-border hover:text-text-1"
               }`}
             >
               <UserPlus className="w-4 h-4" />
-              <span>Create Squad</span>
+              <span>Create Team</span>
             </button>
 
             <button
               type="button"
               onClick={() => setTab("gates")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-[2px] text-[13px] font-bold uppercase tracking-wider font-mono transition cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-md text-[13px] font-bold  tracking-wider font-mono transition cursor-pointer ${
                 tab === "gates"
-                  ? "bg-[#EF4444] text-[#F4F4F5] border border-[#EF4444]"
-                  : "bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:bg-[#3F3F46] hover:text-[#F4F4F5]"
+                  ? "bg-brass text-text-1 border border-brass"
+                  : "bg-surface-1 border border-border text-text-3 hover:bg-border hover:text-text-1"
               }`}
             >
               <Lock className="w-4 h-4" />
@@ -1045,10 +1018,10 @@ export default function AdminTeams(): React.JSX.Element {
             <button
               type="button"
               onClick={() => setTab("diagnostics")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-[2px] text-[13px] font-bold uppercase tracking-wider font-mono transition cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-md text-[13px] font-bold  tracking-wider font-mono transition cursor-pointer ${
                 tab === "diagnostics"
-                  ? "bg-[#EF4444] text-[#F4F4F5] border border-[#EF4444]"
-                  : "bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:bg-[#3F3F46] hover:text-[#F4F4F5]"
+                  ? "bg-brass text-text-1 border border-brass"
+                  : "bg-surface-1 border border-border text-text-3 hover:bg-border hover:text-text-1"
               }`}
             >
               <Cpu className="w-4 h-4" />
@@ -1058,13 +1031,13 @@ export default function AdminTeams(): React.JSX.Element {
             <button
               type="button"
               onClick={() => setTab("settings")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-[2px] text-[13px] font-bold uppercase tracking-wider font-mono transition cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-md text-[13px] font-bold  tracking-wider font-mono transition cursor-pointer ${
                 tab === "settings"
-                  ? "bg-[#EF4444] text-[#F4F4F5] border border-[#EF4444]"
-                  : "bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:bg-[#3F3F46] hover:text-[#F4F4F5]"
+                  ? "bg-brass text-text-1 border border-brass"
+                  : "bg-surface-1 border border-border text-text-3 hover:bg-border hover:text-text-1"
               }`}
             >
-              <KeyRound className="w-4 h-4 text-[#10B981]" />
+              <KeyRound className="w-4 h-4 text-moss" />
               <span>API Pool {settingsUnlocked ? "🔓" : "🔒"}</span>
             </button>
           </div>
@@ -1074,7 +1047,7 @@ export default function AdminTeams(): React.JSX.Element {
             href="/admin/board"
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-[2px] border border-[#EF4444] bg-[#18181B] text-[#EF4444] font-mono text-[13px] font-bold uppercase tracking-wider hover:bg-[#EF4444] hover:text-[#F4F4F5] transition"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-md border border-brass bg-bg-0 text-brass font-mono text-[13px] font-bold  tracking-wider hover:bg-brass hover:text-text-1 transition"
           >
             <Trophy className="w-4 h-4" />
             <span>Clocktower Citadel Board ↗</span>
@@ -1083,128 +1056,128 @@ export default function AdminTeams(): React.JSX.Element {
 
         {/* Global Key Metrics Strip - Doubled Padding, Sharp Edges, Monospace Telemetry */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
-          <div className="p-6 rounded-[2px] border border-[#3F3F46] bg-[#27272A]">
-            <span className="text-[11px] font-mono font-bold text-[#A1A1AA] uppercase tracking-wider">Total Squads</span>
+          <div className="p-6 rounded-md border border-border bg-surface-1">
+            <span className="text-[11px] font-mono font-bold text-text-3  tracking-wider">Total Teams</span>
             <div className="mt-2 flex items-center justify-between">
-              <span className="font-mono text-[28px] font-bold text-[#F4F4F5]">{teams.length}</span>
-              <Users className="w-5 h-5 text-[#A1A1AA]" />
+              <span className="font-mono text-[28px] font-bold text-text-1">{teams.length}</span>
+              <Users className="w-5 h-5 text-text-3" />
             </div>
           </div>
 
-          <div className="p-6 rounded-[2px] border border-[#3F3F46] bg-[#27272A]">
-            <span className="text-[11px] font-mono font-bold text-[#A1A1AA] uppercase tracking-wider">Operators</span>
+          <div className="p-6 rounded-md border border-border bg-surface-1">
+            <span className="text-[11px] font-mono font-bold text-text-3  tracking-wider">Operators</span>
             <div className="mt-2 flex items-center justify-between">
-              <span className="font-mono text-[28px] font-bold text-[#F4F4F5]">{totalMembers}</span>
-              <Activity className="w-5 h-5 text-[#10B981]" />
+              <span className="font-mono text-[28px] font-bold text-text-1">{totalMembers}</span>
+              <Activity className="w-5 h-5 text-moss" />
             </div>
           </div>
 
-          <div className="p-6 rounded-[2px] border border-[#3F3F46] bg-[#27272A]">
-            <span className="text-[11px] font-mono font-bold text-[#A1A1AA] uppercase tracking-wider">Relic Solves</span>
+          <div className="p-6 rounded-md border border-border bg-surface-1">
+            <span className="text-[11px] font-mono font-bold text-text-3  tracking-wider">Relic Solves</span>
             <div className="mt-2 flex items-center justify-between">
-              <span className="font-mono text-[28px] font-bold text-[#10B981]">{totalSolves}</span>
-              <ShieldCheck className="w-5 h-5 text-[#10B981]" />
+              <span className="font-mono text-[28px] font-bold text-moss">{totalSolves}</span>
+              <ShieldCheck className="w-5 h-5 text-moss" />
             </div>
           </div>
 
-          <div className="p-6 rounded-[2px] border border-[#3F3F46] bg-[#27272A]">
-            <span className="text-[11px] font-mono font-bold text-[#A1A1AA] uppercase tracking-wider">Peak ELO</span>
+          <div className="p-6 rounded-md border border-border bg-surface-1">
+            <span className="text-[11px] font-mono font-bold text-text-3  tracking-wider">Peak ELO</span>
             <div className="mt-2 flex items-center justify-between">
-              <span className="font-mono text-[28px] font-bold text-[#F4F4F5]">{highestElo}</span>
-              <Trophy className="w-5 h-5 text-[#EF4444]" />
+              <span className="font-mono text-[28px] font-bold text-text-1">{highestElo}</span>
+              <Trophy className="w-5 h-5 text-brass" />
             </div>
           </div>
 
-          <div className="p-6 rounded-[2px] border border-[#3F3F46] bg-[#27272A]" title={`Prompt: ${(systemHealth?.promptTokens ?? 0).toLocaleString()} | Completion: ${(systemHealth?.completionTokens ?? 0).toLocaleString()}`}>
-            <span className="text-[11px] font-mono font-bold text-[#A1A1AA] uppercase tracking-wider">Total Tokens</span>
+          <div className="p-6 rounded-md border border-border bg-surface-1" title={`Prompt: ${(systemHealth?.promptTokens ?? 0).toLocaleString()} | Completion: ${(systemHealth?.completionTokens ?? 0).toLocaleString()}`}>
+            <span className="text-[11px] font-mono font-bold text-text-3  tracking-wider">Total Tokens</span>
             <div className="mt-2 flex items-center justify-between">
               <div>
-                <span className="font-mono text-[24px] font-bold text-[#F4F4F5]">
+                <span className="font-mono text-[24px] font-bold text-text-1">
                   {(systemHealth?.totalTokens ?? 0) >= 1_000_000
                     ? `${((systemHealth?.totalTokens ?? 0) / 1_000_000).toFixed(2)}M`
                     : (systemHealth?.totalTokens ?? 0) >= 10_000
                     ? `${((systemHealth?.totalTokens ?? 0) / 1_000).toFixed(1)}k`
                     : (systemHealth?.totalTokens ?? 0).toLocaleString()}
                 </span>
-                <span className="block text-[10px] font-mono text-[#A1A1AA]">
+                <span className="block text-[10px] font-mono text-text-3">
                   {((systemHealth?.promptTokens ?? 0) / 1000).toFixed(1)}k in · {((systemHealth?.completionTokens ?? 0) / 1000).toFixed(1)}k out
                 </span>
               </div>
-              <Cpu className="w-5 h-5 text-[#A1A1AA]" />
+              <Cpu className="w-5 h-5 text-text-3" />
             </div>
           </div>
 
-          <div className="p-6 rounded-[2px] border border-[#3F3F46] bg-[#27272A]" title={`Current: ${systemHealth?.currentTps ?? 0} tps | Peak: ${systemHealth?.peakTps ?? 0} tps | Avg: ${systemHealth?.averageTps ?? 0} tps`}>
-            <span className="text-[11px] font-mono font-bold text-[#A1A1AA] uppercase tracking-wider">Speed (TPS)</span>
+          <div className="p-6 rounded-md border border-border bg-surface-1" title={`Current: ${systemHealth?.currentTps ?? 0} tps | Peak: ${systemHealth?.peakTps ?? 0} tps | Avg: ${systemHealth?.averageTps ?? 0} tps`}>
+            <span className="text-[11px] font-mono font-bold text-text-3  tracking-wider">Speed (TPS)</span>
             <div className="mt-2 flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-1.5 font-mono">
-                  <span className="text-[24px] font-bold text-[#F4F4F5]">
+                  <span className="text-[24px] font-bold text-text-1">
                     {systemHealth?.currentTps ?? 0}
                   </span>
-                  <span className="text-[11px] font-bold text-[#A1A1AA]">
+                  <span className="text-[11px] font-bold text-text-3">
                     TPS
                   </span>
-                  <span className={`inline-block h-2 w-2 rounded-none ${(systemHealth?.currentTps ?? 0) > 0 ? "bg-[#10B981]" : "bg-[#A1A1AA]"}`} />
+                  <span className={`inline-block h-2 w-2 rounded-none ${(systemHealth?.currentTps ?? 0) > 0 ? "bg-moss" : "bg-text-3"}`} />
                 </div>
-                <span className="block text-[10px] font-mono text-[#A1A1AA]">
+                <span className="block text-[10px] font-mono text-text-3">
                   Peak: {systemHealth?.peakTps ?? 0} tps
                 </span>
               </div>
-              <Zap className="w-5 h-5 text-[#EF4444]" />
+              <Zap className="w-5 h-5 text-brass" />
             </div>
           </div>
         </div>
 
         {/* TAB 1: SQUADS & DIRECT COMMAND CONTROLS */}
-        {tab === "squads" && (
+        {tab === "teams" && (
           <div className="flex flex-col gap-6">
             {/* Search filter */}
-            <div className="flex items-center gap-3 p-3 px-5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] max-w-[480px]">
-              <Search className="w-4 h-4 text-[#A1A1AA]" />
+            <div className="flex items-center gap-3 p-3 px-5 rounded-md border border-border bg-surface-1 max-w-[480px]">
+              <Search className="w-4 h-4 text-text-3" />
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search Squad by name or join code..."
-                className="w-full bg-transparent text-[14px] focus:outline-none text-[#F4F4F5] placeholder:text-[#A1A1AA]/50 font-medium"
+                placeholder="Search Team by name or join code..."
+                className="w-full bg-transparent text-[14px] focus:outline-none text-text-1 placeholder:text-text-3/50 font-medium"
               />
               {searchQuery && (
-                <button type="button" onClick={() => setSearchQuery("")} className="text-[#A1A1AA] hover:text-[#F4F4F5] font-mono text-[12px] cursor-pointer">
+                <button type="button" onClick={() => setSearchQuery("")} className="text-text-3 hover:text-text-1 font-mono text-[12px] cursor-pointer">
                   Clear
                 </button>
               )}
             </div>
 
             {filteredTeams.length === 0 ? (
-              <div className="p-12 text-center rounded-[2px] border border-[#3F3F46] bg-[#27272A] text-[#A1A1AA]">
-                <Users className="w-12 h-12 mb-3 mx-auto text-[#A1A1AA]/40" />
-                <p className="font-mono font-bold text-[18px] text-[#F4F4F5] uppercase">No Squads Match Query</p>
-                <p className="text-[13px] mt-1">Verify search term or create a new squad using the "Create Squad" tab.</p>
+              <div className="p-12 text-center rounded-md border border-border bg-surface-1 text-text-3">
+                <Users className="w-12 h-12 mb-3 mx-auto text-text-3/40" />
+                <p className="font-mono font-bold text-[18px] text-text-1 ">No Teams Match Query</p>
+                <p className="text-[13px] mt-1">Verify search term or create a new team using the "Create Team" tab.</p>
               </div>
             ) : (
               filteredTeams.map((t) => (
-                <div key={t.id} className="rounded-[2px] border border-[#3F3F46] bg-[#27272A] flex flex-col overflow-hidden transition">
+                <div key={t.id} className="rounded-md border border-border bg-surface-1 flex flex-col overflow-hidden transition">
                   {/* Single Horizontal Top Bar Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 bg-[#18181B] border-b border-[#3F3F46]">
-                    {/* Left: Squad Name + Join Code */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 bg-bg-0 border-b border-border">
+                    {/* Left: Team Name + Join Code */}
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-9 h-9 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#EF4444] font-mono font-bold text-[15px] shrink-0">
+                      <div className="flex items-center justify-center w-9 h-9 rounded-md bg-surface-1 border border-border text-brass font-mono font-bold text-[15px] shrink-0">
                         {t.name.slice(0, 2).toUpperCase()}
                       </div>
                       <div className="flex items-center gap-3 flex-wrap">
-                        <h3 className="font-mono text-[17px] font-bold text-[#F4F4F5] uppercase tracking-wider">
+                        <h3 className="font-mono text-[17px] font-bold text-text-1  tracking-wider">
                           {t.name}
                         </h3>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] bg-[#27272A] border border-[#3F3F46] font-mono text-[12px]">
-                          <KeyRound className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
-                          <span className="text-[#A1A1AA] uppercase text-[10px] font-bold">Hint/Code:</span>
-                          <span className="font-bold text-[#10B981] tracking-wider select-all">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-1 border border-border font-mono text-[12px]">
+                          <KeyRound className="w-3.5 h-3.5 text-moss shrink-0" />
+                          <span className="text-text-3  text-[10px] font-bold">Hint/Code:</span>
+                          <span className="font-bold text-moss tracking-wider select-all">
                             {t.join_code || t.hint}
                           </span>
                           <button
                             type="button"
                             onClick={() => void copyCode(t.join_code || t.hint)}
-                            className="p-0.5 hover:bg-[#3F3F46] rounded-[2px] text-[#10B981] cursor-pointer transition ml-0.5"
+                            className="p-0.5 hover:bg-border rounded-md text-moss cursor-pointer transition ml-0.5"
                             title="Copy join code"
                           >
                             <Copy className="w-3 h-3" />
@@ -1215,13 +1188,13 @@ export default function AdminTeams(): React.JSX.Element {
 
                     {/* Right: ELO Rating & Unified Action Button Group */}
                     <div className="flex items-center gap-3 flex-wrap">
-                      <div className="flex items-center gap-2 px-3 py-1 rounded-[2px] bg-[#27272A] border border-[#3F3F46] font-mono">
-                        <span className="text-[10px] font-bold text-[#A1A1AA] uppercase">ELO:</span>
-                        <span className="text-[16px] font-bold text-[#F4F4F5]">{t.elo}</span>
+                      <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-surface-1 border border-border font-mono">
+                        <span className="text-[10px] font-bold text-text-3 ">ELO:</span>
+                        <span className="text-[16px] font-bold text-text-1">{t.elo}</span>
                       </div>
 
                       {/* Power Controls Button Group */}
-                      <div className="flex items-center border border-[#3F3F46] rounded-[2px] overflow-hidden bg-[#27272A] divide-x divide-[#3F3F46]">
+                      <div className="flex items-center border border-border rounded-md overflow-hidden bg-surface-1 divide-x divide-border">
                         <button
                           type="button"
                           onClick={() => {
@@ -1229,20 +1202,20 @@ export default function AdminTeams(): React.JSX.Element {
                             setEloDelta(50);
                             setEloReason("Creative Social Engineering Exploit");
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider text-[#F4F4F5] hover:bg-[#3F3F46] transition cursor-pointer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold  tracking-wider text-text-1 hover:bg-border transition cursor-pointer"
                           title="Adjust team ELO rating"
                         >
-                          <Sliders className="w-3.5 h-3.5 text-[#EF4444]" />
+                          <Sliders className="w-3.5 h-3.5 text-brass" />
                           <span>Adjust ELO</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => setInvModalTeam(t)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider text-[#F4F4F5] hover:bg-[#3F3F46] transition cursor-pointer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold  tracking-wider text-text-1 hover:bg-border transition cursor-pointer"
                           title="Inspect & override backpack relics"
                         >
-                          <Package className="w-3.5 h-3.5 text-[#10B981]" />
+                          <Package className="w-3.5 h-3.5 text-moss" />
                           <span>Relic Override</span>
                         </button>
 
@@ -1253,10 +1226,10 @@ export default function AdminTeams(): React.JSX.Element {
                             setCommsBotFilter("all");
                             setCommsTab("messages");
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider text-[#F4F4F5] hover:bg-[#3F3F46] transition cursor-pointer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold  tracking-wider text-text-1 hover:bg-border transition cursor-pointer"
                           title="Inspect chat messages and hidden AI reasoning traces"
                         >
-                          <Eye className="w-3.5 h-3.5 text-[#F4F4F5]" />
+                          <Eye className="w-3.5 h-3.5 text-text-1" />
                           <span>Inspect</span>
                         </button>
 
@@ -1267,7 +1240,7 @@ export default function AdminTeams(): React.JSX.Element {
                             setRewindBot("all");
                             setRewindPenalty(0);
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider text-[#EF4444] hover:bg-[#EF4444] hover:text-[#F4F4F5] transition cursor-pointer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold  tracking-wider text-brass hover:bg-brass hover:text-text-1 transition cursor-pointer"
                           title="Force rewind conversation context"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
@@ -1279,8 +1252,8 @@ export default function AdminTeams(): React.JSX.Element {
                             type="button"
                             onClick={() => void handleResetTeam(t)}
                             disabled={busy}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider bg-[#EF4444] text-[#F4F4F5] hover:bg-[#EF4444]/90 transition cursor-pointer disabled:opacity-50"
-                            title="Permanently reset this squad"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold  tracking-wider bg-brass text-text-1 hover:bg-brass/90 transition cursor-pointer disabled:opacity-50"
+                            title="Permanently reset this team"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                             <span>Reset</span>
@@ -1293,7 +1266,7 @@ export default function AdminTeams(): React.JSX.Element {
                   {/* Live mark occupancy: who holds which mark right now */}
                   {t.locks && Object.keys(t.locks).length > 0 && (
                     <div className="flex flex-wrap items-center gap-2 rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-3 py-2" aria-live="polite">
-                      <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--color-brass-ink)]">
+                      <span className="flex items-center gap-1.5 text-[11px] font-bold  tracking-wider text-[var(--color-brass-ink)]">
                         <Radio className="w-3.5 h-3.5 animate-pulse" aria-hidden="true" />
                         <span>Live on marks</span>
                       </span>
@@ -1323,17 +1296,17 @@ export default function AdminTeams(): React.JSX.Element {
                   <div className="p-4 flex flex-col gap-4">
                     {/* Operator Activity Grid (Multi-column, Zero excess padding, Glowing Dot) */}
                     <div className="flex flex-col gap-2">
-                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA]">
+                      <span className="text-[11px] font-mono font-bold  tracking-wider text-text-3">
                         Operator Activity:
                       </span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                         {t.members.map((m) => (
-                          <div key={m.display_name} className="px-3 py-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] flex items-center justify-between gap-2">
+                          <div key={m.display_name} className="px-3 py-2 rounded-md border border-border bg-bg-0 flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className="w-2 h-2 rounded-full bg-[#10B981] shrink-0 shadow-[0_0_6px_#10B981]" />
-                              <span className="font-bold text-[13px] text-[#F4F4F5] truncate">{m.display_name}</span>
+                              <span className="w-2 h-2 rounded-full bg-moss shrink-0 shadow-none" />
+                              <span className="font-bold text-[13px] text-text-1 truncate">{m.display_name}</span>
                             </div>
-                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] shrink-0">
+                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-surface-1 border border-border text-text-3 shrink-0">
                               {m.contribution} msgs
                             </span>
                           </div>
@@ -1344,13 +1317,13 @@ export default function AdminTeams(): React.JSX.Element {
                     {/* Held Relics (Row of small, dark, inline badges/chips reflecting real-time override status) */}
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA]">
+                        <span className="text-[11px] font-mono font-bold  tracking-wider text-text-3">
                           Held Relics ({t.inventory.filter((i) => i.status === "obtained" || i.status === "verified").length}/8 Held • {t.solved}/8 Solved):
                         </span>
                       </div>
-                      <div className="p-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] flex flex-wrap gap-1.5 items-center min-h-[42px]">
+                      <div className="p-2 rounded-md border border-border bg-bg-0 flex flex-wrap gap-1.5 items-center min-h-[42px]">
                         {t.inventory.filter((i) => i.status === "obtained" || i.status === "verified").length === 0 ? (
-                          <span className="text-[11px] font-mono text-[#A1A1AA]/50 italic">No active relics in satchel</span>
+                          <span className="text-[11px] font-mono text-text-3/50 italic">No active relics in satchel</span>
                         ) : (
                           t.inventory
                             .filter((i) => i.status === "obtained" || i.status === "verified")
@@ -1361,16 +1334,16 @@ export default function AdminTeams(): React.JSX.Element {
                                 <div
                                   key={idx}
                                   title={`${item.item_key} (${item.status})`}
-                                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] border text-[11px] font-mono font-bold transition ${
+                                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-mono font-bold transition ${
                                     isVerified
-                                      ? "bg-[#10B981]/15 border-[#10B981] text-[#10B981]"
-                                      : "bg-[#27272A] border-[#F4F4F5] text-[#F4F4F5]"
+                                      ? "bg-moss/15 border-moss text-moss"
+                                      : "bg-surface-1 border-text-1 text-text-1"
                                   }`}
                                 >
                                   {isVerified ? (
-                                    <ShieldCheck className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                                    <ShieldCheck className="w-3.5 h-3.5 text-moss shrink-0" />
                                   ) : (
-                                    <Package className="w-3.5 h-3.5 text-[#F4F4F5] shrink-0" />
+                                    <Package className="w-3.5 h-3.5 text-text-1 shrink-0" />
                                   )}
                                   <span>{char?.targetItem.name ?? item.item_key}</span>
                                 </div>
@@ -1391,36 +1364,36 @@ export default function AdminTeams(): React.JSX.Element {
           <div className="flex flex-col gap-6 max-w-[960px] mx-auto w-full">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="font-mono text-[22px] font-bold text-[#F4F4F5] uppercase">
+                <h2 className="font-mono text-[22px] font-bold text-text-1 ">
                   Live Stream Audit Trail
                 </h2>
-                <p className="text-[13px] text-[#A1A1AA] mt-1">
+                <p className="text-[13px] text-text-3 mt-1">
                   Real-time chronological audit trail of all Relic Solves, ELO adjustments, and security flags.
                 </p>
               </div>
-              <span className="px-3.5 py-1.5 rounded-[2px] bg-[#27272A] border border-[#3F3F46] font-mono text-[12px] font-bold text-[#10B981] uppercase">
+              <span className="px-3.5 py-1.5 rounded-md bg-surface-1 border border-border font-mono text-[12px] font-bold text-moss ">
                 Auto-sync 3s
               </span>
             </div>
 
             <div className="flex flex-col gap-3 mt-2">
               {activityStream.length === 0 ? (
-                <div className="p-10 text-center rounded-[2px] border border-[#3F3F46] bg-[#27272A] font-mono text-[#A1A1AA]">
+                <div className="p-10 text-center rounded-md border border-border bg-surface-1 font-mono text-text-3">
                   No stream audit events recorded.
                 </div>
               ) : (
                 activityStream.map((evt) => (
                   <div
                     key={evt.id}
-                    className="p-4 px-6 rounded-[2px] border border-[#3F3F46] bg-[#27272A] flex items-center justify-between gap-4 transition"
+                    className="p-4 px-6 rounded-md border border-border bg-surface-1 flex items-center justify-between gap-4 transition"
                   >
                     <div className="flex items-center gap-4">
-                      <div className={`flex items-center justify-center w-9 h-9 rounded-[2px] shrink-0 border ${
+                      <div className={`flex items-center justify-center w-9 h-9 rounded-md shrink-0 border ${
                         evt.type === "solve"
-                          ? "bg-[#10B981]/10 border-[#10B981] text-[#10B981]"
+                          ? "bg-moss/10 border-moss text-moss"
                           : evt.type === "security"
-                          ? "bg-[#EF4444]/10 border-[#EF4444] text-[#EF4444]"
-                          : "bg-[#18181B] border-[#3F3F46] text-[#F4F4F5]"
+                          ? "bg-brass/10 border-brass text-brass"
+                          : "bg-bg-0 border-border text-text-1"
                       }`}>
                         {evt.type === "solve" ? (
                           <ShieldCheck className="w-4 h-4" />
@@ -1432,15 +1405,15 @@ export default function AdminTeams(): React.JSX.Element {
                       </div>
                       <div>
                         <div className="flex items-center gap-3">
-                          <span className="font-bold text-[15px] text-[#F4F4F5]">{evt.teamName}</span>
-                          <span className="text-[11px] font-mono font-bold uppercase px-2 py-0.5 rounded-[2px] bg-[#18181B] border border-[#3F3F46] text-[#A1A1AA]">
+                          <span className="font-bold text-[15px] text-text-1">{evt.teamName}</span>
+                          <span className="text-[11px] font-mono font-bold  px-2 py-0.5 rounded-md bg-bg-0 border border-border text-text-3">
                             {evt.type === "solve" ? "RELIC SOLVED" : evt.type}
                           </span>
                         </div>
-                        <p className="text-[13px] text-[#A1A1AA] mt-1">{evt.detail}</p>
+                        <p className="text-[13px] text-text-3 mt-1">{evt.detail}</p>
                       </div>
                     </div>
-                    <span className="text-[11px] text-[#A1A1AA] font-mono shrink-0">
+                    <span className="text-[11px] text-text-3 font-mono shrink-0">
                       {evt.timestamp.slice(11, 19)}
                     </span>
                   </div>
@@ -1453,20 +1426,20 @@ export default function AdminTeams(): React.JSX.Element {
         {/* TAB 3: GLOBAL BROADCAST STATION */}
         {tab === "broadcast" && (
           <div className="max-w-[760px] mx-auto w-full flex flex-col gap-6">
-            <div className="p-8 rounded-[2px] border border-[#3F3F46] bg-[#27272A] flex flex-col gap-6">
+            <div className="p-8 rounded-md border border-border bg-surface-1 flex flex-col gap-6">
               <div>
-                <h2 className="font-mono text-[22px] font-bold text-[#F4F4F5] uppercase flex items-center gap-3">
-                  <Megaphone className="w-6 h-6 text-[#EF4444]" />
+                <h2 className="font-mono text-[22px] font-bold text-text-1  flex items-center gap-3">
+                  <Megaphone className="w-6 h-6 text-brass" />
                   <span>Global Broadcast Station</span>
                 </h2>
-                <p className="text-[13px] text-[#A1A1AA] mt-1">
+                <p className="text-[13px] text-text-3 mt-1">
                   Dispatch an instant announcement banner to all active operator terminals.
                 </p>
               </div>
 
               <form onSubmit={handleSendBroadcast} className="flex flex-col gap-5">
                 <div>
-                  <label className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
+                  <label className="text-[12px] font-mono font-bold  tracking-wider text-text-3 block mb-2">
                     Broadcast Message:
                   </label>
                   <textarea
@@ -1474,19 +1447,19 @@ export default function AdminTeams(): React.JSX.Element {
                     onChange={(e) => setBroadcastMsg(e.target.value)}
                     placeholder="ATTENTION OPERATORS: Round 1 ending soon. Complete relic solves before gate closure."
                     rows={3}
-                    className="w-full p-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] text-[14px] text-[#F4F4F5] placeholder:text-[#A1A1AA]/40 focus:border-[#EF4444] focus:outline-none transition"
+                    className="w-full p-4 rounded-md border border-border bg-bg-0 text-[14px] text-text-1 placeholder:text-text-3/40 focus:border-brass focus:outline-none transition"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
+                    <label className="text-[12px] font-mono font-bold  tracking-wider text-text-3 block mb-2">
                       Severity Level:
                     </label>
                     <select
                       value={broadcastLevel}
                       onChange={(e) => setBroadcastLevel(e.target.value as any)}
-                      className="w-full h-11 px-3 rounded-[2px] border border-[#3F3F46] bg-[#18181B] text-[13px] font-mono font-bold text-[#F4F4F5] focus:border-[#EF4444] focus:outline-none transition"
+                      className="w-full h-11 px-3 rounded-md border border-border bg-bg-0 text-[13px] font-mono font-bold text-text-1 focus:border-brass focus:outline-none transition"
                     >
                       <option value="info">Standard Transmission (Info)</option>
                       <option value="warning">Urgent Priority (Warning)</option>
@@ -1495,14 +1468,14 @@ export default function AdminTeams(): React.JSX.Element {
                   </div>
 
                   <div>
-                    <label className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
+                    <label className="text-[12px] font-mono font-bold  tracking-wider text-text-3 block mb-2">
                       Broadcast CallSign:
                     </label>
                     <input
                       value={broadcastSender}
                       onChange={(e) => setBroadcastSender(e.target.value)}
                       placeholder="ARENA MARSHAL"
-                      className="w-full h-11 px-3 rounded-[2px] border border-[#3F3F46] bg-[#18181B] text-[13px] font-mono font-bold text-[#F4F4F5] focus:border-[#EF4444] focus:outline-none transition"
+                      className="w-full h-11 px-3 rounded-md border border-border bg-bg-0 text-[13px] font-mono font-bold text-text-1 focus:border-brass focus:outline-none transition"
                     />
                   </div>
                 </div>
@@ -1510,7 +1483,7 @@ export default function AdminTeams(): React.JSX.Element {
                 <button
                   type="submit"
                   disabled={busy || broadcastMsg.trim() === ""}
-                  className="mt-2 py-4 px-6 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-[#F4F4F5] font-mono font-bold text-[14px] uppercase tracking-wider disabled:opacity-50 transition cursor-pointer flex items-center justify-center gap-2"
+                  className="mt-2 py-4 px-6 rounded-md bg-brass hover:bg-brass/90 text-text-1 font-mono font-bold text-[14px]  tracking-wider disabled:opacity-50 transition cursor-pointer flex items-center justify-center gap-2"
                 >
                   <Radio className="w-4 h-4" />
                   <span>{busy ? "Transmitting…" : "Dispatch Global Broadcast"}</span>
@@ -1521,22 +1494,22 @@ export default function AdminTeams(): React.JSX.Element {
             {/* Broadcast History */}
             {announcements.length > 0 && (
               <div className="flex flex-col gap-3">
-                <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA] px-1">
+                <span className="text-[12px] font-mono font-bold  tracking-wider text-text-3 px-1">
                   Recent Broadcast Logs:
                 </span>
                 <div className="flex flex-col gap-2.5">
                   {announcements.map((a) => (
-                    <div key={a.id} className="p-4 px-5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] text-[13px] flex items-center justify-between gap-3 font-mono">
+                    <div key={a.id} className="p-4 px-5 rounded-md border border-border bg-surface-1 text-[13px] flex items-center justify-between gap-3 font-mono">
                       <div className="flex items-center gap-3">
-                        <span className={`px-2 py-0.5 rounded-[2px] font-bold text-[11px] uppercase ${
-                          a.level === "alert" ? "bg-[#EF4444] text-[#F4F4F5]" : a.level === "warning" ? "bg-[#27272A] border border-[#EF4444] text-[#EF4444]" : "bg-[#18181B] text-[#A1A1AA]"
+                        <span className={`px-2 py-0.5 rounded-md font-bold text-[11px]  ${
+                          a.level === "alert" ? "bg-brass text-text-1" : a.level === "warning" ? "bg-surface-1 border border-brass text-brass" : "bg-bg-0 text-text-3"
                         }`}>
                           {a.level}
                         </span>
-                        <span className="font-bold text-[#F4F4F5]">{a.sender || "HQ"}:</span>
-                        <span className="text-[#A1A1AA] font-sans font-medium">{a.message}</span>
+                        <span className="font-bold text-text-1">{a.sender || "HQ"}:</span>
+                        <span className="text-text-3 font-sans font-medium">{a.message}</span>
                       </div>
-                      <span className="text-[11px] text-[#A1A1AA] shrink-0">
+                      <span className="text-[11px] text-text-3 shrink-0">
                         {a.timestamp.slice(11, 19)}
                       </span>
                     </div>
@@ -1549,39 +1522,39 @@ export default function AdminTeams(): React.JSX.Element {
 
         {/* TAB 4: CREATE SQUAD */}
         {tab === "create" && (
-          <div className="max-w-[620px] mx-auto w-full p-8 rounded-[2px] border border-[#3F3F46] bg-[#27272A] flex flex-col gap-6">
+          <div className="max-w-[620px] mx-auto w-full p-8 rounded-md border border-border bg-surface-1 flex flex-col gap-6">
             <div>
-              <h2 className="font-mono text-[22px] font-bold text-[#F4F4F5] uppercase">
-                Create New Squad
+              <h2 className="font-mono text-[22px] font-bold text-text-1 ">
+                Create New Team
               </h2>
-              <p className="text-[13px] text-[#A1A1AA] mt-1">
+              <p className="text-[13px] text-text-3 mt-1">
                 Generates a confidential join code shown once. Issue directly to team lead.
               </p>
             </div>
 
             <form onSubmit={handleCreateTeam} className="flex flex-col gap-5">
               <div>
-                <label className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
-                  Squad Name:
+                <label className="text-[12px] font-mono font-bold  tracking-wider text-text-3 block mb-2">
+                  Team Name:
                 </label>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. CyberVanguard"
-                  className="w-full h-11 px-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] text-[15px] text-[#F4F4F5] placeholder:text-[#A1A1AA]/40 focus:border-[#EF4444] focus:outline-none transition"
+                  className="w-full h-11 px-4 rounded-md border border-border bg-bg-0 text-[15px] text-text-1 placeholder:text-text-3/40 focus:border-brass focus:outline-none transition"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA]">
+                  <label className="text-[12px] font-mono font-bold  tracking-wider text-text-3">
                     Operators ({memberInputs.length} of 3 • min 2, max 3):
                   </label>
                   {memberInputs.length < 3 && (
                     <button
                       type="button"
                       onClick={handleAddMember}
-                      className="flex items-center gap-1 text-[11px] font-mono font-bold uppercase text-[#F4F4F5] bg-[#18181B] px-3 py-1 rounded-[2px] border border-[#3F3F46] hover:bg-[#3F3F46] cursor-pointer transition"
+                      className="flex items-center gap-1 text-[11px] font-mono font-bold  text-text-1 bg-bg-0 px-3 py-1 rounded-md border border-border hover:bg-border cursor-pointer transition"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add Operator</span>
@@ -1597,7 +1570,7 @@ export default function AdminTeams(): React.JSX.Element {
                           value={val}
                           onChange={(e) => handleMemberChange(idx, e.target.value)}
                           placeholder={`Operator ${idx + 1} Name`}
-                          className="w-full h-11 px-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] text-[15px] text-[#F4F4F5] placeholder:text-[#A1A1AA]/40 focus:border-[#EF4444] focus:outline-none transition"
+                          className="w-full h-11 px-4 rounded-md border border-border bg-bg-0 text-[15px] text-text-1 placeholder:text-text-3/40 focus:border-brass focus:outline-none transition"
                         />
                       </div>
                       {memberInputs.length > 2 && (
@@ -1606,7 +1579,7 @@ export default function AdminTeams(): React.JSX.Element {
                           onClick={() => handleRemoveMember(idx)}
                           aria-label={`Remove Operator ${idx + 1}`}
                           title="Remove operator"
-                          className="h-11 w-11 shrink-0 flex items-center justify-center rounded-[2px] border border-[#3F3F46] bg-[#18181B] text-[#A1A1AA] hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition cursor-pointer"
+                          className="h-11 w-11 shrink-0 flex items-center justify-center rounded-md border border-border bg-bg-0 text-text-3 hover:text-brass hover:bg-brass/10 transition cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1623,243 +1596,110 @@ export default function AdminTeams(): React.JSX.Element {
                   name.trim() === "" ||
                   memberInputs.filter((m) => m.trim() !== "").length < 2
                 }
-                className="mt-2 py-4 px-6 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-[#F4F4F5] font-mono font-bold text-[14px] uppercase tracking-wider disabled:opacity-50 transition cursor-pointer"
+                className="mt-2 py-4 px-6 rounded-md bg-brass hover:bg-brass/90 text-text-1 font-mono font-bold text-[14px]  tracking-wider disabled:opacity-50 transition cursor-pointer"
               >
-                {busy ? "Enrolling…" : "Generate Squad Join Code"}
+                {busy ? "Enrolling…" : "Generate Team Join Code"}
               </button>
             </form>
 
             {/* Created Code Alert */}
             {created && (
-              <div className="p-6 rounded-[2px] border border-[#10B981] bg-[#18181B] text-[#10B981] flex flex-col gap-4">
+              <div className="p-6 rounded-md border border-moss bg-bg-0 text-moss flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#10B981]">
+                  <span className="text-[12px] font-mono font-bold  tracking-wider text-moss">
                     Confidential Join Code (Single Display):
                   </span>
                   <button
                     type="button"
                     onClick={() => copyCode(created.code)}
-                    className="flex items-center gap-1 text-[12px] font-mono font-bold text-[#10B981] cursor-pointer"
+                    className="flex items-center gap-1 text-[12px] font-mono font-bold text-moss cursor-pointer"
                   >
                     {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     <span>{copied ? "Copied!" : "Copy Code"}</span>
                   </button>
                 </div>
 
-                <div className="font-mono text-[32px] font-bold tracking-widest text-[#10B981] text-center py-3 bg-[#27272A] rounded-[2px] border border-[#3F3F46]">
+                <div className="font-mono text-[32px] font-bold tracking-widest text-moss text-center py-3 bg-surface-1 rounded-md border border-border">
                   {created.code}
                 </div>
 
-                <p className="text-[13px] font-mono text-[#10B981] text-center">
-                  Team: <span className="font-bold text-[#F4F4F5]">{created.name}</span> • Join Hint:{" "}
+                <p className="text-[13px] font-mono text-moss text-center">
+                  Team: <span className="font-bold text-text-1">{created.name}</span> • Join Hint:{" "}
                   <span className="font-bold">{created.hint}</span>
                 </p>
               </div>
             )}
 
             {error && (
-              <p className="text-[13px] font-mono text-[#EF4444] text-center">{error}</p>
+              <p className="text-[13px] font-mono text-brass text-center">{error}</p>
             )}
           </div>
         )}
 
-        {/* TAB 5: GATES & VAULT */}
-        {tab === "gates" && (
-          <div className="max-w-[660px] mx-auto w-full p-8 rounded-[2px] border border-[#3F3F46] bg-[#27272A] flex flex-col gap-6">
-            <div>
-              <h2 className="font-mono text-[22px] font-bold text-[#F4F4F5] uppercase">
-                Gates & Vault Controls
-              </h2>
-              <p className="text-[13px] text-[#A1A1AA] mt-1">
-                Oversee Round 1 qualification status and authorize the Round 2 Nether Vault opening.
-              </p>
-            </div>
-
-            {gates && (
-              <div className="flex flex-col gap-5">
-                <div className="grid grid-cols-3 gap-4 font-mono">
-                  <div className="p-5 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
-                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Round 1</span>
-                    <p className="mt-2 font-bold text-[16px] text-[#F4F4F5]">
-                      {gates.round1Open ? "ACTIVE" : "FROZEN"}
-                    </p>
-                  </div>
-                  <div className="p-5 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
-                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Vault</span>
-                    <p className="mt-2 font-bold text-[16px] text-[#F4F4F5]">
-                      {gates.vaultOpen ? "OPEN" : "SEALED"}
-                    </p>
-                  </div>
-                  <div className="p-5 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
-                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Round 2</span>
-                    <p className={`mt-2 font-bold text-[16px] ${round2.status === "active" ? "text-[#10B981]" : round2.status === "countdown" ? "text-[#F59E0B]" : "text-[#F4F4F5]"}`}>
-                      {round2.status === "active" ? "ACTIVE" : round2.status === "countdown" ? "COUNTDOWN" : "OFF"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Round 2 Timer Display */}
-                {round2.status !== "off" && (
-                  <div className="p-5 rounded-[2px] border border-[#3F3F46] bg-[#18181B] flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-[#A1A1AA] uppercase font-mono">
-                        {round2.status === "countdown" ? "Starts In" : "Time Remaining"}
-                      </span>
-                      <span className="text-[11px] font-bold text-[#A1A1AA] uppercase font-mono">
-                        Total: {Math.floor(round2.duration / 60)}m
-                      </span>
-                    </div>
-                    <p className="font-mono text-[36px] font-bold text-[#10B981] tracking-wider">
-                      {Math.floor(round2.timeLeft / 60)}:{String(round2.timeLeft % 60).padStart(2, "0")}
-                    </p>
-                    {round2.status === "active" && (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            await extendRound2(adminCode, 300);
-                            notify("Extended Round 2 by 5 minutes");
-                          }}
-                          className="px-3 py-1.5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono text-[11px] font-bold uppercase transition cursor-pointer"
-                        >
-                          +5 min
-                        </button>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            await extendRound2(adminCode, 600);
-                            notify("Extended Round 2 by 10 minutes");
-                          }}
-                          className="px-3 py-1.5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono text-[11px] font-bold uppercase transition cursor-pointer"
-                        >
-                          +10 min
-                        </button>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            await extendRound2(adminCode, 1800);
-                            notify("Extended Round 2 by 30 minutes");
-                          }}
-                          className="px-3 py-1.5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono text-[11px] font-bold uppercase transition cursor-pointer"
-                        >
-                          +30 min
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-3 pt-4 border-t border-[#3F3F46]">
-                  {round2.status === "off" && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await startRound2(adminCode);
-                        const g = await getGates();
-                        setGates(g);
-                        notify("Round 2 started! 30s countdown begins now.");
-                      }}
-                      className="py-4 px-4 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-[#F4F4F5] font-mono font-bold text-[14px] uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Unlock className="w-4 h-4" />
-                      <span>Start Round 2 (30s countdown)</span>
-                    </button>
-                  )}
-
-                  {round2.status !== "off" && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await stopRound2(adminCode);
-                        const g = await getGates();
-                        setGates(g);
-                        notify("Round 2 stopped!");
-                      }}
-                      className="py-3.5 px-4 rounded-[2px] border border-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-[#EF4444] font-mono font-bold text-[13px] uppercase tracking-wider transition cursor-pointer"
-                    >
-                      Stop Round 2
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await endRound1(adminCode);
-                      setGates(await getGates());
-                      notify("Round 1 submissions frozen!");
-                    }}
-                    className="py-3.5 px-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono font-bold text-[13px] uppercase tracking-wider transition cursor-pointer"
-                  >
-                    Freeze / End Round 1 Only
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        {tab === "gates" && <RoundControls adminCode={adminCode} />}
 
         {/* TAB 6: SYSTEM DIAGNOSTICS */}
         {tab === "diagnostics" && (
           <div className="max-w-[860px] mx-auto w-full flex flex-col gap-6">
             {systemHealth && (
-              <div className="p-8 rounded-[2px] border border-[#3F3F46] bg-[#27272A] flex flex-col gap-6">
+              <div className="p-8 rounded-md border border-border bg-surface-1 flex flex-col gap-6">
                 <div>
-                  <h2 className="font-mono text-[22px] font-bold text-[#F4F4F5] uppercase flex items-center gap-3">
-                    <Cpu className="w-6 h-6 text-[#EF4444]" />
+                  <h2 className="font-mono text-[22px] font-bold text-text-1  flex items-center gap-3">
+                    <Cpu className="w-6 h-6 text-brass" />
                     <span>System Diagnostics & LLM Status</span>
                   </h2>
-                  <p className="text-[13px] text-[#A1A1AA] mt-1">
+                  <p className="text-[13px] text-text-3 mt-1">
                     Single-process LAN runtime status, model connectivity, and SQLite storage statistics.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 font-mono">
-                  <div className="p-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
-                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Uptime</span>
-                    <p className="text-[16px] font-bold text-[#F4F4F5] mt-1">
+                  <div className="p-4 rounded-md border border-border bg-bg-0">
+                    <span className="text-[11px] font-bold text-text-3 ">Uptime</span>
+                    <p className="text-[16px] font-bold text-text-1 mt-1">
                       {Math.floor(systemHealth.uptime / 60)}m {systemHealth.uptime % 60}s
                     </p>
                   </div>
-                  <div className="p-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
-                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">RAM Footprint</span>
-                    <p className="text-[16px] font-bold text-[#F4F4F5] mt-1">{systemHealth.memoryUsageMb} MB</p>
+                  <div className="p-4 rounded-md border border-border bg-bg-0">
+                    <span className="text-[11px] font-bold text-text-3 ">RAM Footprint</span>
+                    <p className="text-[16px] font-bold text-text-1 mt-1">{systemHealth.memoryUsageMb} MB</p>
                   </div>
-                  <div className="p-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
-                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Active Sockets</span>
-                    <p className="text-[16px] font-bold text-[#10B981] mt-1">{systemHealth.activeConnections} WS</p>
+                  <div className="p-4 rounded-md border border-border bg-bg-0">
+                    <span className="text-[11px] font-bold text-text-3 ">Active Sockets</span>
+                    <p className="text-[16px] font-bold text-moss mt-1">{systemHealth.activeConnections} WS</p>
                   </div>
-                  <div className="p-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
-                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Groq Cloud (R1)</span>
-                    <p className="text-[16px] font-bold text-[#10B981] mt-1">Ready</p>
+                  <div className="p-4 rounded-md border border-border bg-bg-0">
+                    <span className="text-[11px] font-bold text-text-3 ">Groq Cloud (R1)</span>
+                    <p className="text-[16px] font-bold text-moss mt-1">Ready</p>
                   </div>
-                  <div className="p-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
-                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">OpenCode Zen (R2)</span>
-                    <p className="text-[16px] font-bold text-[#10B981] mt-1">Ready</p>
+                  <div className="p-4 rounded-md border border-border bg-bg-0">
+                    <span className="text-[11px] font-bold text-text-3 ">OpenCode Zen (R2)</span>
+                    <p className="text-[16px] font-bold text-moss mt-1">Ready</p>
                   </div>
-                  <div className="p-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
-                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Chat Logs</span>
-                    <p className="text-[16px] font-bold text-[#F4F4F5] mt-1">{systemHealth.messagesCount}</p>
+                  <div className="p-4 rounded-md border border-border bg-bg-0">
+                    <span className="text-[11px] font-bold text-text-3 ">Chat Logs</span>
+                    <p className="text-[16px] font-bold text-text-1 mt-1">{systemHealth.messagesCount}</p>
                   </div>
-                  <div className="p-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
-                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Total Tokens</span>
-                    <p className="text-[16px] font-bold text-[#F4F4F5] mt-1 font-mono">
+                  <div className="p-4 rounded-md border border-border bg-bg-0">
+                    <span className="text-[11px] font-bold text-text-3 ">Total Tokens</span>
+                    <p className="text-[16px] font-bold text-text-1 mt-1 font-mono">
                       {(systemHealth.totalTokens ?? 0).toLocaleString()}
                     </p>
                   </div>
-                  <div className="p-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
-                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Throughput</span>
-                    <p className="text-[16px] font-bold text-[#F4F4F5] mt-1 font-mono">
+                  <div className="p-4 rounded-md border border-border bg-bg-0">
+                    <span className="text-[11px] font-bold text-text-3 ">Throughput</span>
+                    <p className="text-[16px] font-bold text-text-1 mt-1 font-mono">
                       {systemHealth.currentTps ?? 0} TPS
                     </p>
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-[#3F3F46] flex flex-wrap items-center gap-3">
+                <div className="pt-4 border-t border-border flex flex-wrap items-center gap-3">
                   <button
                     type="button"
                     onClick={handleBackup}
                     disabled={busy}
-                    className="px-4 py-2.5 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-[#F4F4F5] font-mono font-bold text-[13px] uppercase tracking-wider flex items-center gap-2 cursor-pointer"
+                    className="px-4 py-2.5 rounded-md bg-brass hover:bg-brass/90 text-text-1 font-mono font-bold text-[13px]  tracking-wider flex items-center gap-2 cursor-pointer"
                   >
                     <Database className="w-4 h-4" />
                     <span>Create DB Snapshot (.db)</span>
@@ -1869,7 +1709,7 @@ export default function AdminTeams(): React.JSX.Element {
                     href={`/api/admin/export.json?x-admin-code=${adminCode}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="px-4 py-2.5 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono font-bold text-[13px] uppercase tracking-wider flex items-center gap-2 transition"
+                    className="px-4 py-2.5 rounded-md border border-border bg-bg-0 hover:bg-border text-text-1 font-mono font-bold text-[13px]  tracking-wider flex items-center gap-2 transition"
                   >
                     <Download className="w-4 h-4" />
                     <span>Export JSON Dump</span>
@@ -1879,7 +1719,7 @@ export default function AdminTeams(): React.JSX.Element {
                     href={`/api/admin/export.csv?table=elo_log&x-admin-code=${adminCode}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="px-3.5 py-2.5 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono text-[12px] flex items-center gap-1.5 transition"
+                    className="px-3.5 py-2.5 rounded-md border border-border bg-bg-0 hover:bg-border text-text-1 font-mono text-[12px] flex items-center gap-1.5 transition"
                   >
                     <span>CSV: ELO Log</span>
                   </a>
@@ -1888,7 +1728,7 @@ export default function AdminTeams(): React.JSX.Element {
                     href={`/api/admin/export.csv?table=chat_logs&x-admin-code=${adminCode}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="px-3.5 py-2.5 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono text-[12px] flex items-center gap-1.5 transition"
+                    className="px-3.5 py-2.5 rounded-md border border-border bg-bg-0 hover:bg-border text-text-1 font-mono text-[12px] flex items-center gap-1.5 transition"
                   >
                     <span>CSV: Chat Logs</span>
                   </a>
@@ -1897,7 +1737,7 @@ export default function AdminTeams(): React.JSX.Element {
                     href={`/api/admin/export.csv?table=team_inventory&x-admin-code=${adminCode}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="px-3.5 py-2.5 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono text-[12px] flex items-center gap-1.5 transition"
+                    className="px-3.5 py-2.5 rounded-md border border-border bg-bg-0 hover:bg-border text-text-1 font-mono text-[12px] flex items-center gap-1.5 transition"
                   >
                     <span>CSV: Inventory</span>
                   </a>
@@ -1911,38 +1751,38 @@ export default function AdminTeams(): React.JSX.Element {
         {tab === "settings" && (
           <div className="max-w-[880px] mx-auto w-full flex flex-col gap-6">
             {!settingsUnlocked ? (
-              <div className="p-10 rounded-[2px] border border-[#3F3F46] bg-[#27272A] flex flex-col items-center text-center max-w-[520px] mx-auto">
-                <div className="w-16 h-16 rounded-[2px] bg-[#18181B] border border-[#3F3F46] text-[#EF4444] flex items-center justify-center mb-4">
-                  <Lock className="w-8 h-8" />
+              <div className="p-10 rounded-md border border-border bg-surface-1 flex flex-col items-center text-center max-w-[520px] mx-auto">
+                <div className="w-16 h-16 rounded-md bg-bg-0 border border-border text-brass flex items-center justify-center mb-4">
+                  <Lock className="w-11 h-11" />
                 </div>
-                <h2 className="font-mono text-[22px] font-bold text-[#F4F4F5] uppercase">
+                <h2 className="font-mono text-[22px] font-bold text-text-1 ">
                   API Settings Locked
                 </h2>
-                <p className="text-[13px] text-[#A1A1AA] mt-2 max-w-[40ch]">
-                  Enter the confidential <code className="px-1.5 py-0.5 rounded bg-[#18181B] font-mono text-[#F4F4F5]">ADMIN_SETTINGS_PIN</code> to manage multi-API rotation pools.
+                <p className="text-[13px] text-text-3 mt-2 max-w-[40ch]">
+                  Enter the confidential <code className="px-1.5 py-0.5 rounded bg-bg-0 font-mono text-text-1">ADMIN_SETTINGS_PIN</code> to manage multi-API rotation pools.
                 </p>
 
                 <form onSubmit={handleUnlockSettings} className="mt-6 flex flex-col gap-4 w-full">
                   <div className="relative">
-                    <KeyRound className="w-4 h-4 text-[#A1A1AA] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <KeyRound className="w-4 h-4 text-text-3 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="password"
                       value={pinInput}
                       onChange={(e) => setPinInput(e.target.value)}
                       placeholder="ENTER SETTINGS PIN"
                       autoFocus
-                      className="w-full h-11 pl-10 pr-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] text-[14px] font-mono text-[#F4F4F5] focus:border-[#EF4444] focus:outline-none transition"
+                      className="w-full h-11 pl-10 pr-4 rounded-md border border-border bg-bg-0 text-[14px] font-mono text-text-1 focus:border-brass focus:outline-none transition"
                     />
                   </div>
 
                   {pinError && (
-                    <p className="text-[12px] font-mono text-[#EF4444] font-semibold">{pinError}</p>
+                    <p className="text-[12px] font-mono text-brass font-semibold">{pinError}</p>
                   )}
 
                   <button
                     type="submit"
                     disabled={!pinInput.trim()}
-                    className="h-11 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-[#F4F4F5] font-mono font-bold text-[13px] uppercase tracking-wider disabled:opacity-50 transition cursor-pointer flex items-center justify-center gap-2"
+                    className="h-11 rounded-md bg-brass hover:bg-brass/90 text-text-1 font-mono font-bold text-[13px]  tracking-wider disabled:opacity-50 transition cursor-pointer flex items-center justify-center gap-2"
                   >
                     <Unlock className="w-4 h-4" />
                     <span>Unlock API Pool</span>
@@ -1952,17 +1792,17 @@ export default function AdminTeams(): React.JSX.Element {
             ) : (
               <div className="flex flex-col gap-6">
                 {/* Header & Lock Button */}
-                <div className="flex flex-wrap items-center justify-between gap-4 p-8 rounded-[2px] border border-[#3F3F46] bg-[#27272A]">
+                <div className="flex flex-wrap items-center justify-between gap-4 p-8 rounded-md border border-border bg-surface-1">
                   <div>
                     <div className="flex items-center gap-3">
-                      <h2 className="font-mono text-[22px] font-bold text-[#F4F4F5] uppercase">
+                      <h2 className="font-mono text-[22px] font-bold text-text-1 ">
                         Multi-API Key Rotation Engine
                       </h2>
-                      <span className="px-3 py-1 rounded-[2px] bg-[#18181B] border border-[#10B981] text-[#10B981] font-mono font-bold text-[11px] uppercase tracking-wider">
+                      <span className="px-3 py-1 rounded-md bg-bg-0 border border-moss text-moss font-mono font-bold text-[11px]  tracking-wider">
                         Active & Unlocked
                       </span>
                     </div>
-                    <p className="text-[13px] text-[#A1A1AA] mt-1">
+                    <p className="text-[13px] text-text-3 mt-1">
                       Configure keys for Groq & OpenCode Zen. Automatic fallback on rate-limit (429).
                     </p>
                   </div>
@@ -1972,16 +1812,16 @@ export default function AdminTeams(): React.JSX.Element {
                       type="button"
                       onClick={() => void fetchKeys()}
                       disabled={keysLoading}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] text-[#F4F4F5] font-mono text-[12px] font-bold uppercase tracking-wider transition cursor-pointer"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-border bg-bg-0 hover:bg-border text-text-1 font-mono text-[12px] font-bold  tracking-wider transition cursor-pointer"
                     >
-                      <RefreshCw className={`w-3.5 h-3.5 ${keysLoading ? "animate-spin text-[#EF4444]" : ""}`} />
+                      <RefreshCw className={`w-3.5 h-3.5 ${keysLoading ? "animate-spin text-brass" : ""}`} />
                       <span>Refresh</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={handleLockSettings}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-[2px] border border-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444] text-[#EF4444] hover:text-[#F4F4F5] font-mono text-[12px] font-bold uppercase tracking-wider transition cursor-pointer"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-brass bg-brass/10 hover:bg-brass text-brass hover:text-text-1 font-mono text-[12px] font-bold  tracking-wider transition cursor-pointer"
                     >
                       <Lock className="w-3.5 h-3.5" />
                       <span>Lock Settings</span>
@@ -1992,44 +1832,44 @@ export default function AdminTeams(): React.JSX.Element {
                 {/* Provider Status Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {/* Groq Pool Card */}
-                  <div className="p-6 rounded-[2px] border border-[#3F3F46] bg-[#18181B] flex flex-col gap-3">
+                  <div className="p-6 rounded-md border border-border bg-bg-0 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-none bg-[#10B981]" />
-                        <h3 className="font-mono font-bold text-[16px] text-[#F4F4F5] uppercase">Groq Cloud (Round 1)</h3>
+                        <span className="w-2.5 h-2.5 rounded-none bg-moss" />
+                        <h3 className="font-mono font-bold text-[16px] text-text-1 ">Groq Cloud (Round 1)</h3>
                       </div>
-                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA]">
+                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-surface-1 border border-border text-text-3">
                         qwen/qwen3.8-27b
                       </span>
                     </div>
-                    <p className="text-[12px] text-[#A1A1AA]">
+                    <p className="text-[12px] text-text-3">
                       Powers all 8 Round 1 AI characters (John Wick, Spider-Man, Escanor, Stark, etc.)
                     </p>
-                    <div className="mt-2 pt-3 border-t border-[#3F3F46] flex items-center justify-between text-[12px] font-mono">
-                      <span className="text-[#A1A1AA] uppercase">Rotation Pool:</span>
-                      <span className="font-bold text-[#10B981]">
+                    <div className="mt-2 pt-3 border-t border-border flex items-center justify-between text-[12px] font-mono">
+                      <span className="text-text-3 ">Rotation Pool:</span>
+                      <span className="font-bold text-moss">
                         {keysList.filter((k) => k.provider === "groq" && k.is_active).length} Custom Active + .env Fallback
                       </span>
                     </div>
                   </div>
 
                   {/* OpenCode Zen Pool Card */}
-                  <div className="p-6 rounded-[2px] border border-[#3F3F46] bg-[#18181B] flex flex-col gap-3">
+                  <div className="p-6 rounded-md border border-border bg-bg-0 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-none bg-[#10B981]" />
-                        <h3 className="font-mono font-bold text-[16px] text-[#F4F4F5] uppercase">OpenCode Zen (Round 2)</h3>
+                        <span className="w-2.5 h-2.5 rounded-none bg-moss" />
+                        <h3 className="font-mono font-bold text-[16px] text-text-1 ">OpenCode Zen (Round 2)</h3>
                       </div>
-                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA]">
+                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-surface-1 border border-border text-text-3">
                         muse-spark-1.3
                       </span>
                     </div>
-                    <p className="text-[12px] text-[#A1A1AA]">
+                    <p className="text-[12px] text-text-3">
                       Powers Nether Vault Bosses (Itachi Uchiha & Sosuke Aizen) with server reasoning traces
                     </p>
-                    <div className="mt-2 pt-3 border-t border-[#3F3F46] flex items-center justify-between text-[12px] font-mono">
-                      <span className="text-[#A1A1AA] uppercase">Rotation Pool:</span>
-                      <span className="font-bold text-[#10B981]">
+                    <div className="mt-2 pt-3 border-t border-border flex items-center justify-between text-[12px] font-mono">
+                      <span className="text-text-3 ">Rotation Pool:</span>
+                      <span className="font-bold text-moss">
                         {keysList.filter((k) => k.provider === "zen" && k.is_active).length} Custom Active + .env Fallback
                       </span>
                     </div>
@@ -2037,21 +1877,21 @@ export default function AdminTeams(): React.JSX.Element {
                 </div>
 
                 {/* Add New Key Form */}
-                <div className="p-6 sm:p-8 rounded-[2px] border border-[#3F3F46] bg-[#18181B] flex flex-col gap-5">
-                  <h3 className="font-mono font-bold text-[16px] text-[#F4F4F5] uppercase flex items-center gap-2">
-                    <Plus className="w-4 h-4 text-[#EF4444]" />
+                <div className="p-6 sm:p-8 rounded-md border border-border bg-bg-0 flex flex-col gap-5">
+                  <h3 className="font-mono font-bold text-[16px] text-text-1  flex items-center gap-2">
+                    <Plus className="w-4 h-4 text-brass" />
                     <span>Add New API Key to Rotation Pool</span>
                   </h3>
 
                   <form onSubmit={handleAddKey} className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end font-mono">
                     <div className="sm:col-span-3">
-                      <label className="text-[11px] font-bold text-[#A1A1AA] uppercase tracking-wider block mb-1">
+                      <label className="text-[11px] font-bold text-text-3  tracking-wider block mb-1">
                         Provider:
                       </label>
                       <select
                         value={newKeyProvider}
                         onChange={(e) => setNewKeyProvider(e.target.value as "groq" | "zen")}
-                        className="w-full h-11 px-3 rounded-[2px] border border-[#3F3F46] bg-[#27272A] text-[13px] font-bold text-[#F4F4F5] focus:outline-none"
+                        className="w-full h-11 px-3 rounded-md border border-border bg-surface-1 text-[13px] font-bold text-text-1 focus:outline-none"
                       >
                         <option value="groq">Groq (Round 1)</option>
                         <option value="zen">OpenCode Zen (Round 2)</option>
@@ -2059,7 +1899,7 @@ export default function AdminTeams(): React.JSX.Element {
                     </div>
 
                     <div className="sm:col-span-5">
-                      <label className="text-[11px] font-bold text-[#A1A1AA] uppercase tracking-wider block mb-1">
+                      <label className="text-[11px] font-bold text-text-3  tracking-wider block mb-1">
                         API Key Value:
                       </label>
                       <input
@@ -2067,19 +1907,19 @@ export default function AdminTeams(): React.JSX.Element {
                         value={newKeyValue}
                         onChange={(e) => setNewKeyValue(e.target.value)}
                         placeholder="gsk_... or sk-pw..."
-                        className="w-full h-11 px-4 rounded-[2px] border border-[#3F3F46] bg-[#27272A] text-[13px] text-[#F4F4F5] focus:outline-none"
+                        className="w-full h-11 px-4 rounded-md border border-border bg-surface-1 text-[13px] text-text-1 focus:outline-none"
                       />
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="text-[11px] font-bold text-[#A1A1AA] uppercase tracking-wider block mb-1">
+                      <label className="text-[11px] font-bold text-text-3  tracking-wider block mb-1">
                         Label:
                       </label>
                       <input
                         value={newKeyLabel}
                         onChange={(e) => setNewKeyLabel(e.target.value)}
                         placeholder="Key Label"
-                        className="w-full h-11 px-3 rounded-[2px] border border-[#3F3F46] bg-[#27272A] text-[13px] text-[#F4F4F5] focus:outline-none"
+                        className="w-full h-11 px-3 rounded-md border border-border bg-surface-1 text-[13px] text-text-1 focus:outline-none"
                       />
                     </div>
 
@@ -2087,7 +1927,7 @@ export default function AdminTeams(): React.JSX.Element {
                       <button
                         type="submit"
                         disabled={busy || !newKeyValue.trim()}
-                        className="w-full h-11 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-[#F4F4F5] font-mono font-bold text-[13px] uppercase tracking-wider disabled:opacity-50 transition cursor-pointer flex items-center justify-center gap-1.5"
+                        className="w-full h-11 rounded-md bg-brass hover:bg-brass/90 text-text-1 font-mono font-bold text-[13px]  tracking-wider disabled:opacity-50 transition cursor-pointer flex items-center justify-center gap-1.5"
                       >
                         <Plus className="w-4 h-4" />
                         <span>Add Key</span>
@@ -2097,92 +1937,92 @@ export default function AdminTeams(): React.JSX.Element {
                 </div>
 
                 {/* Keys Pool List */}
-                <div className="p-6 sm:p-8 rounded-[2px] border border-[#3F3F46] bg-[#18181B] flex flex-col gap-5">
+                <div className="p-6 sm:p-8 rounded-md border border-border bg-bg-0 flex flex-col gap-5">
                   <div className="flex items-center justify-between font-mono">
-                    <h3 className="font-bold text-[16px] text-[#F4F4F5] uppercase">
+                    <h3 className="font-bold text-[16px] text-text-1 ">
                       Configured Keys ({keysList.length + 2} in Pool)
                     </h3>
-                    <span className="text-[12px] text-[#A1A1AA]">
+                    <span className="text-[12px] text-text-3">
                       Sorted by lowest fail count
                     </span>
                   </div>
 
                   <div className="flex flex-col gap-3 font-mono">
                     {/* Permanent Fallback Key: Groq */}
-                    <div className="p-4 px-5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] flex items-center justify-between gap-4">
+                    <div className="p-4 px-5 rounded-md border border-border bg-surface-1 flex items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
-                        <span className="px-2.5 py-1 rounded-[2px] bg-[#18181B] text-[#A1A1AA] text-[11px] font-bold uppercase border border-[#3F3F46]">
+                        <span className="px-2.5 py-1 rounded-md bg-bg-0 text-text-3 text-[11px] font-bold  border border-border">
                           Groq
                         </span>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[14px] font-bold text-[#F4F4F5]">
+                            <span className="text-[14px] font-bold text-text-1">
                               System Fallback Key (.env)
                             </span>
-                            <span className="px-2 py-0.5 rounded-[2px] bg-[#10B981]/10 text-[#10B981] border border-[#10B981] text-[10px] font-bold uppercase">
+                            <span className="px-2 py-0.5 rounded-md bg-moss/10 text-moss border border-moss text-[10px] font-bold ">
                               Always Active
                             </span>
                           </div>
-                          <span className="text-[11px] text-[#A1A1AA]">Primary environment variable fallback</span>
+                          <span className="text-[11px] text-text-3">Primary environment variable fallback</span>
                         </div>
                       </div>
-                      <span className="text-[12px] font-bold text-[#10B981] uppercase">Built-in Fallback</span>
+                      <span className="text-[12px] font-bold text-moss ">Built-in Fallback</span>
                     </div>
 
                     {/* Permanent Fallback Key: Zen */}
-                    <div className="p-4 px-5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] flex items-center justify-between gap-4">
+                    <div className="p-4 px-5 rounded-md border border-border bg-surface-1 flex items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
-                        <span className="px-2.5 py-1 rounded-[2px] bg-[#18181B] text-[#A1A1AA] text-[11px] font-bold uppercase border border-[#3F3F46]">
+                        <span className="px-2.5 py-1 rounded-md bg-bg-0 text-text-3 text-[11px] font-bold  border border-border">
                           Zen
                         </span>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[14px] font-bold text-[#F4F4F5]">
+                            <span className="text-[14px] font-bold text-text-1">
                               System Fallback Key (.env)
                             </span>
-                            <span className="px-2 py-0.5 rounded-[2px] bg-[#10B981]/10 text-[#10B981] border border-[#10B981] text-[10px] font-bold uppercase">
+                            <span className="px-2 py-0.5 rounded-md bg-moss/10 text-moss border border-moss text-[10px] font-bold ">
                               Always Active
                             </span>
                           </div>
-                          <span className="text-[11px] text-[#A1A1AA]">Primary environment variable fallback</span>
+                          <span className="text-[11px] text-text-3">Primary environment variable fallback</span>
                         </div>
                       </div>
-                      <span className="text-[12px] font-bold text-[#10B981] uppercase">Built-in Fallback</span>
+                      <span className="text-[12px] font-bold text-moss ">Built-in Fallback</span>
                     </div>
 
                     {/* Custom Keys */}
                     {keysList.map((k) => (
                       <div
                         key={k.id}
-                        className="p-4 px-5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] flex items-center justify-between gap-4 transition"
+                        className="p-4 px-5 rounded-md border border-border bg-surface-1 flex items-center justify-between gap-4 transition"
                       >
                         <div className="flex items-center gap-4">
-                          <span className="px-2.5 py-1 rounded-[2px] bg-[#18181B] text-[#A1A1AA] text-[11px] font-bold uppercase border border-[#3F3F46]">
+                          <span className="px-2.5 py-1 rounded-md bg-bg-0 text-text-3 text-[11px] font-bold  border border-border">
                             {k.provider}
                           </span>
 
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-[14px] font-bold text-[#F4F4F5]">
+                              <span className="text-[14px] font-bold text-text-1">
                                 {k.masked_key}
                               </span>
                               {k.label && (
-                                <span className="text-[12px] text-[#A1A1AA]">
+                                <span className="text-[12px] text-text-3">
                                   ({k.label})
                                 </span>
                               )}
-                              <span className={`px-2 py-0.5 rounded-[2px] text-[10px] font-bold uppercase ${
-                                k.is_active ? "bg-[#10B981]/10 text-[#10B981] border border-[#10B981]" : "bg-[#18181B] text-[#A1A1AA]"
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold  ${
+                                k.is_active ? "bg-moss/10 text-moss border border-moss" : "bg-bg-0 text-text-3"
                               }`}>
                                 {k.is_active ? "Active" : "Disabled"}
                               </span>
                               {k.fail_count > 0 && (
-                                <span className="px-2 py-0.5 rounded-[2px] bg-[#EF4444]/10 text-[#EF4444] text-[10px] font-bold">
+                                <span className="px-2 py-0.5 rounded-md bg-brass/10 text-brass text-[10px] font-bold">
                                   {k.fail_count} failures
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-[#A1A1AA] mt-1">
+                            <p className="text-[11px] text-text-3 mt-1">
                               Added: {k.created_at.slice(0, 10)} {k.last_used_at ? `• Last Used: ${k.last_used_at.slice(11, 19)}` : ""}
                             </p>
                           </div>
@@ -2192,10 +2032,10 @@ export default function AdminTeams(): React.JSX.Element {
                           <button
                             type="button"
                             onClick={() => void handleToggleKey(k.id)}
-                            className={`px-3 py-1.5 rounded-[2px] text-[12px] font-mono font-bold uppercase transition cursor-pointer ${
+                            className={`px-3 py-1.5 rounded-md text-[12px] font-mono font-bold  transition cursor-pointer ${
                               k.is_active
-                                ? "bg-[#18181B] border border-[#3F3F46] text-[#A1A1AA] hover:text-[#F4F4F5]"
-                                : "bg-[#10B981]/10 border border-[#10B981] text-[#10B981]"
+                                ? "bg-bg-0 border border-border text-text-3 hover:text-text-1"
+                                : "bg-moss/10 border border-moss text-moss"
                             }`}
                           >
                             {k.is_active ? "Disable" : "Enable"}
@@ -2204,7 +2044,7 @@ export default function AdminTeams(): React.JSX.Element {
                           <button
                             type="button"
                             onClick={() => void handleDeleteKey(k.id)}
-                            className="p-2 rounded-[2px] border border-[#EF4444]/40 bg-[#EF4444]/10 text-[#EF4444] hover:bg-[#EF4444] hover:text-[#F4F4F5] transition cursor-pointer"
+                            className="p-2 rounded-md border border-brass/40 bg-brass/10 text-brass hover:bg-brass hover:text-text-1 transition cursor-pointer"
                             title="Delete API key"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -2224,24 +2064,24 @@ export default function AdminTeams(): React.JSX.Element {
       {/* MODAL 1: LIVE ELO ADJUSTER (TACTICAL TERMINAL OVERHAUL)    */}
       {/* ========================================================= */}
       {eloModalTeam && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
-          <div className="w-full max-w-[520px] rounded-[2px] border-t-[1px] border-t-[#EF4444] border-x border-b border-[#3F3F46] bg-[#27272A] p-6 sm:p-8 flex flex-col gap-5 text-[#F4F4F5] shadow-[0_25px_60px_rgba(0,0,0,0.95)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 ">
+          <div className="w-full max-w-[520px] rounded-md border-t-[1px] border-t-brass border-x border-b border-border bg-surface-1 p-6 sm:p-8 flex flex-col gap-5 text-text-1 shadow-none">
             {/* Terminal Header */}
-            <div className="flex items-center justify-between border-b border-[#3F3F46] pb-4">
+            <div className="flex items-center justify-between border-b border-border pb-4">
               <div>
-                <h3 className="text-[17px] font-mono font-bold text-[#F4F4F5] uppercase tracking-wider flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-[#EF4444]" />
+                <h3 className="text-[17px] font-mono font-bold text-text-1  tracking-wider flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-brass" />
                   <span>Tactical ELO Override</span>
                 </h3>
-                <p className="text-[12px] text-[#A1A1AA] font-mono mt-1">
-                  Squad: <span className="font-bold text-[#F4F4F5]">{eloModalTeam.name}</span> • Current ELO:{" "}
-                  <span className="font-bold text-[#10B981]">{eloModalTeam.elo}</span>
+                <p className="text-[12px] text-text-3 font-mono mt-1">
+                  Team: <span className="font-bold text-text-1">{eloModalTeam.name}</span> • Current ELO:{" "}
+                  <span className="font-bold text-moss">{eloModalTeam.elo}</span>
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setEloModalTeam(null)}
-                className="w-8 h-8 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] flex items-center justify-center text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
+                className="w-11 h-11 rounded-md border border-border bg-bg-0 hover:bg-border flex items-center justify-center text-text-3 hover:text-text-1 cursor-pointer transition"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2249,7 +2089,7 @@ export default function AdminTeams(): React.JSX.Element {
 
             {/* Quick Adjust Presets (Severe Flat Rectangular Buttons) */}
             <div>
-              <label className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
+              <label className="text-[11px] font-mono font-bold  tracking-wider text-text-3 block mb-2">
                 Quick Adjust Presets:
               </label>
               <div className="grid grid-cols-4 gap-2 font-mono">
@@ -2261,12 +2101,12 @@ export default function AdminTeams(): React.JSX.Element {
                       key={d}
                       type="button"
                       onClick={() => setEloDelta(d)}
-                      className={`py-2 rounded-[2px] font-bold text-[13px] border transition cursor-pointer ${
+                      className={`py-2 rounded-md font-bold text-[13px] border transition cursor-pointer ${
                         isSelected
-                          ? "bg-[#EF4444] text-[#F4F4F5] border-[#EF4444]"
+                          ? "bg-brass text-text-1 border-brass"
                           : isPositive
-                          ? "bg-[#18181B] text-[#10B981] border-[#10B981]/40 hover:bg-[#10B981]/20"
-                          : "bg-[#18181B] text-[#EF4444] border-[#EF4444]/40 hover:bg-[#EF4444]/20"
+                          ? "bg-bg-0 text-moss border-moss/40 hover:bg-moss/20"
+                          : "bg-bg-0 text-brass border-brass/40 hover:bg-brass/20"
                       }`}
                     >
                       {isPositive ? `+${d}` : d}
@@ -2278,20 +2118,20 @@ export default function AdminTeams(): React.JSX.Element {
 
             {/* Custom Delta Field */}
             <div>
-              <label className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
+              <label className="text-[11px] font-mono font-bold  tracking-wider text-text-3 block mb-2">
                 Custom Delta Amount:
               </label>
               <input
                 type="number"
                 value={eloDelta}
                 onChange={(e) => setEloDelta(Number(e.target.value))}
-                className="w-full h-10 px-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] font-mono font-bold text-[15px] text-[#F4F4F5] focus:border-[#EF4444] focus:outline-none transition"
+                className="w-full h-10 px-4 rounded-md border border-border bg-bg-0 font-mono font-bold text-[15px] text-text-1 focus:border-brass focus:outline-none transition"
               />
             </div>
 
             {/* Adjustment Reason: Horizontal Flex-Wrap Tactical Chips */}
             <div>
-              <label className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
+              <label className="text-[11px] font-mono font-bold  tracking-wider text-text-3 block mb-2">
                 Adjustment Reason (Select Option):
               </label>
               <div className="flex flex-wrap gap-2 font-mono">
@@ -2308,10 +2148,10 @@ export default function AdminTeams(): React.JSX.Element {
                       key={reasonOption}
                       type="button"
                       onClick={() => setEloReason(reasonOption)}
-                      className={`px-3 py-1.5 rounded-[2px] text-[11px] font-bold uppercase tracking-wider transition cursor-pointer border ${
+                      className={`px-3 py-1.5 rounded-md text-[11px] font-bold  tracking-wider transition cursor-pointer border ${
                         isSelected
-                          ? "bg-[#EF4444] text-[#F4F4F5] border-[#EF4444]"
-                          : "bg-[#18181B] text-[#A1A1AA] border-[#3F3F46] hover:text-[#F4F4F5] hover:border-[#A1A1AA]"
+                          ? "bg-brass text-text-1 border-brass"
+                          : "bg-bg-0 text-text-3 border-border hover:text-text-1 hover:border-text-3"
                       }`}
                     >
                       {reasonOption}
@@ -2322,9 +2162,9 @@ export default function AdminTeams(): React.JSX.Element {
             </div>
 
             {/* Summary preview */}
-            <div className="p-3.5 rounded-[2px] bg-[#18181B] border border-[#3F3F46] font-mono text-[12px] flex items-center justify-between">
-              <span className="text-[#A1A1AA] uppercase font-bold">New Calculated ELO:</span>
-              <span className="font-bold text-[16px] text-[#10B981]">
+            <div className="p-3.5 rounded-md bg-bg-0 border border-border font-mono text-[12px] flex items-center justify-between">
+              <span className="text-text-3  font-bold">New Calculated ELO:</span>
+              <span className="font-bold text-[16px] text-moss">
                 {Math.max(0, eloModalTeam.elo + eloDelta)} ({eloDelta > 0 ? `+${eloDelta}` : eloDelta})
               </span>
             </div>
@@ -2334,7 +2174,7 @@ export default function AdminTeams(): React.JSX.Element {
               <button
                 type="button"
                 onClick={() => setEloModalTeam(null)}
-                className="flex-1 py-3 rounded-[2px] border border-[#3F3F46] bg-transparent hover:bg-[#3F3F46]/50 font-bold text-[13px] uppercase tracking-wider text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
+                className="flex-1 py-3 rounded-md border border-border bg-transparent hover:bg-border/50 font-bold text-[13px]  tracking-wider text-text-3 hover:text-text-1 cursor-pointer transition"
               >
                 Cancel
               </button>
@@ -2342,7 +2182,7 @@ export default function AdminTeams(): React.JSX.Element {
                 type="button"
                 onClick={handleApplyElo}
                 disabled={busy}
-                className="flex-1 py-3 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 font-bold text-[13px] uppercase tracking-wider text-[#F4F4F5] cursor-pointer transition disabled:opacity-50"
+                className="flex-1 py-3 rounded-md bg-brass hover:bg-brass/90 font-bold text-[13px]  tracking-wider text-text-1 cursor-pointer transition disabled:opacity-50"
               >
                 {busy ? "Applying…" : "Confirm ELO"}
               </button>
@@ -2355,31 +2195,31 @@ export default function AdminTeams(): React.JSX.Element {
       {/* MODAL 2: SATCHEL CONTENTS / RELIC OVERRIDE MODAL           */}
       {/* ========================================================= */}
       {invModalTeam && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
-          <div className="w-full max-w-[740px] max-h-[90vh] overflow-y-auto rounded-[2px] border-t-[1px] border-t-[#EF4444] border-x border-b border-[#3F3F46] bg-[#27272A] p-6 sm:p-8 flex flex-col gap-6 text-[#F4F4F5] shadow-[0_25px_60px_rgba(0,0,0,0.95)] font-mono">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 ">
+          <div className="w-full max-w-[740px] max-h-[90vh] overflow-y-auto rounded-md border-t-[1px] border-t-brass border-x border-b border-border bg-surface-1 p-6 sm:p-8 flex flex-col gap-6 text-text-1 shadow-none font-mono">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-[#3F3F46] pb-4">
+            <div className="flex items-center justify-between border-b border-border pb-4">
               <div>
-                <h3 className="text-[17px] font-mono font-bold text-[#F4F4F5] uppercase tracking-wider flex items-center gap-2">
-                  <Package className="w-4 h-4 text-[#10B981]" />
+                <h3 className="text-[17px] font-mono font-bold text-text-1  tracking-wider flex items-center gap-2">
+                  <Package className="w-4 h-4 text-moss" />
                   <span>Satchel Contents & Relic Override</span>
                 </h3>
-                <p className="text-[12px] text-[#A1A1AA] font-mono mt-1">
-                  Squad: <span className="font-bold text-[#F4F4F5]">{invModalTeam.name}</span> • {invModalTeam.solved}/8 Verified Solved
+                <p className="text-[12px] text-text-3 font-mono mt-1">
+                  Team: <span className="font-bold text-text-1">{invModalTeam.name}</span> • {invModalTeam.solved}/8 Verified Solved
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setInvModalTeam(null)}
-                className="w-8 h-8 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] flex items-center justify-center text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
+                className="w-11 h-11 rounded-md border border-border bg-bg-0 hover:bg-border flex items-center justify-center text-text-3 hover:text-text-1 cursor-pointer transition"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Quick Batch Actions Strip */}
-            <div className="p-3 rounded-[2px] bg-[#18181B] border border-[#3F3F46] flex flex-wrap items-center justify-between gap-3">
-              <span className="text-[11px] font-bold text-[#A1A1AA] uppercase tracking-wider">
+            <div className="p-3 rounded-md bg-bg-0 border border-border flex flex-wrap items-center justify-between gap-3">
+              <span className="text-[11px] font-bold text-text-3  tracking-wider">
                 Batch Edit All 8 Characters:
               </span>
               <div className="flex items-center gap-2">
@@ -2387,7 +2227,7 @@ export default function AdminTeams(): React.JSX.Element {
                   type="button"
                   onClick={() => void handleBatchInventoryOverride("locked")}
                   disabled={busy}
-                  className="px-3 py-1.5 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#3F3F46] text-[11px] font-bold uppercase transition cursor-pointer disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-md bg-surface-1 border border-border text-text-3 hover:text-text-1 hover:bg-border text-[11px] font-bold  transition cursor-pointer disabled:opacity-50"
                 >
                   Lock All
                 </button>
@@ -2396,7 +2236,7 @@ export default function AdminTeams(): React.JSX.Element {
                   type="button"
                   onClick={() => void handleBatchInventoryOverride("obtained")}
                   disabled={busy}
-                  className="px-3 py-1.5 rounded-[2px] bg-[#18181B] border border-[#3F3F46] text-[#F4F4F5] hover:bg-[#3F3F46] text-[11px] font-bold uppercase transition cursor-pointer disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-md bg-bg-0 border border-border text-text-1 hover:bg-border text-[11px] font-bold  transition cursor-pointer disabled:opacity-50"
                 >
                   Hold All
                 </button>
@@ -2405,7 +2245,7 @@ export default function AdminTeams(): React.JSX.Element {
                   type="button"
                   onClick={() => void handleBatchInventoryOverride("verified")}
                   disabled={busy}
-                  className="px-3 py-1.5 rounded-[2px] bg-[#10B981]/10 border border-[#10B981] text-[#10B981] hover:bg-[#10B981] hover:text-[#18181B] text-[11px] font-bold uppercase transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                  className="px-3 py-1.5 rounded-md bg-moss/10 border border-moss text-moss hover:bg-moss hover:text-bg-0 text-[11px] font-bold  transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>Solve All</span>
@@ -2425,52 +2265,52 @@ export default function AdminTeams(): React.JSX.Element {
                 return (
                   <div
                     key={botId}
-                    className={`p-3.5 rounded-[2px] flex flex-col justify-between gap-3 transition border ${
+                    className={`p-3.5 rounded-md flex flex-col justify-between gap-3 transition border ${
                       isVerified
-                        ? "border-l-[4px] border-l-[#10B981] border-t border-r border-b border-[#3F3F46] bg-[#18181B]"
+                        ? "border-l-[4px] border-l-moss border-t border-r border-b border-border bg-bg-0"
                         : isObtained
-                        ? "border-l-[4px] border-l-[#F4F4F5] border-t border-r border-b border-[#3F3F46] bg-[#18181B]"
-                        : "border-l-[4px] border-l-[#3F3F46] border-t border-r border-b border-[#3F3F46] bg-[#18181B]"
+                        ? "border-l-[4px] border-l-text-1 border-t border-r border-b border-border bg-bg-0"
+                        : "border-l-[4px] border-l-border border-t border-r border-b border-border bg-bg-0"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-10 h-10 rounded-[2px] bg-[#27272A] border border-[#3F3F46] overflow-hidden shrink-0">
+                        <div className="w-10 h-10 rounded-md bg-surface-1 border border-border overflow-hidden shrink-0">
                           <img src={char.avatar} alt={char.name} className="w-full h-full object-cover" />
                         </div>
                         <div className="min-w-0">
-                          <span className="font-bold text-[13px] text-[#F4F4F5] block truncate">{char.name}</span>
-                          <span className="text-[11px] text-[#A1A1AA] block truncate">{char.targetItem.name}</span>
+                          <span className="font-bold text-[13px] text-text-1 block truncate">{char.name}</span>
+                          <span className="text-[11px] text-text-3 block truncate">{char.targetItem.name}</span>
                         </div>
                       </div>
 
                       {/* Iconography replacing repetitive text */}
                       <div className="shrink-0">
                         {isVerified ? (
-                          <div className="flex items-center justify-center w-7 h-7 rounded-[2px] bg-[#10B981]/20 border border-[#10B981] text-[#10B981]" title="Verified Solved">
-                            <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+                          <div className="flex items-center justify-center w-7 h-7 rounded-md bg-moss/20 border border-moss text-moss" title="Verified Solved">
+                            <ShieldCheck className="w-4 h-4 text-moss" />
                           </div>
                         ) : isObtained ? (
-                          <div className="flex items-center justify-center w-7 h-7 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#F4F4F5]" title="Held in Satchel">
-                            <Package className="w-4 h-4 text-[#F4F4F5]" />
+                          <div className="flex items-center justify-center w-7 h-7 rounded-md bg-surface-1 border border-border text-text-1" title="Held in Satchel">
+                            <Package className="w-4 h-4 text-text-1" />
                           </div>
                         ) : (
-                          <div className="flex items-center justify-center w-7 h-7 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA]" title="Locked">
-                            <Lock className="w-4 h-4 text-[#A1A1AA]" />
+                          <div className="flex items-center justify-center w-7 h-7 rounded-md bg-surface-1 border border-border text-text-3" title="Locked">
+                            <Lock className="w-4 h-4 text-text-3" />
                           </div>
                         )}
                       </div>
                     </div>
 
                     {/* High-Contrast Interactive Edit Buttons */}
-                    <div className="flex items-center gap-1.5 pt-2 border-t border-[#3F3F46]/60">
+                    <div className="flex items-center gap-1.5 pt-2 border-t border-border/60">
                       <button
                         type="button"
                         onClick={() => void handleInventoryOverride(botId, char.targetItem.name, "locked")}
-                        className={`flex-1 py-1.5 rounded-[2px] text-[10px] font-bold uppercase transition cursor-pointer ${
+                        className={`flex-1 py-1.5 rounded-md text-[10px] font-bold  transition cursor-pointer ${
                           currentStatus === "locked"
-                            ? "bg-[#3F3F46] text-[#F4F4F5] border border-[#3F3F46]"
-                            : "bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:bg-[#3F3F46] hover:text-[#F4F4F5]"
+                            ? "bg-border text-text-1 border border-border"
+                            : "bg-surface-1 border border-border text-text-3 hover:bg-border hover:text-text-1"
                         }`}
                       >
                         Lock
@@ -2479,10 +2319,10 @@ export default function AdminTeams(): React.JSX.Element {
                       <button
                         type="button"
                         onClick={() => void handleInventoryOverride(botId, char.targetItem.name, "obtained")}
-                        className={`flex-1 py-1.5 rounded-[2px] text-[10px] font-bold uppercase transition cursor-pointer ${
+                        className={`flex-1 py-1.5 rounded-md text-[10px] font-bold  transition cursor-pointer ${
                           currentStatus === "obtained"
-                            ? "bg-[#F4F4F5] text-[#18181B] font-bold"
-                            : "bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] hover:bg-[#3F3F46] hover:text-[#F4F4F5]"
+                            ? "bg-text-1 text-bg-0 font-bold"
+                            : "bg-surface-1 border border-border text-text-3 hover:bg-border hover:text-text-1"
                         }`}
                       >
                         Held
@@ -2491,10 +2331,10 @@ export default function AdminTeams(): React.JSX.Element {
                       <button
                         type="button"
                         onClick={() => void handleInventoryOverride(botId, char.targetItem.name, "verified")}
-                        className={`flex-1 py-1.5 rounded-[2px] text-[10px] font-bold uppercase transition cursor-pointer flex items-center justify-center gap-1 ${
+                        className={`flex-1 py-1.5 rounded-md text-[10px] font-bold  transition cursor-pointer flex items-center justify-center gap-1 ${
                           currentStatus === "verified"
-                            ? "bg-[#10B981] text-[#18181B] font-bold"
-                            : "bg-[#10B981]/10 border border-[#10B981] text-[#10B981] hover:bg-[#10B981] hover:text-[#18181B]"
+                            ? "bg-moss text-bg-0 font-bold"
+                            : "bg-moss/10 border border-moss text-moss hover:bg-moss hover:text-bg-0"
                         }`}
                       >
                         <ShieldCheck className="w-3 h-3" />
@@ -2511,7 +2351,7 @@ export default function AdminTeams(): React.JSX.Element {
               <button
                 type="button"
                 onClick={() => setInvModalTeam(null)}
-                className="w-full py-3 rounded-[2px] border border-[#3F3F46] bg-transparent hover:bg-[#3F3F46]/50 text-[#A1A1AA] hover:text-[#F4F4F5] font-mono font-bold text-[13px] uppercase tracking-wider cursor-pointer transition"
+                className="w-full py-3 rounded-md border border-border bg-transparent hover:bg-border/50 text-text-3 hover:text-text-1 font-mono font-bold text-[13px]  tracking-wider cursor-pointer transition"
               >
                 Close Satchel Overrides
               </button>
@@ -2524,35 +2364,35 @@ export default function AdminTeams(): React.JSX.Element {
       {/* MODAL 3: COMMS & AI REASONING TRACES INSPECTOR            */}
       {/* ========================================================= */}
       {commsModalTeam && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
-          <div className="w-full max-w-[860px] h-[85vh] rounded-[2px] border-t-[1px] border-t-[#EF4444] border-x border-b border-[#3F3F46] bg-[#27272A] p-6 sm:p-8 flex flex-col gap-5 text-[#F4F4F5] shadow-[0_25px_60px_rgba(0,0,0,0.95)]">
-            <div className="flex items-center justify-between border-b border-[#3F3F46] pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 ">
+          <div className="w-full max-w-[860px] h-[85vh] rounded-md border-t-[1px] border-t-brass border-x border-b border-border bg-surface-1 p-6 sm:p-8 flex flex-col gap-5 text-text-1 shadow-none">
+            <div className="flex items-center justify-between border-b border-border pb-4">
               <div>
-                <h3 className="text-[17px] font-mono font-bold text-[#F4F4F5] uppercase tracking-wider flex items-center gap-2">
-                  <Terminal className="w-4 h-4 text-[#EF4444]" />
+                <h3 className="text-[17px] font-mono font-bold text-text-1  tracking-wider flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-brass" />
                   <span>Comms & AI Reasoning Inspector</span>
                 </h3>
-                <p className="text-[12px] font-mono text-[#A1A1AA] mt-1">
-                  Squad: <span className="font-bold text-[#F4F4F5]">{commsModalTeam.name}</span> • Chat Logs & Hidden AI Reasoning Traces
+                <p className="text-[12px] font-mono text-text-3 mt-1">
+                  Team: <span className="font-bold text-text-1">{commsModalTeam.name}</span> • Chat Logs & Hidden AI Reasoning Traces
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setCommsModalTeam(null)}
-                className="w-8 h-8 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] flex items-center justify-center text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
+                className="w-11 h-11 rounded-md border border-border bg-bg-0 hover:bg-border flex items-center justify-center text-text-3 hover:text-text-1 cursor-pointer transition"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Main Tabs and Tactical Target Bar */}
-            <div className="flex flex-col gap-3 border-b border-[#3F3F46] pb-3 font-mono">
-              <div className="flex items-center gap-2 p-1 rounded-[2px] bg-[#18181B] border border-[#3F3F46] self-start">
+            <div className="flex flex-col gap-3 border-b border-border pb-3 font-mono">
+              <div className="flex items-center gap-2 p-1 rounded-md bg-bg-0 border border-border self-start">
                 <button
                   type="button"
                   onClick={() => setCommsTab("messages")}
-                  className={`px-3 py-1.5 rounded-[2px] text-[11px] font-bold uppercase transition cursor-pointer ${
-                    commsTab === "messages" ? "bg-[#EF4444] text-[#F4F4F5]" : "text-[#A1A1AA] hover:text-[#F4F4F5]"
+                  className={`px-3 py-1.5 rounded-md text-[11px] font-bold  transition cursor-pointer ${
+                    commsTab === "messages" ? "bg-brass text-text-1" : "text-text-3 hover:text-text-1"
                   }`}
                 >
                   Chat Logs ({commsMessages.length})
@@ -2560,8 +2400,8 @@ export default function AdminTeams(): React.JSX.Element {
                 <button
                   type="button"
                   onClick={() => setCommsTab("traces")}
-                  className={`px-3 py-1.5 rounded-[2px] text-[11px] font-bold uppercase transition cursor-pointer ${
-                    commsTab === "traces" ? "bg-[#EF4444] text-[#F4F4F5]" : "text-[#A1A1AA] hover:text-[#F4F4F5]"
+                  className={`px-3 py-1.5 rounded-md text-[11px] font-bold  transition cursor-pointer ${
+                    commsTab === "traces" ? "bg-brass text-text-1" : "text-text-3 hover:text-text-1"
                   }`}
                 >
                   AI Reasoning Traces ({commsTraces.length})
@@ -2573,10 +2413,10 @@ export default function AdminTeams(): React.JSX.Element {
                 <button
                   type="button"
                   onClick={() => setCommsBotFilter("all")}
-                  className={`px-3 py-1 rounded-[2px] text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer border ${
+                  className={`px-3 py-1 rounded-md text-[11px] font-mono font-bold  tracking-wider transition cursor-pointer border ${
                     commsBotFilter === "all"
-                      ? "bg-[#EF4444] text-[#F4F4F5] border-[#EF4444]"
-                      : "bg-[#18181B] text-[#A1A1AA] border-[#3F3F46] hover:text-[#F4F4F5] hover:border-[#A1A1AA]"
+                      ? "bg-brass text-text-1 border-brass"
+                      : "bg-bg-0 text-text-3 border-border hover:text-text-1 hover:border-text-3"
                   }`}
                 >
                   Global
@@ -2589,10 +2429,10 @@ export default function AdminTeams(): React.JSX.Element {
                       key={b}
                       type="button"
                       onClick={() => setCommsBotFilter(b)}
-                      className={`px-3 py-1 rounded-[2px] text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer border ${
+                      className={`px-3 py-1 rounded-md text-[11px] font-mono font-bold  tracking-wider transition cursor-pointer border ${
                         isSelected
-                          ? "bg-[#EF4444] text-[#F4F4F5] border-[#EF4444]"
-                          : "bg-[#18181B] text-[#A1A1AA] border-[#3F3F46] hover:text-[#F4F4F5] hover:border-[#A1A1AA]"
+                          ? "bg-brass text-text-1 border-brass"
+                          : "bg-bg-0 text-text-3 border-border hover:text-text-1 hover:border-text-3"
                       }`}
                     >
                       {charName}
@@ -2603,26 +2443,26 @@ export default function AdminTeams(): React.JSX.Element {
             </div>
 
             {/* Main Content Area */}
-            <div className="flex-1 overflow-y-auto p-4 rounded-[2px] bg-[#18181B] border border-[#3F3F46] flex flex-col gap-3 font-mono">
+            <div className="flex-1 overflow-y-auto p-4 rounded-md bg-bg-0 border border-border flex flex-col gap-3 font-mono">
               {commsLoading ? (
-                <div className="m-auto text-center text-[#A1A1AA] font-bold text-[14px] flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin text-[#EF4444]" />
+                <div className="m-auto text-center text-text-3 font-bold text-[14px] flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-brass" />
                   <span>Loading comms transcript…</span>
                 </div>
               ) : commsTab === "messages" ? (
                 commsMessages.length === 0 ? (
-                  <p className="m-auto text-[#A1A1AA] italic text-[13px]">No chat messages found for this query.</p>
+                  <p className="m-auto text-text-3 italic text-[13px]">No chat messages found for this query.</p>
                 ) : (
                   commsMessages.map((msg) => (
                     <div
                       key={msg.id}
-                      className={`p-4 rounded-[2px] max-w-[85%] text-[13px] flex flex-col gap-1.5 ${
+                      className={`p-4 rounded-md max-w-[85%] text-[13px] flex flex-col gap-1.5 ${
                         msg.role === "user"
-                          ? "ml-auto bg-[#27272A] border border-[#3F3F46] text-[#F4F4F5]"
-                          : "mr-auto bg-[#27272A] border border-[#3F3F46] text-[#F4F4F5]"
+                          ? "ml-auto bg-surface-1 border border-border text-text-1"
+                          : "mr-auto bg-surface-1 border border-border text-text-1"
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-3 text-[11px] text-[#A1A1AA] font-bold">
+                      <div className="flex items-center justify-between gap-3 text-[11px] text-text-3 font-bold">
                         <div className="flex items-center gap-2">
                           <span>{msg.role === "user" ? "OPERATOR PROMPT" : `BOT: ${CHARACTERS[msg.bot_id as keyof typeof CHARACTERS]?.name ?? msg.bot_id}`}</span>
                         </div>
@@ -2634,7 +2474,7 @@ export default function AdminTeams(): React.JSX.Element {
                 )
               ) : (
                 commsTraces.length === 0 ? (
-                  <p className="m-auto text-[#A1A1AA] italic text-[13px]">No internal reasoning traces recorded.</p>
+                  <p className="m-auto text-text-3 italic text-[13px]">No internal reasoning traces recorded.</p>
                 ) : (
                   commsTraces.map((trace) => {
                     let traceObj: any = {};
@@ -2643,15 +2483,15 @@ export default function AdminTeams(): React.JSX.Element {
                     try { guardObj = JSON.parse(trace.guard_json); } catch {}
 
                     return (
-                      <div key={trace.id} className="p-4 rounded-[2px] border border-[#3F3F46] bg-[#27272A] flex flex-col gap-2 font-mono">
-                        <div className="flex items-center justify-between text-[11px] font-bold text-[#A1A1AA]">
+                      <div key={trace.id} className="p-4 rounded-md border border-border bg-surface-1 flex flex-col gap-2 font-mono">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-text-3">
                           <span>Bot: {trace.bot_id} • Phase: {trace.phase}</span>
                           <span>Latency: {traceObj.ms ? `${traceObj.ms}ms` : "N/A"} • {trace.created_at.slice(11, 19)}</span>
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-[2px] uppercase ${
-                            guardObj.risk === "flagged" ? "bg-[#EF4444]/10 border border-[#EF4444] text-[#EF4444]" : "bg-[#10B981]/10 border border-[#10B981] text-[#10B981]"
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md  ${
+                            guardObj.risk === "flagged" ? "bg-brass/10 border border-brass text-brass" : "bg-moss/10 border border-moss text-moss"
                           }`}>
                             Guard: {guardObj.risk || "clean"}
                           </span>
@@ -2667,7 +2507,7 @@ export default function AdminTeams(): React.JSX.Element {
               <button
                 type="button"
                 onClick={() => setCommsModalTeam(null)}
-                className="w-full py-3 rounded-[2px] border border-[#3F3F46] bg-transparent hover:bg-[#3F3F46]/50 text-[#A1A1AA] hover:text-[#F4F4F5] font-mono font-bold text-[13px] uppercase tracking-wider cursor-pointer transition"
+                className="w-full py-3 rounded-md border border-border bg-transparent hover:bg-border/50 text-text-3 hover:text-text-1 font-mono font-bold text-[13px]  tracking-wider cursor-pointer transition"
               >
                 Close Inspector
               </button>
@@ -2680,47 +2520,47 @@ export default function AdminTeams(): React.JSX.Element {
       {/* MODAL 4: EMERGENCY REWIND CONFIRMATION (TERMINAL OVERHAUL) */}
       {/* ========================================================= */}
       {rewindConfirmTeam && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
-          <div className="w-full max-w-[520px] rounded-[2px] border-t-[1px] border-t-[#EF4444] border-x border-b border-[#3F3F46] bg-[#27272A] p-6 sm:p-8 flex flex-col gap-5 text-[#F4F4F5] font-mono shadow-[0_25px_60px_rgba(0,0,0,0.95)]">
-            <div className="flex items-center justify-between border-b border-[#3F3F46] pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 ">
+          <div className="w-full max-w-[520px] rounded-md border-t-[1px] border-t-brass border-x border-b border-border bg-surface-1 p-6 sm:p-8 flex flex-col gap-5 text-text-1 font-mono shadow-none">
+            <div className="flex items-center justify-between border-b border-border pb-4">
               <div>
-                <h3 className="text-[17px] font-bold text-[#EF4444] uppercase tracking-wider flex items-center gap-2">
+                <h3 className="text-[17px] font-bold text-brass  tracking-wider flex items-center gap-2">
                   <RotateCcw className="w-4 h-4" />
                   <span>Force Context Rewind</span>
                 </h3>
-                <p className="text-[12px] text-[#A1A1AA] mt-1">
-                  Squad: <span className="font-bold text-[#F4F4F5]">{rewindConfirmTeam.name}</span>
+                <p className="text-[12px] text-text-3 mt-1">
+                  Team: <span className="font-bold text-text-1">{rewindConfirmTeam.name}</span>
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setRewindConfirmTeam(null)}
-                className="w-8 h-8 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] flex items-center justify-center text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
+                className="w-11 h-11 rounded-md border border-border bg-bg-0 hover:bg-border flex items-center justify-center text-text-3 hover:text-text-1 cursor-pointer transition"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-[13px] text-[#A1A1AA] font-sans">
+            <p className="text-[13px] text-text-3 font-sans">
               This operation purges conversation memory for this team on the target bot, resetting engagement state.
             </p>
 
             {/* Target Bot Input: Horizontal Flex-Wrap Tactical Chips */}
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
+              <label className="text-[11px] font-bold  tracking-wider text-text-3 block mb-2">
                 Target Bot to Reset (Select Option):
               </label>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => setRewindBot("all")}
-                  className={`px-3 py-1.5 rounded-[2px] text-[11px] font-bold uppercase tracking-wider transition cursor-pointer border ${
+                  className={`px-3 py-1.5 rounded-md text-[11px] font-bold  tracking-wider transition cursor-pointer border ${
                     rewindBot === "all"
-                      ? "bg-[#EF4444] text-[#F4F4F5] border-[#EF4444]"
-                      : "bg-[#18181B] text-[#A1A1AA] border-[#3F3F46] hover:text-[#F4F4F5] hover:border-[#A1A1AA]"
+                      ? "bg-brass text-text-1 border-brass"
+                      : "bg-bg-0 text-text-3 border-border hover:text-text-1 hover:border-text-3"
                   }`}
                 >
-                  All Characters (Full Squad Wipe)
+                  All Characters (Full Team Wipe)
                 </button>
                 {R1_BOTS.map((b) => {
                   const isSelected = rewindBot === b;
@@ -2729,10 +2569,10 @@ export default function AdminTeams(): React.JSX.Element {
                       key={b}
                       type="button"
                       onClick={() => setRewindBot(b)}
-                      className={`px-3 py-1.5 rounded-[2px] text-[11px] font-bold uppercase tracking-wider transition cursor-pointer border ${
+                      className={`px-3 py-1.5 rounded-md text-[11px] font-bold  tracking-wider transition cursor-pointer border ${
                         isSelected
-                          ? "bg-[#EF4444] text-[#F4F4F5] border-[#EF4444]"
-                          : "bg-[#18181B] text-[#A1A1AA] border-[#3F3F46] hover:text-[#F4F4F5] hover:border-[#A1A1AA]"
+                          ? "bg-brass text-text-1 border-brass"
+                          : "bg-bg-0 text-text-3 border-border hover:text-text-1 hover:border-text-3"
                       }`}
                     >
                       {CHARACTERS[b].name}
@@ -2744,7 +2584,7 @@ export default function AdminTeams(): React.JSX.Element {
 
             {/* Optional ELO Penalty Field */}
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
+              <label className="text-[11px] font-bold  tracking-wider text-text-3 block mb-2">
                 Optional ELO Penalty Deduction:
               </label>
               <input
@@ -2752,7 +2592,7 @@ export default function AdminTeams(): React.JSX.Element {
                 min={0}
                 value={rewindPenalty}
                 onChange={(e) => setRewindPenalty(Number(e.target.value))}
-                className="w-full h-10 px-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] font-mono font-bold text-[15px] text-[#F4F4F5] focus:border-[#EF4444] focus:outline-none transition"
+                className="w-full h-10 px-4 rounded-md border border-border bg-bg-0 font-mono font-bold text-[15px] text-text-1 focus:border-brass focus:outline-none transition"
               />
             </div>
 
@@ -2761,7 +2601,7 @@ export default function AdminTeams(): React.JSX.Element {
               <button
                 type="button"
                 onClick={() => setRewindConfirmTeam(null)}
-                className="flex-1 py-3 rounded-[2px] border border-[#3F3F46] bg-transparent hover:bg-[#3F3F46]/50 font-bold text-[13px] uppercase tracking-wider text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
+                className="flex-1 py-3 rounded-md border border-border bg-transparent hover:bg-border/50 font-bold text-[13px]  tracking-wider text-text-3 hover:text-text-1 cursor-pointer transition"
               >
                 Cancel
               </button>
@@ -2769,7 +2609,7 @@ export default function AdminTeams(): React.JSX.Element {
                 type="button"
                 onClick={handleRewind}
                 disabled={busy}
-                className="flex-1 py-3 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 font-bold text-[13px] uppercase tracking-wider text-[#F4F4F5] cursor-pointer transition disabled:opacity-50"
+                className="flex-1 py-3 rounded-md bg-brass hover:bg-brass/90 font-bold text-[13px]  tracking-wider text-text-1 cursor-pointer transition disabled:opacity-50"
               >
                 {busy ? "Rewinding…" : "Confirm Rewind"}
               </button>

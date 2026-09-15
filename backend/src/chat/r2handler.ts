@@ -4,6 +4,8 @@ import type { DatabaseAdapter } from "../db/database.js";
 import type { ChatMessage, ToolCall } from "../llm/groq.js";
 import { streamZenChat } from "../llm/zen.js";
 import { parseHandover, parseSoundId } from "../bots/tools.js";
+import { awardItem } from "../bots/inventory.js";
+import { round2Status } from "../routes/gates.js";
 import { coverBrief } from "../bots/coverLens.js";
 import { R2_TOOLS, bossKeys, escalationUsed, markEscalation, r2Prompt, type BossId } from "../bots/r2.js";
 import type { Bus } from "../ws/bus.js";
@@ -65,7 +67,7 @@ If the user passes your gate and earns the item, YOU MUST call the handover_item
       if (row.role !== "user" && row.role !== "assistant") {
         continue;
       }
-      messages.push({ role: row.role, content: row.text_final });
+      messages.push({ role: row.role, content: row.role === "user" ? fence(randomUUID().replace(/-/g, ""), row.text_final) : row.text_final });
     }
     messages.push({ role: "user", content: fence(randomUUID().replace(/-/g, ""), text) });
 
@@ -87,51 +89,20 @@ If the user passes your gate and earns the item, YOU MUST call the handover_item
     const keys = bossKeys(boss);
     let inventoryDelta: InventoryDelta | undefined;
     for (const call of toolCalls) {
+      if (round2Status(db) !== "active") {
+        guardFlags.push("round-closed");
+        break;
+      }
       if (call.name === "handover_item") {
         const parsed = parseHandover(call.args);
         if (parsed === undefined) {
           guardFlags.push("malformed-handover");
           continue;
         }
-        if (phase === "p1") {
-          // P1 ALWAYS emits decoy: coerce real attempts, log the coercion.
-          if (parsed.real) {
-            guardFlags.push("p1-real-coerced");
-          }
-          db.run(
-            "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, obtained_at, attempt_count) VALUES (?, ?, ?, 0, 'obtained', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1) ON CONFLICT(team_id, bot_id) DO UPDATE SET item_key = excluded.item_key, is_real = 0, status = 'obtained', obtained_at = excluded.obtained_at",
-            teamId,
-            boss,
-            keys.decoyKey,
-          );
-          inventoryDelta = { botId: boss, itemKey: keys.decoyKey, status: "obtained" };
-          continue;
-        }
-        if (parsed.real) {
-          if (parsed.itemKey && parsed.itemKey.trim().toLowerCase() !== keys.itemKey.toLowerCase()) {
-            guardFlags.push("item-mismatch");
-          }
-          const already = db.get<{ is_real: number }>("SELECT is_real FROM team_inventory WHERE team_id = ? AND bot_id = ?", teamId, boss);
-          if (already?.is_real === 1) {
-            guardFlags.push("double-real-ignored");
-            continue;
-          }
-          db.run(
-            "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, obtained_at, attempt_count) VALUES (?, ?, ?, 1, 'obtained', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1) ON CONFLICT(team_id, bot_id) DO UPDATE SET item_key = excluded.item_key, is_real = 1, status = 'obtained', obtained_at = excluded.obtained_at",
-            teamId,
-            boss,
-            keys.itemKey,
-          );
-          inventoryDelta = { botId: boss, itemKey: keys.itemKey, status: "obtained" };
-        } else {
-          db.run(
-            "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, obtained_at, attempt_count) VALUES (?, ?, ?, 0, 'obtained', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1) ON CONFLICT(team_id, bot_id) DO UPDATE SET item_key = excluded.item_key, is_real = 0, status = 'obtained', obtained_at = excluded.obtained_at",
-            teamId,
-            boss,
-            keys.decoyKey,
-          );
-          inventoryDelta = { botId: boss, itemKey: keys.decoyKey, status: "obtained" };
-        }
+        const real = phase === "p2" && parsed.real;
+        if (phase === "p1" && parsed.real) guardFlags.push("p1-real-coerced");
+        const itemKey = real ? keys.itemKey : keys.decoyKey;
+        inventoryDelta = awardItem(db, teamId, boss, itemKey, real) ?? inventoryDelta;
       } else if (call.name === "play_sound") {
         const soundId = parseSoundId(call.args);
         if (soundId === undefined) {
@@ -141,18 +112,6 @@ If the user passes your gate and earns the item, YOU MUST call the handover_item
         db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", teamId, boss, soundId);
         bus.broadcast(teamId, bus.frame("sound_play", { botId: boss, soundId, src: `/sounds/${soundId}.mp3` }));
 
-        if (soundId.includes("handover") && inventoryDelta === undefined) {
-          const itemKey = phase === "p1" ? keys.decoyKey : keys.itemKey;
-          const isReal = phase === "p1" ? 0 : 1;
-          db.run(
-            "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, obtained_at, attempt_count) VALUES (?, ?, ?, ?, 'obtained', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1) ON CONFLICT(team_id, bot_id) DO UPDATE SET item_key = excluded.item_key, is_real = excluded.is_real, status = 'obtained', obtained_at = excluded.obtained_at",
-            teamId,
-            boss,
-            itemKey,
-            isReal,
-          );
-          inventoryDelta = { botId: boss, itemKey, status: "obtained" };
-        }
       } else if (call.name === "illusory_confirmation") {
         if (escalationUsed(db, teamId, boss, "illusory") > 0) {
           guardFlags.push("illusory-over-cap");
@@ -161,7 +120,7 @@ If the user passes your gate and earns the item, YOU MUST call the handover_item
         markEscalation(db, teamId, boss, "illusory");
         bus.broadcast(teamId, bus.frame("ally_msg", { botId: boss, displayName: "portal", text: "KEY ACCEPTED — shimmer unverified, use the real portal", confirmed: true }));
       } else if (call.name === "impersonate_ally") {
-        const args = call.args as { display_name?: unknown; text?: unknown };
+        const args = (call.args ?? {}) as { display_name?: unknown; text?: unknown };
         if (typeof args.display_name !== "string" || typeof args.text !== "string") {
           guardFlags.push("bad-ally-args");
           continue;

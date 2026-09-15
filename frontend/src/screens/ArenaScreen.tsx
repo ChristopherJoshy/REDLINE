@@ -23,6 +23,7 @@ import {
   Scale,
   Package,
   ChevronRight,
+  ChevronLeft,
   Coins,
   UserCheck,
   MessageSquare,
@@ -34,18 +35,36 @@ import {
   Radio
 } from "lucide-react";
 
-const ROSTER: Array<{ id: BotId; label: string }> = [
-  { id: "wick", label: "John Wick" },
-  { id: "spidey", label: "Spider-Man" },
-  { id: "escanor", label: "Escanor" },
-  { id: "stark", label: "Tony Stark" },
-  { id: "joker", label: "The Joker" },
-  { id: "light", label: "Light Yagami" },
-  { id: "levi", label: "Levi Ackerman" },
-  { id: "deadpool", label: "Deadpool" },
+const ROSTER: Array<{ id: BotId; label: string; num: string }> = [
+  { id: "wick", label: "John Wick", num: "01" },
+  { id: "spidey", label: "Spider-Man", num: "02" },
+  { id: "escanor", label: "Escanor", num: "03" },
+  { id: "stark", label: "Tony Stark", num: "04" },
+  { id: "joker", label: "The Joker", num: "05" },
+  { id: "light", label: "Light Yagami", num: "06" },
+  { id: "levi", label: "Levi Ackerman", num: "07" },
+  { id: "deadpool", label: "Deadpool", num: "08" },
+  { id: "merchant", label: "The Merchant", num: "09" },
 ];
 
 export default function ArenaScreen({ teamId, displayName, locked }: { teamId: string; displayName: string; locked: boolean }): React.JSX.Element {
+  useDocumentTitle("Arena | Redline");
+
+  const carouselRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, []);
+
   const { bots, inventory, credits, locks, setLocks, send, say, rewind } = useBotStream(teamId);
   const [selectedBotId, setSelectedBotId] = useState<BotId>("wick");
   const [chattingBotId, setChattingBotId] = useState<BotId | null>(null);
@@ -69,13 +88,56 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
   const prevInventory = useRef<InventoryDelta[] | null>(null);
   const initialSyncDone = useRef(false);
 
-  // Refs for mark-list stagger
+  // Refs for mark-list stagger & detail panel
   const markListRef = useRef<HTMLDivElement>(null);
   const prevChattingRef = useRef<BotId | null>(null);
-
-  // Refs for detail panel
   const detailPanelRef = useRef<HTMLElement>(null);
   const prevSelectedBotRef = useRef<BotId>("wick");
+
+  // Navigation helpers for cycling marks
+  function selectNext(): void {
+    const curIdx = ROSTER.findIndex((r) => r.id === selectedBotId);
+    const nextIdx = (curIdx + 1) % ROSTER.length;
+    const nextBot = ROSTER[nextIdx];
+    if (nextBot) setSelectedBotId(nextBot.id);
+  }
+
+  function selectPrev(): void {
+    const curIdx = ROSTER.findIndex((r) => r.id === selectedBotId);
+    const prevIdx = (curIdx - 1 + ROSTER.length) % ROSTER.length;
+    const prevBot = ROSTER[prevIdx];
+    if (prevBot) setSelectedBotId(prevBot.id);
+  }
+
+  // Keyboard navigation: Left/Right arrows cycle marks; numbers 1-9 select directly
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (chattingBotId !== null) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "ArrowRight") {
+        selectNext();
+      } else if (e.key === "ArrowLeft") {
+        selectPrev();
+      } else if (e.key >= "1" && e.key <= "9") {
+        const idx = parseInt(e.key, 10) - 1;
+        const target = ROSTER[idx];
+        if (target) setSelectedBotId(target.id);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [chattingBotId, selectedBotId]);
+
+  // Sync credits to App header & listen for satchel modal triggers
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("arena:credits", { detail: credits }));
+  }, [credits]);
+
+  useEffect(() => {
+    function openSatchel() { setInventoryOpen(true); }
+    window.addEventListener("arena:open_satchel", openSatchel);
+    return () => window.removeEventListener("arena:open_satchel", openSatchel);
+  }, []);
 
   useEffect(() => {
     let dead = false;
@@ -332,43 +394,6 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[rgba(5,7,10,0.42)]" />
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[rgba(5,7,10,0.35)] via-transparent to-[rgba(5,7,10,0.6)]" />
       <div className="relative z-10 flex flex-col flex-1 min-h-0">
-      <div className="acc-border flex flex-wrap items-center justify-between gap-3 border-b bg-[rgba(5,7,10,0.55)] px-4 py-3 backdrop-blur-sm sm:px-6" style={{ borderBottomColor: "var(--accent-border)" }}>
-        <div className="flex items-stretch gap-3">
-          <span aria-hidden="true" className="acc-bar block w-[3px] rounded-full" />
-          <div>
-          <p className="acc-text font-[family-name:var(--font-code)] text-[11px] font-bold tracking-[0.24em]">
-            ROUND 1
-          </p>
-          <h2 className="font-[family-name:var(--font-display)] text-[26px] font-bold tracking-[0.08em] text-white leading-tight">
-            MARKS
-          </h2>
-          <p className="text-[13px] text-[var(--color-text-3)]">
-            Talk to each mark. Bring what they give you to the merchant.
-          </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setInventoryOpen(true)}
-            className="redline-panel acc-border flex min-h-[44px] items-center gap-2 rounded-[8px] px-3.5 py-1.5 text-[13px] font-semibold text-white transition"
-          >
-            <Package className="acc-text h-4 w-4" />
-            <span>Satchel ({inventory.length}/8)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => engage("merchant")}
-            className="redline-gold-card flex min-h-[44px] items-center gap-2 rounded-[8px] px-3.5 py-1.5 text-[13px] font-semibold text-[var(--color-gold-bright)] transition hover:shadow-[0_0_20px_rgba(216,155,36,0.3)]"
-          >
-            <Coins className="h-4 w-4" />
-            <span>Counter · {credits}</span>
-          </button>
-        </div>
-      </div>
-
       {lockNotice !== null && (
         <div role="alert" className="flex items-center justify-between gap-3 border-b border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-4 py-2.5 sm:px-8">
           <p className="flex items-center gap-2 text-[13px] font-semibold text-[var(--color-brass-ink)]">
@@ -379,325 +404,269 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
             type="button"
             onClick={() => setLockNotice(null)}
             aria-label="Dismiss notice"
-            className="min-h-[44px] min-w-[44px] rounded-[6px] px-2 font-bold text-[var(--color-brass-ink)] hover:opacity-70"
+            className="min-h-[44px] min-w-[44px] rounded-[6px] px-2 font-bold text-[var(--color-brass-ink)] hover:opacity-70 cursor-pointer"
           >
             ✕
           </button>
         </div>
       )}
+
       {chattingBotId === null ? (
-        <div className="redline-scroll flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0 overflow-y-auto p-4 sm:p-5 gap-4 w-full">
-          {/* Mark list */}
-          <section className="lg:col-span-5 flex flex-col gap-3">
-            {/* Merchant card — always visible, always stagger-item-0 */}
-            <button
-              type="button"
-              onClick={() => engage("merchant")}
-              className="mark-card redline-gold-card relative flex items-center gap-3 rounded-[10px] p-3 text-left"
+        <div className="relative flex-1 flex flex-col justify-between min-h-0 overflow-hidden p-4 sm:p-6 pb-2">
+          {/* Ambient Per-Character Neon & Calligraphy removed per user request */}
+
+          {/* Main Top Area: Left Character Details vs Right Telemetry (Mirrored) */}
+          <div className="relative z-10 flex flex-1 items-start justify-between gap-6 min-h-0">
+            {/* Left Column: Character Details Panel (Tactical Frosted Glass Dossier) */}
+            <aside
+              ref={detailPanelRef}
+              className="relative max-w-[430px] w-full rounded-[12px] border border-white/10 bg-[rgba(10,14,20,0.55)] backdrop-blur-xl p-5 sm:p-7 flex flex-col gap-6 shadow-[0_16px_40px_rgba(0,0,0,0.4)]"
             >
-              <span className="relative block w-14 h-14 rounded-[8px] overflow-hidden border border-[rgba(216,155,36,0.5)] shrink-0">
-                <img
-                  src={merchantLore?.avatar ?? "/characters/merchant.jpg"}
-                  alt="The Merchant"
-                  className="w-full h-full object-cover object-center"
-                />
-              </span>
-              <span className="flex-1 min-w-0">
-                <span className="flex items-center justify-between gap-2">
-                  <span className="font-[family-name:var(--font-display)] text-[16px] font-bold tracking-[0.06em] text-white truncate">
-                    THE MERCHANT
-                  </span>
-                  <span className="rounded-[6px] border border-[rgba(216,155,36,0.5)] bg-[rgba(216,155,36,0.12)] px-2 py-0.5 text-[var(--color-gold-bright)] text-[11px] font-semibold shrink-0">
-                    Counter
-                  </span>
+              {/* Header: MARK 01 / 08 + Prev/Next Arrows */}
+              <div className="flex items-center justify-between">
+                <span className="font-[family-name:var(--font-code)] text-[12px] font-bold tracking-[0.2em] text-white/60">
+                  {selectedBotId === "merchant" ? "ARENA CURATOR · 09 / 09" : `MARK ${ROSTER.find(r => r.id === selectedBotId)?.num ?? "01"} / 08`}
                 </span>
-                <span className="block text-[12px] text-[var(--color-text-3)] truncate mt-0.5">
-                  Sell relics · buy clues · {credits} credits
-                </span>
-              </span>
-              <ChevronRight className="w-5 h-5 text-[var(--color-gold-bright)] shrink-0" aria-hidden="true" />
-            </button>
-
-            <div className="flex items-center justify-between pb-1 pt-2">
-              <span className="text-[13px] font-semibold text-[var(--color-text-2)]">
-                Marks ({ROSTER.length})
-              </span>
-              <span className="font-[family-name:var(--font-code)] text-[12px] font-semibold text-[#9db87a]">
-                {verifiedCount} filed
-              </span>
-            </div>
-            <div ref={markListRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
-              {ROSTER.map((b) => {
-                const lore = CHARACTERS[b.id];
-                const status = getBotItemStatus(b.id);
-                const isSelected = selectedBotId === b.id;
-                const filed = status === "verified";
-                const holder = holderOf(b.id);
-
-                return (
+                <div className="flex items-center gap-2">
                   <button
-                    key={b.id}
                     type="button"
-                    onClick={() => (filed ? setCelebration(b.id) : setSelectedBotId(b.id))}
-                    onDoubleClick={() => engage(b.id)}
-                    aria-pressed={isSelected}
-                    className={`mark-card relative flex items-center gap-3 p-3 rounded-[10px] border text-left ${
-                      filed
-                        ? "border-[rgba(157,184,122,0.35)] bg-[rgba(157,184,122,0.07)]"
-                        : isSelected
-                          ? "redline-selected"
-                          : "redline-panel acc-border"
-                    }`}
+                    onClick={selectPrev}
+                    aria-label="Previous Mark"
+                    className="flex h-8 w-8 items-center justify-center rounded-[6px] bg-white/5 text-white/70 hover:text-white hover:bg-white/10 transition cursor-pointer"
                   >
-                    <span className="relative block h-14 w-14 shrink-0 overflow-hidden rounded-[8px] border border-[rgba(255,255,255,0.12)]">
-                      <img
-                        src={lore?.avatar ?? "/characters/wick.jpg"}
-                        alt={b.label}
-                        className={`h-full w-full object-cover ${lore ? AVATAR_FOCUS[lore.id] : "object-center"}`}
-                      />
-                      {filed && (
-                        <span className="absolute inset-0 flex items-center justify-center bg-black/55" aria-hidden="true">
-                          <Lock className="h-5 w-5 text-[#9db87a]" />
-                        </span>
-                      )}
-                      {holder !== null && !filed && (
-                        <span
-                          className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)]"
-                          title={`${holder} is talking to this mark`}
-                        >
-                          <Radio className="h-3 w-3 text-[var(--color-brass-ink)]" aria-hidden="true" />
-                        </span>
-                      )}
-                    </span>
-
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="truncate font-[family-name:var(--font-display)] text-[15px] font-bold tracking-[0.05em] text-white">
-                          {b.label.toUpperCase()}
-                        </span>
-                        {filed ? (
-                          <span className="flex shrink-0 items-center gap-1 rounded-[6px] border border-[rgba(157,184,122,0.45)] bg-[rgba(157,184,122,0.12)] px-2 py-0.5 text-[11px] font-semibold text-[#b8d097]">
-                            <Lock className="h-3 w-3" />
-                            <span>Filed</span>
-                          </span>
-                        ) : holder !== null ? (
-                          <span className="flex items-center gap-1 rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-2 py-0.5 text-[var(--color-brass-ink)] text-[11px] font-semibold shrink-0">
-                            <Radio className="w-3 h-3" aria-hidden="true" />
-                            <span>In use</span>
-                          </span>
-                        ) : status === "obtained" ? (
-                          <span className="shrink-0 rounded-[6px] border border-[rgba(216,155,36,0.5)] bg-[rgba(216,155,36,0.12)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-gold-bright)]">
-                            Held
-                          </span>
-                        ) : lore?.difficulty === "Normal" ? (
-                          <span className="shrink-0 rounded-[6px] border border-[rgba(138,180,214,0.4)] bg-[rgba(138,180,214,0.1)] px-2 py-0.5 text-[11px] font-medium text-[#9cc3e5]">
-                            Normal
-                          </span>
-                        ) : lore?.difficulty === "Master" ? (
-                          <span className="shrink-0 rounded-[6px] border border-[rgba(168,130,255,0.45)] bg-[rgba(168,130,255,0.1)] px-2 py-0.5 text-[11px] font-medium text-[#c4a8ff]">
-                            Master
-                          </span>
-                        ) : lore?.difficulty === "Legendary" ? (
-                          <span className="shrink-0 rounded-[6px] border border-[rgba(216,155,36,0.5)] bg-[rgba(216,155,36,0.12)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-gold-bright)]">
-                            Legendary
-                          </span>
-                        ) : (
-                          <span className="shrink-0 rounded-[6px] border border-[rgba(255,30,45,0.45)] bg-[rgba(255,30,45,0.1)] px-2 py-0.5 text-[11px] font-medium text-[#ff8087]">
-                            {lore?.difficulty}
-                          </span>
-                        )}
-                      </span>
-
-                      <span className="mt-0.5 block truncate text-[12px] text-[var(--color-text-3)]">
-                        {filed ? "Closed. Tap to celebrate." : `${lore?.moniker} · ${lore?.role}`}
-                      </span>
-                      {holder !== null && !filed && (
-                        <span className="block text-[12px] font-semibold text-[var(--color-brass-ink)] truncate mt-0.5">
-                          {holder} is talking
-                        </span>
-                      )}
-                      {!filed && (
-                        <span className={`mt-0.5 block truncate text-[12px] font-medium ${isSelected ? "acc-text" : "text-[var(--color-text-2)]"}`}>
-                          {lore?.targetItem.name}
-                        </span>
-                      )}
-                    </span>
-
-                    <ChevronRight className={`h-5 w-5 shrink-0 ${isSelected ? "acc-text" : "text-[var(--color-text-faint)]"}`} aria-hidden="true" />
+                    <ChevronLeft className="h-4 w-4" />
                   </button>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* Detail panel */}
-          <section
-            ref={detailPanelRef}
-            className="relative lg:col-span-7 flex flex-col rounded-[12px] justify-between overflow-hidden border border-[rgba(255,255,255,0.1)] bg-[rgba(9,13,18,0.35)] backdrop-blur-[2px]"
-          >
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0"
-              style={
-                detailBg === undefined
-                  ? { background: "radial-gradient(900px 320px at 85% 0%, var(--accent-glow), transparent 65%)" }
-                  : { backgroundImage: `url("${detailBg}")`, backgroundSize: "cover", backgroundPosition: "center 20%" }
-              }
-            />
-            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[rgba(5,7,10,0.55)] via-[rgba(5,7,10,0.25)] to-transparent" />
-            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(5,7,10,0.55)] via-transparent to-[rgba(5,7,10,0.15)]" />
-            {selectedLore && (
-              <div className="relative flex flex-col gap-4 p-5 sm:p-6">
-                <div className="flex flex-col sm:flex-row items-start gap-4 pb-4 border-b border-[rgba(255,255,255,0.08)]">
-                  <span className="acc-border acc-glow block w-20 h-20 sm:w-24 sm:h-24 rounded-[10px] overflow-hidden border shrink-0">
-                    <img
-                      src={selectedLore.heroImage}
-                      alt={selectedLore.name}
-                      className={`w-full h-full object-cover ${AVATAR_FOCUS[selectedLore.id]}`}
-                    />
-                  </span>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
-                      <span className="redline-chip rounded-[6px] px-2.5 py-0.5 text-[var(--color-text-2)] text-[11px] font-semibold">
-                        {selectedLore.role}
-                      </span>
-                      <span className="acc-wash rounded-[6px] border px-2.5 py-0.5 text-[11px] font-semibold">
-                        {selectedLore.difficulty}
-                      </span>
-                      {getBotItemStatus(selectedLore.id) === "verified" && (
-                        <span className="flex items-center gap-1 rounded-[6px] border border-[rgba(157,184,122,0.45)] bg-[rgba(157,184,122,0.12)] px-2.5 py-0.5 text-[#b8d097] text-[11px] font-semibold">
-                          <Lock className="w-3 h-3" />
-                          <span>Filed</span>
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-start justify-between gap-4">
-                    <h2 className="font-[family-name:var(--font-display)] text-[30px] sm:text-[36px] font-bold tracking-[0.04em] text-white leading-none">
-                      {selectedLore.name.toUpperCase()}
-                    </h2>
-                    <span aria-hidden="true" className="acc-text hidden max-w-[180px] pt-1 text-right font-[family-name:var(--font-code)] text-[10px] leading-relaxed tracking-[0.28em] opacity-70 sm:block">
-                      {(selectedLore.moniker.toUpperCase().split("·")[0] ?? "").trim()}
-                    </span>
-                    </div>
-                    <p className="mt-1 text-[14px] text-[var(--color-text-2)]">
-                      {selectedLore.tagline}
-                    </p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={selectNext}
+                    aria-label="Next Mark"
+                    className="flex h-8 w-8 items-center justify-center rounded-[6px] bg-white/5 text-white/70 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
                 </div>
+              </div>
 
-                <div className="flex flex-col gap-2">
-                  <h4 className="flex items-center gap-2 text-[11px] font-bold tracking-[0.22em] text-[var(--color-text-3)]">
-                    <MessageSquare className="acc-text h-4 w-4" />
-                    <span>RECORD</span>
-                  </h4>
-                  <p className="rounded-[10px] border border-[rgba(255,255,255,0.08)] bg-[rgba(5,7,10,0.45)] p-4 text-[13.5px] leading-relaxed text-[var(--color-text-2)] backdrop-blur-sm">
-                    {selectedLore.backstory}
+              {/* Character Title, Badges & Tagline */}
+              {selectedLore && (
+                <div className="flex flex-col gap-3">
+                  <h2 className="font-[family-name:var(--font-display)] text-[34px] font-bold tracking-[0.04em] text-white leading-none uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+                    {selectedLore.name}
+                  </h2>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className="rounded-[4px] border border-white/20 bg-white/5 px-2.5 py-1 font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.1em] uppercase backdrop-blur-sm"
+                      style={{ color: "var(--accent)" }}
+                    >
+                      {selectedLore.role}
+                    </span>
+                    <span className="rounded-[4px] border border-[rgba(216,155,36,0.3)] bg-[rgba(216,155,36,0.1)] px-2.5 py-1 font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.1em] text-[var(--color-gold-bright)] uppercase backdrop-blur-sm">
+                      {selectedLore.difficulty}
+                    </span>
+                    {getBotItemStatus(selectedLore.id) === "verified" && (
+                      <span className="rounded-[4px] border border-[rgba(157,184,122,0.4)] bg-[rgba(157,184,122,0.15)] px-2.5 py-1 font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.1em] text-[#b8d097] uppercase backdrop-blur-sm">
+                        FILED
+                      </span>
+                    )}
+                    {selectedHolder !== null && getBotItemStatus(selectedLore.id) !== "verified" && (
+                      <span className="rounded-[4px] border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-2.5 py-1 font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.1em] text-[var(--color-brass-ink)] uppercase backdrop-blur-sm">
+                        IN USE
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[14px] font-medium text-[var(--color-text-2)] italic">
+                    {selectedLore.tagline}
                   </p>
                 </div>
+              )}
 
-                <div className="flex flex-col gap-2">
-                  <h4 className="text-[11px] font-bold tracking-[0.22em] text-[var(--color-text-3)]">
-                    ✦ ITEM TO BRING BACK
-                  </h4>
-                  <div className="flex flex-col sm:flex-row items-center gap-4 rounded-[10px] border border-[rgba(216,155,36,0.35)] bg-[rgba(9,13,18,0.55)] p-4 backdrop-blur-sm">
-                    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[10px] border border-[rgba(216,155,36,0.45)] bg-[rgba(216,155,36,0.08)] p-2 shadow-[0_0_18px_rgba(216,155,36,0.2)]">
-                    <img
-                      src={selectedLore.targetItem.asset}
-                      alt={selectedLore.targetItem.name}
-                      className="h-full w-full object-contain"
-                    />
+              {/* Backstory Lore Text (Full text, no scroll) */}
+              {selectedLore && (
+                <div className="text-[13px] leading-[1.65] text-white/85 whitespace-pre-wrap">
+                  {selectedLore.backstory}
+                </div>
+              )}
+
+              {/* Extraction Target */}
+              {selectedLore && (
+                <div className="pt-2 border-t border-white/10">
+                  <p className="font-[family-name:var(--font-code)] text-[10.5px] font-bold tracking-[0.15em] text-[var(--accent)] mb-4 uppercase">
+                    Extraction Target
+                  </p>
+                  <div className="flex items-start gap-4">
+                    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(216,155,36,0.4)] bg-black/40 p-2 shadow-[inset_0_0_12px_rgba(216,155,36,0.15)]">
+                      <img
+                        src={selectedLore.targetItem.asset || "/items/wick_medallion.svg"}
+                        alt={selectedLore.targetItem.name}
+                        className="h-full w-full object-contain drop-shadow-[0_0_8px_rgba(216,155,36,0.3)]"
+                      />
                     </span>
-                    <div className="min-w-0 flex-1 text-center sm:text-left">
-                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                        <span className="font-semibold text-[16px] text-white">
+                    <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="font-semibold text-[14px] text-white leading-tight">
                           {selectedLore.targetItem.name}
                         </span>
-                        <span className="rounded-[6px] border border-[rgba(216,155,36,0.5)] bg-[rgba(216,155,36,0.12)] px-2 py-0.5 text-[var(--color-gold-bright)] text-[10px] font-semibold">
+                        <span className="shrink-0 rounded-[4px] border border-[rgba(216,155,36,0.4)] bg-[rgba(216,155,36,0.15)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--color-gold-bright)] uppercase tracking-wider font-[family-name:var(--font-code)] backdrop-blur-sm">
                           {selectedLore.targetItem.rarity} · {selectedLore.targetItem.category}
                         </span>
                       </div>
-                      <p className="text-[13px] text-[var(--color-text-2)] mt-1">
+                      <p className="text-[12px] leading-relaxed text-white/70">
                         {selectedLore.targetItem.description}
-                      </p>
-                      <p className="mt-2 text-[12px] text-[var(--color-text-3)]">
-                        <span className="font-semibold text-[var(--color-text-2)]">Tell: </span>
-                        {selectedLore.targetItem.authenticityTell}
                       </p>
                     </div>
                   </div>
                 </div>
+              )}
 
-                <div className="pt-1">
+              {/* Primary Action Button */}
+              {selectedLore && (
+                <div className="pt-2">
                   {getBotItemStatus(selectedLore.id) === "verified" ? (
                     <button
                       type="button"
                       onClick={() => setCelebration(selectedLore.id)}
-                      className="flex w-full min-h-[52px] items-center justify-center gap-2 rounded-[8px] border border-[rgba(157,184,122,0.45)] bg-[rgba(157,184,122,0.12)] px-6 py-4 font-semibold text-[15px] text-[#c4d8a8] transition hover:bg-[rgba(157,184,122,0.2)] active:scale-[0.99]"
+                      className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[8px] border border-[rgba(157,184,122,0.4)] bg-[rgba(157,184,122,0.15)] px-6 py-2.5 font-bold text-[13.5px] tracking-wide text-[#c4d8a8] hover:bg-[rgba(157,184,122,0.25)] backdrop-blur-md transition cursor-pointer"
                     >
-                      <Lock className="w-5 h-5" />
-                      <span>Filed and locked · celebrate again</span>
+                      <Lock className="h-4 w-4" />
+                      <span>FILED AND LOCKED · CELEBRATE</span>
                     </button>
                   ) : getBotItemStatus(selectedLore.id) === "obtained" ? (
-                    <div className="flex flex-col sm:flex-row gap-2 w-full">
+                    <div className="flex gap-2 w-full">
                       <button
                         type="button"
                         onClick={() => {
                           const item = inventory.find((i) => i.botId === selectedLore.id && i.status === "obtained");
                           if (item) setClaimRelic({ botId: item.botId, itemKey: item.itemKey });
                         }}
-                        className="flex min-h-[52px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-[8px] border border-[rgba(216,155,36,0.55)] bg-[rgba(216,155,36,0.14)] px-6 py-4 text-[15px] font-bold text-[var(--color-gold-bright)] shadow-[0_0_20px_rgba(216,155,36,0.2)] transition hover:bg-[rgba(216,155,36,0.22)] active:scale-[0.99]"
+                        className="flex min-h-[48px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-[8px] border border-[rgba(216,155,36,0.45)] bg-[rgba(216,155,36,0.18)] px-4 py-2.5 text-[13.5px] font-bold tracking-wide text-[var(--color-gold-bright)] hover:bg-[rgba(216,155,36,0.28)] backdrop-blur-md transition"
                       >
-                        <Gift className="w-5 h-5" />
-                        <span>Inspect / Claim Relic</span>
+                        <Gift className="h-4 w-4" />
+                        <span>Inspect Relic</span>
                       </button>
-                      {selectedHolder !== null ? (
-                        <div className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-6 py-4 text-[15px] font-semibold text-[var(--color-brass-ink)]">
-                          <span aria-hidden="true" className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-text-1)] text-[11px] font-bold text-[var(--color-bg-0)]">
-                            {initialsOf(selectedHolder)}
-                          </span>
-                          <span>In use by {selectedHolder}</span>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => engage(selectedLore.id)}
-                          className="min-h-[52px] rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-surface-1)] px-6 py-4 font-semibold text-[15px] text-[var(--color-text-1)] hover:bg-[var(--color-surface-2)] active:scale-[0.99] transition"
-                        >
-                          <span>Talk</span>
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => engage(selectedLore.id)}
+                        className="min-h-[48px] rounded-[8px] border border-white/20 bg-white/10 px-6 py-2.5 font-bold text-[13.5px] tracking-wide text-white hover:bg-white/20 backdrop-blur-md transition cursor-pointer"
+                      >
+                        <span>Talk</span>
+                      </button>
                     </div>
                   ) : selectedHolder !== null ? (
-                    <div className="flex flex-col gap-2">
-                      <div className="flex w-full min-h-[52px] items-center justify-center gap-2 rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-brass-wash)] px-6 py-4 text-[16px] font-semibold text-[var(--color-brass-ink)]">
-                        <span aria-hidden="true" className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-text-1)] text-[11px] font-bold text-[var(--color-bg-0)]">
-                          {initialsOf(selectedHolder)}
-                        </span>
-                        <span>In use by {selectedHolder}</span>
-                      </div>
-                      <p className="text-[13px] text-[var(--color-text-3)]">
-                        Your teammate is running this mark. Pick another mark or wait for them to step out.
-                      </p>
+                    <div className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[8px] border border-white/15 bg-white/5 px-6 py-2.5 font-bold text-[13px] tracking-wide text-white/60 backdrop-blur-sm">
+                      <span>IN USE BY {selectedHolder}</span>
                     </div>
                   ) : (
                     <button
                       type="button"
                       onClick={() => engage(selectedLore.id)}
-                      className="redline-cta flex w-full min-h-[52px] items-center justify-between rounded-[8px] px-6 py-4 font-semibold text-[16px]"
+                      className="flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-[8px] border border-[var(--accent)]/50 bg-[var(--accent)]/15 hover:bg-[var(--accent)]/25 text-white font-bold text-[13.5px] tracking-[0.12em] backdrop-blur-md transition-all cursor-pointer active:scale-[0.98] shadow-[0_0_20px_var(--accent-wash)] hover:shadow-[0_0_30px_var(--accent-glow)]"
                     >
-                      <span className="flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5" />
-                        <span>Talk to {selectedLore.name}</span>
-                      </span>
-                      <ArrowRight className="h-5 w-5" />
+                      <span>ENTER CONVERSATION</span>
+                      <ArrowRight className="h-4 w-4" />
                     </button>
                   )}
                 </div>
+              )}
+            </aside>
+
+            {/* Right Column: Round 01 (Mirrored to Right) */}
+            <div className="flex flex-col justify-between self-stretch items-end text-right max-w-[340px] select-none py-1">
+              <div className="flex flex-col items-end gap-5">
+                <div>
+                  <p className="font-[family-name:var(--font-code)] text-[11px] font-bold tracking-[0.28em] text-[var(--accent)]">
+                    ROUND <span className="text-white">01</span> /
+                  </p>
+                </div>
               </div>
-            )}
-          </section>
+            </div>
+          </div>
+
+          {/* Bottom Character Carousel */}
+          <div className="relative z-10 w-full pt-4 mt-auto">
+            <div 
+              ref={carouselRef}
+              className="flex w-full overflow-x-auto gap-2 sm:gap-3 lg:gap-4 px-4 lg:px-8 pb-2 lg:pb-4 items-center xl:justify-center [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              style={{ maskImage: "linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)" }}
+            >
+              {ROSTER.map((item) => {
+                const lore = CHARACTERS[item.id];
+                const isSelected = selectedBotId === item.id;
+                const isMerchantCard = item.id === "merchant";
+                const itemStatus = getBotItemStatus(item.id);
+                const filed = itemStatus === "verified";
+                
+                // Color theme logic
+                const activeBorder = isMerchantCard ? "border-[#f2b632] shadow-[0_0_15px_rgba(242,182,50,0.6)]" : "border-[#ff1e2d] shadow-[0_0_15px_rgba(255,30,45,0.6)]";
+                
+                const difficulty = isMerchantCard ? "Counter" : lore?.difficulty ?? "Normal";
+                let tagColorClass = "";
+                if (difficulty === "Normal") tagColorClass = "text-blue-400 border-blue-400/40 bg-blue-400/10";
+                else if (difficulty === "Challenging") tagColorClass = "text-red-500 border-red-500/40 bg-red-500/10";
+                else if (difficulty === "Master") tagColorClass = "text-purple-400 border-purple-400/40 bg-purple-400/10";
+                else if (difficulty === "Counter") tagColorClass = "text-[#f2b632] border-[#f2b632]/40 bg-[#f2b632]/10";
+                else tagColorClass = "text-[var(--color-text-3)] border-white/20 bg-black/50";
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setSelectedBotId(item.id)}
+                    onDoubleClick={() => engage(item.id)}
+                    className={`group relative flex-1 shrink-0 min-w-[80px] sm:min-w-[95px] lg:min-w-[110px] max-w-[130px] xl:max-w-[145px] h-[130px] sm:h-[150px] lg:h-[175px] -skew-x-[12deg] overflow-hidden cursor-pointer select-none transition-all duration-300 transform outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                      isSelected 
+                        ? `border-2 z-10 scale-[1.08] -translate-y-2 ${activeBorder}`
+                        : "border border-white/15 hover:border-white/40 hover:scale-[1.03] hover:-translate-y-1 bg-black/60"
+                    }`}
+                  >
+                    {/* Un-skew wrapper for contents */}
+                    <div 
+                      className="absolute top-0 bottom-0 skew-x-[12deg] flex flex-col justify-end"
+                      style={{ left: "-20px", right: "-20px", width: "calc(100% + 40px)" }}
+                    >
+                      {/* Full Background Image */}
+                      <img
+                        src={lore?.heroImage ?? lore?.avatar ?? "/characters/wick.jpg"}
+                        alt={item.label}
+                        className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.08] ${
+                          filed && !isSelected ? "grayscale brightness-50" : (isSelected ? "brightness-110" : "brightness-75 group-hover:brightness-100")
+                        } ${lore ? AVATAR_FOCUS[lore.id] : "object-center"}`}
+                      />
+                      
+                      {/* Filed/Completed Overlay */}
+                      {filed && (
+                        <div className="absolute inset-0 bg-[#9db87a]/20 mix-blend-overlay z-10 flex items-center justify-center">
+                          <div className="bg-black/60 p-2 rounded-full border border-[#9db87a]/50 shadow-[0_0_15px_rgba(157,184,122,0.4)]">
+                            <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-[#9db87a]" />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Bottom Gradient for Text */}
+                      <div className="absolute inset-x-0 bottom-0 h-[80%] bg-gradient-to-t from-[rgba(5,7,10,0.95)] via-[rgba(5,7,10,0.7)] to-transparent z-10" />
+
+                      {/* Content (Text & Tags) */}
+                      <div className="relative z-20 flex flex-col items-center justify-end pb-2 sm:pb-3 px-1 h-full gap-1 sm:gap-1.5">
+                        {/* Index */}
+                        <span className={`absolute top-2 left-3 sm:left-4 font-[family-name:var(--font-code)] text-[9px] font-bold tracking-[0.1em] ${isSelected ? (isMerchantCard ? "text-[#f2b632]" : "text-[#ff1e2d]") : "text-white/40"}`}>
+                          {item.num}
+                        </span>
+
+                        <span className={`font-[family-name:var(--font-display)] text-[10px] sm:text-[11px] font-bold tracking-[0.05em] truncate w-full text-center ${
+                          isSelected ? "text-white" : "text-[var(--color-text-2)]"
+                        }`}>
+                          {item.label.toUpperCase()}
+                        </span>
+                        
+                        <span className={`rounded-[3px] border px-2 py-0.5 font-[family-name:var(--font-code)] text-[8.5px] font-semibold tracking-wide ${tagColorClass} ${!isSelected && "opacity-80"}`}>
+                          {difficulty}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       ) : (
         /* ── Chat View ── */

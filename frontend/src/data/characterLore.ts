@@ -284,9 +284,9 @@ export const CHARACTERS: Record<BotId, CharacterLore> = {
     tagline: "Keeper of the Scales & Evaluator of Truth",
     difficulty: "Normal",
     role: "Trickster",
-    // Portrait: Jost Amman, "Der Kauffmann" (1568), public domain via Wikimedia Commons.
-    avatar: "/characters/merchant.jpg",
-    heroImage: "/characters/merchant.jpg",
+    // Portrait: Provided by user
+    avatar: "/characters/merchant.png",
+    heroImage: "/characters/merchant.png",
     accent: "#d89b24",
     accentInk: "#231600",
     backstory: `The enigmatic curator who stands at the iron counter of the arena market. He has appraised thousands of forged relics, fake web shooters, and painted coins. Bring him the genuine article and he will reward your team with massive ELO and mark the bot as conquered. Bring him a cheap decoy and prepare to be roasted mercilessly before the entire venue.`,
@@ -308,7 +308,7 @@ export const CHARACTERS: Record<BotId, CharacterLore> = {
 // Per-bot chat backdrops, served from frontend/public/backgrounds/.
 // Bots without an entry (deadpool, merchant, itachi, aizen) fall back to the
 // plain theme background — add a file + entry here to opt them in.
-export const CHAT_BACKGROUND: Partial<Record<BotId, string>> = {
+export const CHAT_BACKGROUND: Record<BotId, string> = {
   wick: "/backgrounds/john-wick.png",
   spidey: "/backgrounds/spiderman.png",
   escanor: "/backgrounds/escanor.png",
@@ -316,19 +316,23 @@ export const CHAT_BACKGROUND: Partial<Record<BotId, string>> = {
   joker: "/backgrounds/the-joker.png",
   light: "/backgrounds/light-yagami.png",
   levi: "/backgrounds/leavy-ackerman.png",
+  deadpool: "/backgrounds/login-uiwork.png",
+  merchant: "/backgrounds/login-uiwork.png",
+  itachi: "/backgrounds/dark_castle_night.jpg",
+  aizen: "/backgrounds/gothic_citadel.jpg",
 };
 
 // Photo presentation: full-body cosplay shots keep the mask in frame via
 // top-anchored crop. (Deadpool now a centered NYCC portrait.)
-export const AVATAR_FOCUS: Record<BotId, "object-center" | "object-top" | "object-right"> = {
+export const AVATAR_FOCUS: Record<BotId, string> = {
   wick: "object-center",
   spidey: "object-center",
-  escanor: "object-center",
-  stark: "object-center",
-  joker: "object-center",
+  escanor: "object-[center_90%]",
+  stark: "object-[center_80%]",
+  joker: "object-top",
   light: "object-center",
   levi: "object-right",
-  deadpool: "object-center",
+  deadpool: "object-[center_20%]",
   itachi: "object-center",
   aizen: "object-center",
   merchant: "object-center",

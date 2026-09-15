@@ -243,18 +243,8 @@ export default function App(): React.JSX.Element {
           </nav>
         </div>
 
-        {/* Right: Icons + Credits + Profile Dropdown */}
+        {/* Right: Credits + Profile Dropdown */}
         <div className="flex items-center gap-4">
-          <button className="hidden sm:block text-[var(--color-text-3)] hover:text-white transition-colors cursor-pointer" aria-label="Toggle Theme">
-            <Sun className="h-4 w-4" />
-          </button>
-          <button className="hidden sm:block relative text-[var(--color-text-3)] hover:text-white transition-colors cursor-pointer" aria-label="Notifications">
-            <Bell className="h-4 w-4" />
-            <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-[#ff1e2d] shadow-[0_0_5px_rgba(255,30,45,0.8)]" />
-          </button>
-          
-          <div className="hidden sm:block h-6 w-[1px] bg-white/10 mx-1" />
-
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent("arena:open_satchel"))}

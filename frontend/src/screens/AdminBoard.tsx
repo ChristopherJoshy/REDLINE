@@ -6,7 +6,6 @@ import {
   ShieldAlert,
   Download,
   Database,
-  Radio
 } from "lucide-react";
 
 interface BoardRow {
@@ -20,15 +19,21 @@ interface BoardRow {
 
 function BoardSeal(): React.JSX.Element {
   return (
-    <span className="flex h-12 w-12 items-center justify-center rounded-[2px] border border-[#3F3F46] bg-[#27272A]" aria-hidden="true">
-      <ShieldAlert className="h-6 w-6 text-[#EF4444]" />
+    <span className="flex h-12 w-12 items-center justify-center border border-[#E10600]/50 bg-[#090909]" aria-hidden="true">
+      <ShieldAlert className="h-6 w-6 text-[#FF1A14]" />
     </span>
+  );
+}
+
+function CornerBracket({ className }: { className: string }): React.JSX.Element {
+  return (
+    <span aria-hidden="true" className={`pointer-events-none absolute h-6 w-6 border-[#E10600]/70 ${className}`} />
   );
 }
 
 export default function AdminBoard(): React.JSX.Element {
   const [rows, setRows] = useState<BoardRow[]>([]);
-  useDocumentTitle("Clocktower Citadel Board — REDLINE Arena");
+  useDocumentTitle("Leaderboard — REDLINE Arena");
   const [adminCode, setAdminCode] = useState(() => localStorage.getItem("redline_admin_code") ?? "");
   const [authed, setAuthed] = useState(false);
   const [error, setError] = useState("");
@@ -112,16 +117,24 @@ export default function AdminBoard(): React.JSX.Element {
 
   if (!authed) {
     return (
-      <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#18181B] p-6 text-[#F4F4F5] font-sans">
-        <div className="flex w-full max-w-[420px] flex-col items-center gap-6 rounded-[2px] border border-[#3F3F46] bg-[#27272A] p-8">
+      <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-[#050505] p-6 text-[#F5F5F5] font-sans">
+        <div
+          className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: "url('/backgrounds/leaderboard.png')" }}
+        />
+        <div className="fixed inset-0 z-0 bg-black/55" />
+        <div className="fixed inset-0 z-0 bg-gradient-to-b from-[#120707]/70 via-transparent to-[#050505]/80" />
+        <div className="board-panel relative z-10 flex w-full max-w-[420px] flex-col items-center gap-6 p-8">
+          <CornerBracket className="left-2 top-2 border-l-2 border-t-2" />
+          <CornerBracket className="right-2 top-2 border-r-2 border-t-2" />
+          <CornerBracket className="bottom-2 left-2 border-b-2 border-l-2" />
+          <CornerBracket className="bottom-2 right-2 border-b-2 border-r-2" />
           <BoardSeal />
           <div className="text-center">
-            <h1 className="font-mono text-[20px] font-bold tracking-wider text-[#F4F4F5] uppercase">
-              Clocktower Citadel Board
+            <h1 className="board-title font-[family-name:var(--font-display)] text-[26px] font-bold tracking-[0.3em] text-[#F5F5F5] uppercase">
+              Leaderboard
             </h1>
-            <p className="mt-1 text-[13px] text-[#A1A1AA]">
-              Squad Command Auth
-            </p>
+            <div className="mx-auto mt-3 h-px w-24 bg-gradient-to-r from-transparent via-[#E10600] to-transparent" aria-hidden="true" />
           </div>
 
           <form onSubmit={submitCode} className="flex w-full flex-col gap-4">
@@ -131,15 +144,15 @@ export default function AdminBoard(): React.JSX.Element {
               onChange={(e) => setAdminCode(e.target.value)}
               placeholder="COMMAND PIN"
               aria-label="Admin PIN"
-              className="min-h-[48px] rounded-[2px] border border-[#3F3F46] bg-[#18181B] px-4 text-center font-mono text-[15px] text-[#F4F4F5] placeholder:text-[#A1A1AA]/50 focus:border-[#EF4444] focus:outline-none"
+              className="min-h-[48px] border border-[#3F3F46] bg-[#090909]/90 px-4 text-center font-mono text-[15px] text-[#F5F5F5] placeholder:text-[#8A8A8A]/60 focus:border-[#E10600] focus:outline-none"
             />
             <button
               type="submit"
-              className="min-h-[48px] rounded-[2px] bg-[#EF4444] px-4 py-3 font-semibold text-[#F4F4F5] uppercase tracking-wider hover:bg-[#EF4444]/90 transition"
+              className="redline-primary-cta min-h-[48px] px-4 py-3 font-semibold text-[#F5F5F5] uppercase tracking-wider"
             >
               Authenticate
             </button>
-            {error !== "" && <p role="alert" className="text-center text-[13px] font-mono text-[#EF4444]">{error}</p>}
+            {error !== "" && <p role="alert" className="text-center text-[13px] font-mono text-[#FF3B30]">{error}</p>}
           </form>
         </div>
       </main>
@@ -147,108 +160,123 @@ export default function AdminBoard(): React.JSX.Element {
   }
 
   return (
-    <main className="flex min-h-[100dvh] flex-col items-center justify-start bg-[#18181B] p-6 sm:p-8 lg:p-10 select-none text-[#F4F4F5] font-sans">
-      <div className="z-10 flex w-full max-w-[1200px] flex-col items-center">
+    <main className="relative flex min-h-[100dvh] flex-col items-center justify-start overflow-hidden bg-[#050505] p-6 sm:p-8 lg:p-10 select-none text-[#F5F5F5] font-sans">
+      <div
+        className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url('/backgrounds/leaderboard.png')" }}
+      />
+      <div className="fixed inset-0 z-0 bg-black/55" />
+      <div className="fixed inset-0 z-0 bg-gradient-to-b from-[#120707]/70 via-transparent to-[#050505]/80" />
+      <div className="relative z-10 flex w-full max-w-[1200px] flex-col items-center">
         <header className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-3 flex items-center gap-2">
-            <span className="h-2 w-2 rounded-none bg-[#EF4444]" />
-            <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-[#A1A1AA]">
-              REDLINE // TACTICAL CYBER-OPS
+          <div className="mb-3 flex items-center gap-3" aria-hidden="true">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E10600] shadow-[0_0_8px_rgba(225,6,0,0.9)]" />
+            <span className="h-px w-16 bg-gradient-to-r from-transparent to-[#E10600]/70" />
+            <span className="font-mono text-[11px] uppercase tracking-[0.35em] text-[#8A8A8A]">
+              ᚱ ᚷ ᛒ
             </span>
+            <span className="h-px w-16 bg-gradient-to-l from-transparent to-[#E10600]/70" />
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E10600] shadow-[0_0_8px_rgba(225,6,0,0.9)]" />
           </div>
-          <h1 className="font-mono text-[clamp(26px,4vw,38px)] font-bold tracking-[0.15em] text-[#F4F4F5] uppercase">
-            CLOCKTOWER CITADEL BOARD
+          <h1 className="board-title font-[family-name:var(--font-display)] text-[clamp(30px,5vw,52px)] font-bold tracking-[0.28em] text-[#F5F5F5] uppercase">
+            Leaderboard
           </h1>
-          <p className="mt-2 text-[13px] text-[#A1A1AA]">
-            Real-time squad standings & Relic solve status
-          </p>
+          <div className="mt-4 h-[2px] w-40 bg-gradient-to-r from-transparent via-[#E10600] to-transparent shadow-[0_0_12px_rgba(225,6,0,0.8)]" aria-hidden="true" />
         </header>
 
-        <div className="w-full rounded-[2px] border border-[#3F3F46] bg-[#27272A] p-6 sm:p-8">
-          <div className="mb-3 grid grid-cols-12 items-center border-b border-[#3F3F46] bg-[#18181B] px-6 py-4 font-mono text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA]">
-            <div className="col-span-2 text-center sm:col-span-1">RANK</div>
-            <div className="col-span-4 pl-2 sm:col-span-4">SQUAD</div>
-            <div className="col-span-2 text-center sm:col-span-2">HINT</div>
-            <div className="col-span-2 text-right sm:col-span-2">ELO</div>
-            <div className="col-span-2 text-center sm:col-span-2">SOLVES</div>
-            <div className="hidden text-right sm:col-span-1 sm:block">REWIND</div>
-          </div>
-
-          <div className="flex max-h-[60vh] flex-col gap-2 overflow-y-auto pr-1">
-            {rows.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <BoardSeal />
-                <p className="mt-4 font-mono text-[18px] font-bold text-[#F4F4F5] uppercase">
-                  No Active Telemetry
-                </p>
-                <p className="mt-1 text-[13px] text-[#A1A1AA]">
-                  Telemetry stream awaiting first Guardrail Bypass event.
-                </p>
+        <div className="board-panel relative w-full p-4 sm:p-6 lg:p-8">
+          <CornerBracket className="left-2 top-2 border-l-2 border-t-2" />
+          <CornerBracket className="right-2 top-2 border-r-2 border-t-2" />
+          <CornerBracket className="bottom-2 left-2 border-b-2 border-l-2" />
+          <CornerBracket className="bottom-2 right-2 border-b-2 border-r-2" />
+          <div className="overflow-x-auto">
+            <div className="min-w-[620px]">
+              <div className="mb-3 grid grid-cols-12 items-center border-b border-[#E10600]/25 px-6 py-4 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#8A8A8A]">
+                <div className="col-span-2 text-center sm:col-span-1">Rank</div>
+                <div className="col-span-4 pl-2 sm:col-span-4">Squad</div>
+                <div className="col-span-2 text-center sm:col-span-2">Hint</div>
+                <div className="col-span-2 text-right sm:col-span-2">Elo</div>
+                <div className="col-span-2 text-center sm:col-span-2">Solves</div>
+                <div className="hidden text-right sm:col-span-1 sm:block">Rewind</div>
               </div>
-            ) : (
-              rows.map((r, i) => {
-                const rank = i + 1;
-                const topRank = rank === 1;
 
-                return (
-                  <div
-                    key={r.name}
-                    className={`grid grid-cols-12 items-center rounded-[2px] border px-6 py-4 transition-colors ${
-                      topRank
-                        ? "border-[#EF4444] bg-[#18181B]"
-                        : "border-[#3F3F46] bg-[#18181B]/60 hover:bg-[#18181B]"
-                    }`}
-                  >
-                    <div className="col-span-2 flex items-center justify-center sm:col-span-1">
-                      <span className={`font-mono text-[14px] font-bold ${topRank ? "text-[#EF4444]" : "text-[#A1A1AA]"}`}>
-                        #{rank.toString().padStart(2, "0")}
-                      </span>
-                    </div>
-
-                    <div className="col-span-4 min-w-0 pl-2 sm:col-span-4">
-                      <span className="block truncate font-sans text-[15px] font-semibold text-[#F4F4F5]">
-                        {r.name}
-                      </span>
-                    </div>
-
-                    <div className="col-span-2 text-center sm:col-span-2">
-                      <span className="inline-block rounded-[2px] border border-[#3F3F46] bg-[#27272A] px-3 py-1 font-mono text-[12px] text-[#F4F4F5]">
-                        {r.hint || "SEC-00"}
-                      </span>
-                    </div>
-
-                    <div className="col-span-2 text-right sm:col-span-2">
-                      <span className="font-mono text-[20px] font-bold text-[#F4F4F5]">
-                        {r.elo}
-                      </span>
-                    </div>
-
-                    <div className="col-span-2 text-center sm:col-span-2">
-                      <span className={`font-mono text-[14px] font-bold ${r.solved > 0 ? "text-[#10B981]" : "text-[#A1A1AA]"}`}>
-                        {r.solved}/8
-                      </span>
-                    </div>
-
-                    <div className="hidden text-right font-mono text-[13px] text-[#A1A1AA] sm:col-span-1 sm:block">
-                      {r.rewinds}
-                    </div>
+              <div className="redline-scroll flex max-h-[60vh] flex-col gap-2 overflow-y-auto pr-1">
+                {rows.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <BoardSeal />
+                    <p className="mt-4 font-mono text-[16px] font-bold text-[#F5F5F5] uppercase tracking-[0.2em]">
+                      No Active Telemetry
+                    </p>
+                    <p className="mt-1 text-[13px] text-[#8A8A8A]">
+                      Awaiting first Guardrail Bypass event.
+                    </p>
                   </div>
-                );
-              })
-            )}
+                ) : (
+                  rows.map((r, i) => {
+                    const rank = i + 1;
+                    const topRank = rank === 1;
+
+                    return (
+                      <div
+                        key={r.name}
+                        className={`board-row grid grid-cols-12 items-center border px-6 py-4 ${
+                          topRank
+                            ? "board-champion border-[#E10600] bg-[#0d0606]/95"
+                            : "border-[#2a2a2a] bg-[#090909]/80 hover:bg-[#120707]/80"
+                        }`}
+                      >
+                        <div className="col-span-2 flex items-center justify-center sm:col-span-1">
+                          <span className={`font-mono text-[14px] font-bold ${topRank ? "text-[#FF1A14]" : "text-[#8A8A8A]"}`}>
+                            #{rank.toString().padStart(2, "0")}
+                          </span>
+                        </div>
+
+                        <div className="col-span-4 min-w-0 pl-2 sm:col-span-4">
+                          <span className="block truncate font-sans text-[16px] font-bold text-[#F5F5F5]">
+                            {r.name}
+                          </span>
+                        </div>
+
+                        <div className="col-span-2 text-center sm:col-span-2">
+                          <span className="inline-block border border-[#3F3F46] bg-[#050505] px-3 py-1 font-mono text-[12px] text-[#F5F5F5]">
+                            {r.hint || "SEC-00"}
+                          </span>
+                        </div>
+
+                        <div className="col-span-2 text-right sm:col-span-2">
+                          <span className="font-mono text-[22px] font-bold text-[#F5F5F5]">
+                            {r.elo}
+                          </span>
+                        </div>
+
+                        <div className="col-span-2 text-center sm:col-span-2">
+                          <span className={`font-mono text-[14px] font-bold ${r.solved > 0 ? "text-[#00D9A6]" : "text-[#8A8A8A]"}`}>
+                            {r.solved}/8
+                          </span>
+                        </div>
+
+                        <div className="hidden text-right font-mono text-[13px] text-[#8A8A8A] sm:col-span-1 sm:block">
+                          {r.rewinds}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-        <footer className="mt-6 flex w-full items-center justify-between px-2 text-[12px] text-[#A1A1AA]">
+        <footer className="mt-6 flex w-full items-center justify-between px-2 text-[12px] text-[#8A8A8A]">
           <div className="flex items-center gap-2">
-            <span className="inline-block h-2 w-2 rounded-none bg-[#10B981]" aria-hidden="true" />
-            <span className="font-mono text-[11px] uppercase tracking-wider">Telemetry Stream · 5s sync</span>
+            <span className="inline-block h-2 w-2 rounded-full bg-[#00D9A6] shadow-[0_0_8px_rgba(0,217,166,0.8)]" aria-hidden="true" />
+            <span className="font-mono text-[11px] uppercase tracking-wider">Live · 5s sync</span>
           </div>
 
           <button
             type="button"
             onClick={() => setShowTools((v) => !v)}
-            className="rounded-[2px] border border-[#3F3F46] bg-[#27272A] px-3 py-1.5 font-mono text-[11px] text-[#F4F4F5] uppercase tracking-wider hover:bg-[#3F3F46] transition"
+            className="border border-[#3F3F46] bg-[#090909]/90 px-3 py-1.5 font-mono text-[11px] text-[#F5F5F5] uppercase tracking-wider hover:border-[#E10600]/60 transition"
             aria-expanded={showTools}
           >
             {showTools ? "Hide Tools" : "System Tools"}
@@ -258,33 +286,33 @@ export default function AdminBoard(): React.JSX.Element {
         {showTools && (
           <section
             aria-label="Organizer tools"
-            className="mt-4 flex w-full flex-wrap items-center justify-between gap-4 rounded-[2px] border border-[#3F3F46] bg-[#27272A] p-6"
+            className="mt-4 flex w-full flex-wrap items-center justify-between gap-4 border border-[#2a2a2a] bg-[#090909]/90 p-6"
           >
             <div className="flex flex-wrap items-center gap-3">
-              <span className="mr-2 font-mono text-[12px] font-bold uppercase tracking-wider text-[#A1A1AA]">Data Export:</span>
+              <span className="mr-2 font-mono text-[12px] font-bold uppercase tracking-wider text-[#8A8A8A]">Data Export:</span>
               {["elo_log", "chat_logs", "team_inventory"].map((t) => (
                 <Button
                   key={t}
                   variant="ghost"
-                  className="h-10 rounded-[2px] border border-[#3F3F46] bg-[#18181B] px-3 font-mono text-[12px] text-[#F4F4F5] hover:bg-[#3F3F46]"
+                  className="h-10 border border-[#3F3F46] bg-[#050505] px-3 font-mono text-[12px] text-[#F5F5F5] hover:border-[#E10600]/60"
                   onClick={() => void download(t)}
                 >
-                  <Download className="mr-1.5 h-3.5 w-3.5 text-[#A1A1AA]" />
+                  <Download className="mr-1.5 h-3.5 w-3.5 text-[#8A8A8A]" />
                   <span>{t}.csv</span>
                 </Button>
               ))}
               <Button
                 variant="ghost"
-                className="h-10 rounded-[2px] border border-[#3F3F46] bg-[#18181B] px-3 font-mono text-[12px] text-[#F4F4F5] hover:bg-[#3F3F46]"
+                className="h-10 border border-[#3F3F46] bg-[#050505] px-3 font-mono text-[12px] text-[#F5F5F5] hover:border-[#E10600]/60"
                 onClick={() => void snapshot()}
               >
-                <Database className="mr-1.5 h-3.5 w-3.5 text-[#A1A1AA]" />
+                <Database className="mr-1.5 h-3.5 w-3.5 text-[#8A8A8A]" />
                 <span>Snapshot DB</span>
               </Button>
             </div>
 
             {backup !== "" && (
-              <p className="font-mono text-[12px] text-[#10B981]">
+              <p className="font-mono text-[12px] text-[#00D9A6]">
                 Snapshot Saved: {backup}
               </p>
             )}
@@ -294,4 +322,3 @@ export default function AdminBoard(): React.JSX.Element {
     </main>
   );
 }
-

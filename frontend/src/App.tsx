@@ -231,6 +231,14 @@ export default function App(): React.JSX.Element {
 
             <button
               type="button"
+              onClick={() => setShowLeaderboard(true)}
+              className="relative px-4 py-4 text-[11px] font-[family-name:var(--font-code)] font-bold tracking-[0.25em] text-[var(--color-text-3)] hover:text-white transition-colors"
+            >
+              LEADERBOARD
+            </button>
+
+            <button
+              type="button"
               onClick={() => setShowAbout(true)}
               className="relative px-4 py-4 text-[11px] font-[family-name:var(--font-code)] font-bold tracking-[0.25em] text-[var(--color-text-3)] hover:text-white transition-colors"
             >

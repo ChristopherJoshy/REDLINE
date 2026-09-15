@@ -253,6 +253,8 @@ export default function GatedArena({ teamId, displayName, locked }: { teamId: st
   if (!round1Active) {
     const message = gates.round1.status === "countdown"
       ? "Round 1 has not opened yet. Chats and submissions will unlock when the countdown ends."
+      : gates.round1.status === "not_started"
+      ? "Round 1 has not started yet."
       : "Round 1 is frozen. Chats, clue purchases, and submissions are no longer available.";
     return <SealedScreen message={message} />;
   }

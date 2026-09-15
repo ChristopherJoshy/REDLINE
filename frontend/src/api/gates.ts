@@ -11,6 +11,7 @@ export interface Gates {
   round1Size: number;
   round2Status: "off" | "countdown" | "active" | "paused";
   round2TimeLeft: number;
+  round1TimeLeft: number;
 }
 
 export interface RoundState {

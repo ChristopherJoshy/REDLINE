@@ -27,6 +27,11 @@ export function round2TimeLeft(db: DatabaseAdapter): number {
   const end = state.status === "countdown" ? state.startsAt : state.status === "active" || state.status === "paused" ? state.endsAt : null;
   return end ? Math.max(0, Math.ceil((Date.parse(end) - Date.now()) / 1000)) : 0;
 }
+export function round1TimeLeft(db: DatabaseAdapter): number {
+  const state = roundState(db, 1);
+  const end = state.status === "countdown" ? state.startsAt : state.status === "active" || state.status === "paused" ? state.endsAt : null;
+  return end ? Math.max(0, Math.ceil((Date.parse(end) - Date.now()) / 1000)) : 0;
+}
 export function isQualified(db: DatabaseAdapter, teamId: string): boolean {
   const row = db.get<{ is_qualified: number; round2_eligible: number }>("SELECT is_qualified, round2_eligible FROM teams WHERE id = ?", teamId);
   return (row?.is_qualified === 1) || (row?.round2_eligible === 1);
@@ -46,7 +51,8 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
     return { ...roundSnapshot(db), round1Open: round1Open(db), vaultOpen: vaultOpen(db),
       qualified: vaultOpen(db) && isQualified(db, session.teamId),
       solved: solvedCount(db, session.teamId), round1Size: ROUND1_SIZE,
-      round2Status: round2Status(db), round2TimeLeft: round2TimeLeft(db) };
+      round2Status: round2Status(db), round2TimeLeft: round2TimeLeft(db),
+      round1TimeLeft: round1TimeLeft(db) };
   });
   app.get("/api/admin/rounds", async (req, reply) => {
     if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });

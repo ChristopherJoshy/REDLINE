@@ -1798,8 +1798,13 @@ export default function AdminTeams(): React.JSX.Element {
                   <div className="p-5 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
                     <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Round 1</span>
                     <p className="mt-2 font-bold text-[16px] text-[#F4F4F5]">
-                      {gates.round1Open ? "ACTIVE" : "FROZEN"}
+                      {gates.round1Open ? "ACTIVE" : gates.round1.status === "not_started" ? "NOT STARTED" : gates.round1.status === "countdown" ? "COUNTDOWN" : "FROZEN"}
                     </p>
+                    {gates.round1Open && (
+                      <p className="mt-2 font-mono text-[18px] text-[#10B981] animate-pulse">
+                        {Math.floor(gates.round1TimeLeft / 60)}:{(gates.round1TimeLeft % 60).toString().padStart(2, '0')} remaining
+                      </p>
+                    )}
                   </div>
                   <div className="p-5 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
                     <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Vault</span>
@@ -1976,8 +1981,8 @@ export default function AdminTeams(): React.JSX.Element {
                     </button>
                   )}
 
-                  {/* Start Round 2 — only when R1 has started */}
-                  {round2.status === "off" && gates.round1.status !== "not_started" && (
+                  {/* Start Round 2 */}
+                  {round2.status === "off" && (
                     <button
                       type="button"
                       onClick={() => setShowR2Select(true)}

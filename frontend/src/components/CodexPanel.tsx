@@ -117,12 +117,21 @@ export default function CodexPanel(): React.JSX.Element {
   }, [load, !!connecting]);
 
   async function handleConnect(): Promise<void> {
+    // Open a user-initiated placeholder immediately so popup blockers do not
+    // prevent the device-login page after the async server request completes.
+    const loginWindow = typeof window !== "undefined" ? window.open("about:blank", "_blank") : null;
     setBusy("connect");
     setResultMsg("");
     try {
       const out = await startCodexConnect();
       setConnecting({ authUrl: out.authUrl, userCode: out.userCode, loginId: out.loginId });
+      if (loginWindow && !loginWindow.closed) {
+        loginWindow.location.href = out.authUrl;
+      } else {
+        setResultMsg("The device-login page could not open automatically. Use the authorization link below.");
+      }
     } catch (err) {
+      if (loginWindow && !loginWindow.closed) loginWindow.close();
       setError(err instanceof Error ? err.message : "Connect failed");
     } finally {
       setBusy(null);

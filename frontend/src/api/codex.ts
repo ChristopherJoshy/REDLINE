@@ -40,7 +40,11 @@ export function getCodexStatus(signal?: AbortSignal): Promise<CodexStatus> {
 }
 
 export function refreshCodex(): Promise<CodexStatus> {
-  return codexFetch("/api/codex/refresh", { method: "POST" }).then((r) => parseJson<CodexStatus>(r));
+  return codexFetch("/api/codex/refresh", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  }).then((r) => parseJson<CodexStatus>(r));
 }
 
 export function startCodexConnect(): Promise<{ authUrl: string; userCode: string; loginId?: string }> {
@@ -60,11 +64,19 @@ export function cancelCodexConnect(loginId?: string): Promise<{ ok: boolean }> {
 }
 
 export function codexLogout(): Promise<{ ok: boolean }> {
-  return codexFetch("/api/codex/logout", { method: "POST" }).then((r) => parseJson<{ ok: boolean }>(r));
+  return codexFetch("/api/codex/logout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  }).then((r) => parseJson<{ ok: boolean }>(r));
 }
 
 export function codexRestart(): Promise<{ ok: boolean; error?: string }> {
-  return codexFetch("/api/codex/restart", { method: "POST" }).then((r) => parseJson<{ ok: boolean; error?: string }>(r));
+  return codexFetch("/api/codex/restart", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  }).then((r) => parseJson<{ ok: boolean; error?: string }>(r));
 }
 
 export function consumeCodexReset(creditId?: string): Promise<{ outcome: string; status?: CodexStatus }> {

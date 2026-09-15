@@ -1885,7 +1885,11 @@ export default function AdminTeams(): React.JSX.Element {
                     type="button"
                     onClick={async () => {
                       if (!confirm("Are you SURE? This will WIPE all inventory, chat logs, and game progress, and reset ALL Elos back to 600. Players will be returned to the waiting screen.")) return;
-                      await apiFetch("/api/admin/reset-game", { method: "POST", headers: { "x-admin-code": adminCode } });
+                      await apiFetch("/api/admin/reset-game", { 
+                        method: "POST", 
+                        headers: { "x-admin-code": adminCode, "Content-Type": "application/json" },
+                        body: "{}"
+                      });
                       setRound2({ status: "off", timeLeft: 0, duration: 1800 });
                       const g = await getGates();
                       setGates(g);

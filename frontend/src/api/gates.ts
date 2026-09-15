@@ -29,11 +29,15 @@ export async function getGates(): Promise<Gates> {
 }
 
 async function adminPost(path: string, code: string, body?: Record<string, unknown>): Promise<unknown> {
-  const init: RequestInit = { method: "POST", headers: { "x-admin-code": code } };
-  if (body !== undefined) {
-    init.headers = { ...init.headers, "Content-Type": "application/json" };
-    init.body = JSON.stringify(body);
-  }
+  const init: RequestInit = { 
+    method: "POST", 
+    headers: { 
+      "x-admin-code": code,
+      "Content-Type": "application/json"
+    } 
+  };
+  init.body = JSON.stringify(body ?? {});
+  
   const res = await apiFetch(path, init);
   const data = (await res.json()) as { error?: unknown };
   if (!res.ok) {

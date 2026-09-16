@@ -118,6 +118,14 @@ interface SystemHealth {
   averageTps?: number;
   totalLlmRequests?: number;
   modelUsage?: { provider: string; model: string; promptTokens: number; completionTokens: number }[];
+  codexFiveHourRemaining?: number | null;
+  codexWeeklyRemaining?: number | null;
+  codexRequests?: number;
+  codexSuccesses?: number;
+  codexFallbacks?: number;
+  codexProcessRunning?: boolean;
+  codexConnected?: boolean;
+  codexModelAvailable?: boolean;
 }
 
 interface ChatLogMessage {
@@ -2172,6 +2180,34 @@ export default function AdminTeams(): React.JSX.Element {
                   </div>
                 </div>
               )}
+
+              <div className="mt-6 border border-[#3F3F46] rounded-[2px] overflow-hidden">
+                <div className="bg-[#18181B] px-4 py-3 border-b border-[#3F3F46] font-mono text-[11px] font-bold text-[#A1A1AA] uppercase tracking-wider">
+                  Codex Allocation & Usage
+                </div>
+                <div className="p-4 bg-[#050505] grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono text-[13px] text-[#F4F4F5]">
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">5-Hour Pool</span>
+                    <span className={systemHealth.codexFiveHourRemaining !== null && systemHealth.codexFiveHourRemaining !== undefined && systemHealth.codexFiveHourRemaining < 20 ? "text-[#EF4444]" : "text-[#10B981]"}>
+                      {systemHealth.codexFiveHourRemaining !== null && systemHealth.codexFiveHourRemaining !== undefined ? `${systemHealth.codexFiveHourRemaining}% Remaining` : "N/A"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Weekly Pool</span>
+                    <span className={systemHealth.codexWeeklyRemaining !== null && systemHealth.codexWeeklyRemaining !== undefined && systemHealth.codexWeeklyRemaining < 20 ? "text-[#EF4444]" : "text-[#10B981]"}>
+                      {systemHealth.codexWeeklyRemaining !== null && systemHealth.codexWeeklyRemaining !== undefined ? `${systemHealth.codexWeeklyRemaining}% Remaining` : "N/A"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Total Requests</span>
+                    <span>{systemHealth.codexRequests?.toLocaleString() ?? 0}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Fallbacks Issued</span>
+                    <span>{systemHealth.codexFallbacks?.toLocaleString() ?? 0}</span>
+                  </div>
+                </div>
+              </div>
 
               <div className="pt-4 mt-6 border-t border-[#3F3F46] flex flex-wrap items-center gap-3">
                   <button

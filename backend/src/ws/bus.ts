@@ -133,6 +133,9 @@ export class Bus {
     return this.teams.size;
   }
 
+  activeTeams(): string[] {
+    return Array.from(this.teamSockets.keys());
+  }
 
   replay(socket: WebSocket, teamId: string, lastEventId: string): void {
     const idx = this.ring.findIndex((e) => e.id === lastEventId && e.teamId === teamId);

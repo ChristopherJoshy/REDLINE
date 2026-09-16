@@ -63,7 +63,7 @@ export default function FullscreenLock({ onLockChange }: { onLockChange: (locked
     return null;
   }
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[var(--color-bg-0)] p-[var(--space)]" role="alertdialog" aria-label="Fullscreen required">
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-4 bg-[var(--color-bg-0)] p-[var(--space)]" role="alertdialog" aria-label="Fullscreen required">
       <h2 className="font-[family-name:var(--font-display)] text-[28px] font-bold text-[var(--color-text-1)]">
         Return to fullscreen to continue
       </h2>

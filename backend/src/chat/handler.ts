@@ -56,7 +56,7 @@ export async function handleChatSend(
   bus.broadcast(teamId, bus.frame("bot_typing", { teamId, botId, typing: true }));
   const started = Date.now();
   try {
-    db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES (?, ?, ?, ?, ?)", teamId, botId, "user", text, displayName);
+    const insertPrompt = db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES (?, ?, ?, ?, ?)", teamId, botId, "user", text, displayName); const promptId = Number(insertPrompt.lastInsertRowid);
     const history = db.all<HistoryRow>(
       "SELECT role, text_final FROM chat_logs WHERE team_id = ? AND bot_id = ? ORDER BY id DESC LIMIT ?",
       teamId,
@@ -98,6 +98,11 @@ Available sound ids: ${entry.meta.soundIds.join(", ")}. Sound is optional, at mo
       } else if (item.kind === "tool") {
         toolCalls.push(item.call);
       }
+    }
+
+    const promptStillExists = db.get<{ id: number }>("SELECT id FROM chat_logs WHERE id = ?", promptId);
+    if (!promptStillExists) {
+      return;
     }
 
     let inventoryDelta: InventoryDelta | undefined;

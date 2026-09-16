@@ -100,9 +100,14 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
 
     db.transaction(() => {
       if (cutoffId !== undefined) {
+        const msg = db.get<{ created_at: string }>("SELECT created_at FROM chat_logs WHERE id = ?", cutoffId);
         db.run("DELETE FROM chat_logs WHERE team_id = ? AND bot_id = ? AND id >= ?", session.teamId, botId, cutoffId);
+        if (msg) {
+          db.run("DELETE FROM reasoning_traces WHERE team_id = ? AND bot_id = ? AND created_at >= ?", session.teamId, botId, msg.created_at);
+        }
       } else {
         db.run("DELETE FROM chat_logs WHERE team_id = ? AND bot_id = ?", session.teamId, botId);
+        db.run("DELETE FROM reasoning_traces WHERE team_id = ? AND bot_id = ?", session.teamId, botId);
       }
       // Revert unverified relic if team was holding it without filing at merchant
       db.run("UPDATE team_inventory SET status = 'locked' WHERE team_id = ? AND bot_id = ? AND status = 'obtained'", session.teamId, botId);

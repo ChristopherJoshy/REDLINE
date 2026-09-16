@@ -158,7 +158,6 @@ export default function App(): React.JSX.Element {
 
   return (
     <>
-      {assessmentSettings.requireFullscreen && <FullscreenLock onLockChange={onLockChange} />}
       <AntiTamper settings={assessmentSettings} />
       {identity === null ? (
         <EnterScreen
@@ -350,6 +349,7 @@ export default function App(): React.JSX.Element {
       </div>
     </main>
     )}
+    {assessmentSettings.requireFullscreen && <FullscreenLock onLockChange={onLockChange} />}
     </>
   );
 }

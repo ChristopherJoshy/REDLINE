@@ -46,7 +46,8 @@ export async function handleR2Chat(
   const started = Date.now();
   try {
     // Store per-user message with display_name
-    db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES (?, ?, ?, ?, ?)", teamId, boss, "user", text, displayName);
+    const insertPrompt = db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES (?, ?, ?, ?, ?)", teamId, boss, "user", text, displayName);
+    const promptId = insertPrompt.lastInsertRowid;
 
     const { prompt, phase, reveal } = r2Prompt(db, teamId, boss);
 

@@ -40,6 +40,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
   const [draft, setDraft] = useState("");
   const [coverMissing, setCoverMissing] = useState(false);
   const [coverOpen, setCoverOpen] = useState(false);
+  const [chatting, setChatting] = useState(false);
   const [celebration, setCelebration] = useState(false);
   const [offerBusy, setOfferBusy] = useState(false);
   const [offerError, setOfferError] = useState("");
@@ -233,9 +234,78 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
     >
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[rgba(5,7,10,0.72)]" />
       <div className="relative flex min-h-0 flex-1 flex-col">
+      {!chatting ? (
+        <div className="relative flex-1 flex flex-col justify-center items-center min-h-0 overflow-hidden p-4 sm:p-6 pb-2">
+            <aside
+              className="relative max-w-[480px] w-full rounded-[12px] border border-white/10 bg-[rgba(10,14,20,0.55)] backdrop-blur-xl p-5 sm:p-7 flex flex-col gap-6 shadow-[0_16px_40px_rgba(0,0,0,0.4)]"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[12px] font-bold tracking-[0.2em] text-white/60">
+                  ROUND 2 BOSS
+                </span>
+                {onBack && (
+                  <button type="button" onClick={onBack} className="text-[12px] font-bold text-white/50 hover:text-white uppercase tracking-widest font-mono">
+                    Close
+                  </button>
+                )}
+              </div>
+              {lore && (
+                <div className="flex flex-col gap-3">
+                  <h2 className="font-[family-name:var(--font-display)] text-[34px] font-bold tracking-[0.04em] text-white leading-none uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+                    {lore.name}
+                  </h2>
+                  <p className="text-[14px] font-medium text-[var(--color-text-2)] italic">
+                    {lore.tagline}
+                  </p>
+                </div>
+              )}
+              {lore && (
+                <div className="text-[13px] leading-[1.65] text-white/85 whitespace-pre-wrap">
+                  {lore.backstory}
+                </div>
+              )}
+              {lore && (
+                <div className="pt-2 border-t border-white/10">
+                  <p className="font-mono text-[10.5px] font-bold tracking-[0.15em] text-[var(--accent)] mb-4 uppercase">
+                    Extraction Target
+                  </p>
+                  <div className="flex items-start gap-4">
+                    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(216,155,36,0.4)] bg-black/40 p-2 shadow-[inset_0_0_12px_rgba(216,155,36,0.15)]">
+                      <img
+                        src={lore.targetItem.asset}
+                        alt={lore.targetItem.name}
+                        className="h-full w-full object-contain drop-shadow-[0_0_8px_rgba(216,155,36,0.3)]"
+                      />
+                    </span>
+                    <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+                      <span className="font-semibold text-[14px] text-white leading-tight">
+                        {lore.targetItem.name}
+                      </span>
+                      <p className="text-[12px] leading-relaxed text-white/70">
+                        {lore.targetItem.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {lore && (
+                <div className="pt-2 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setChatting(true)}
+                    className="flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-[8px] border border-[var(--accent)]/50 bg-[var(--accent)]/15 hover:bg-[var(--accent)]/25 text-white font-bold text-[13.5px] tracking-[0.12em] backdrop-blur-md transition-all cursor-pointer shadow-[0_0_20px_var(--accent-wash)] hover:shadow-[0_0_30px_var(--accent-glow)]"
+                  >
+                    <span>ENGAGE BOSS</span>
+                  </button>
+                </div>
+              )}
+            </aside>
+        </div>
+      ) : (
+        <>
       <header className="relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-3 border-y border-white/10 border-t-redline bg-bg-0/95 px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
-          {(merchantView || onBack) && <button type="button" onClick={() => merchantView ? setMerchantView(false) : onBack?.()} className="flex min-h-[44px] items-center gap-2 border border-white/15 px-3 font-mono text-xs font-bold uppercase tracking-wider text-text-2 hover:border-redline focus-visible:outline-2 focus-visible:outline-redline"><ArrowLeft className="h-4 w-4 text-redline" />{merchantView ? "Chat" : "Marks"}</button>}
+          {(merchantView || onBack) && <button type="button" onClick={() => merchantView ? setMerchantView(false) : setChatting(false)} className="flex min-h-[44px] items-center gap-2 border border-white/15 px-3 font-mono text-xs font-bold uppercase tracking-wider text-text-2 hover:border-redline focus-visible:outline-2 focus-visible:outline-redline"><ArrowLeft className="h-4 w-4 text-redline" />{merchantView ? "Chat" : "Details"}</button>}
           <img src={merchantView ? CHARACTERS.merchant?.avatar : lore?.avatar} alt="" className={`h-11 w-11 shrink-0 border border-redline/40 object-cover ${AVATAR_FOCUS[boss]}`} />
           <h2 className="truncate font-mono text-base font-bold uppercase tracking-[0.16em] text-white sm:text-lg">{merchantView ? "Vault merchant" : lore?.name}</h2>
         </div>
@@ -345,6 +415,8 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
       {openerError && <div role="alert" className="flex items-center justify-center gap-3 bg-bg-1 px-4 text-sm text-text-2">{openerError}<button type="button" onClick={() => void requestOpener()} className="min-h-[44px] underline">Retry</button></div>}
       {verified && <p className="flex items-center justify-center gap-2 border-t border-moss-border bg-bg-1 p-3 text-xs font-mono"><CheckCircle2 className="h-4 w-4 text-moss" /> RELIC FILED AT THE VAULT ALTAR</p>}
       <ChatComposer draft={draft} onDraft={setDraft} onSubmit={submit} disabled={!locked || state.typing || state.streaming !== ""} name={lore?.name ?? boss} />
+      </>
+      )}
       </>
       )}
 

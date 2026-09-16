@@ -63,9 +63,21 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
   app.get("/api/admin/round2/control", async (req, reply) => {
     if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
     const unassigned = db.all<{ id: string }>("SELECT id FROM teams WHERE round2_eligible = 1 AND id NOT IN (SELECT team_id FROM r2_assignments)");
-    for (const t of unassigned) {
-      const boss: BotId = Math.random() < 0.5 ? "itachi" : "aizen";
-      db.run("INSERT INTO r2_assignments (team_id, boss) VALUES (?, ?)", t.id, boss);
+    if (unassigned.length > 0) {
+      let itachiCount = db.get<{ count: number }>("SELECT COUNT(*) as count FROM r2_assignments WHERE boss = 'itachi'")?.count ?? 0;
+      let aizenCount = db.get<{ count: number }>("SELECT COUNT(*) as count FROM r2_assignments WHERE boss = 'aizen'")?.count ?? 0;
+      
+      for (let i = unassigned.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [unassigned[i], unassigned[j]] = [unassigned[j]!, unassigned[i]!];
+      }
+      
+      for (const t of unassigned) {
+        const boss = itachiCount <= aizenCount ? "itachi" : "aizen";
+        if (boss === "itachi") itachiCount++;
+        else aizenCount++;
+        db.run("INSERT INTO r2_assignments (team_id, boss) VALUES (?, ?)", t.id, boss);
+      }
     }
     const teams = db.all<{ id: string; name: string; boss: string | null; phaseOverride: string | null }>(
       `SELECT t.id, t.name, a.boss,

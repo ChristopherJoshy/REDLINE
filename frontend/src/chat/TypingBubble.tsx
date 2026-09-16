@@ -9,14 +9,16 @@ import { Radio } from "lucide-react";
 export default function TypingBubble({
   thinking = true,
   accentColor = "#ff1e2d",
+  motionOff = false,
 }: {
   thinking?: boolean;
   accentColor?: string;
+  motionOff?: boolean;
 }): React.JSX.Element {
   const barsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (reducedMotion()) return;
+    if (reducedMotion() || motionOff) return;
     const bars = barsRef.current?.querySelectorAll<HTMLSpanElement>(".spectrum-bar");
     if (!bars || bars.length === 0) return;
 
@@ -30,16 +32,16 @@ export default function TypingBubble({
     });
 
     return () => {
-      anim.pause();
+      anim.revert();
     };
-  }, []);
+  }, [motionOff]);
 
   return (
     <div
       aria-label={thinking ? "Decrypting incoming transmission" : "Bot is typing"}
       className="flex items-center gap-3 px-4 py-3 bg-[#0a0d12]/90 border border-white/10 backdrop-blur-md"
     >
-      <Radio className="w-3.5 h-3.5 animate-pulse" style={{ color: accentColor }} />
+      <Radio className="w-3.5 h-3.5" style={{ color: accentColor }} />
       <span className="font-[family-name:var(--font-code)] text-[11px] font-bold tracking-[0.18em] text-white/60 uppercase select-none">
         Decrypting Signal
       </span>

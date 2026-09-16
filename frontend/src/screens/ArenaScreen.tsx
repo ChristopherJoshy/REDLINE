@@ -1,3 +1,5 @@
+import ChatMessageFrame, { CHAT_FEED } from "@/chat/ChatMessageFrame";
+import ChatComposer from "@/chat/ChatComposer";
 import { useEffect, useRef, useState } from "react";
 import { animate, stagger } from "animejs";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
@@ -833,7 +835,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                   </div>
 
                   {/* Scrollable Message Feed */}
-                  <div className="redline-scroll flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 max-w-[860px] w-full mx-auto" aria-live="polite">
+                  <div className={CHAT_FEED} aria-live="polite">
                     {activeBot?.messages.map((m, idx) => {
                       const isUser = m.role === "user";
                       const canRewind = m.id !== undefined && chattingBotId !== null;
@@ -841,50 +843,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                       const isLatestBotMsg = !isUser && idx === (activeBot?.messages.length ?? 0) - 1;
 
                       return (
-                        <div
-                          key={m.id ?? idx}
-                          className={`chat-msg group relative flex gap-3 max-w-[85%] ${isUser ? "self-end flex-row-reverse" : "self-start"}`}
-                        >
-                          {/* Avatar / Badge */}
-                          <span className="block w-9 h-9 overflow-hidden shrink-0 border border-white/15 bg-black/60 shadow-[0_0_10px_rgba(0,0,0,0.5)]" aria-hidden="true">
-                            {isUser ? (
-                              <span className="flex h-full w-full items-center justify-center bg-[#ff1e2d]/20 text-[#ff5b64] border border-[#ff1e2d]/40">
-                                <UserCheck className="w-4 h-4" />
-                              </span>
-                            ) : (
-                              <img
-                                src={CHARACTERS[chattingBotId]?.avatar}
-                                alt=""
-                                className={`w-full h-full object-cover ${CHARACTERS[chattingBotId] ? AVATAR_FOCUS[chattingBotId] : "object-center"}`}
-                              />
-                            )}
-                          </span>
-
-                          <div className="flex flex-col gap-1.5 max-w-full">
-                            {/* Message Capsule */}
-                            <div
-                              className={`px-4 py-3 text-[14.5px] leading-relaxed relative ${
-                                isUser
-                                  ? "bg-gradient-to-r from-red-700 via-red-600 to-red-700 border border-red-500/50 text-white shadow-[0_4px_24px_rgba(220,38,38,0.35)]"
-                                  : "border border-white/12 bg-[#080b0f]/85 backdrop-blur-md text-white/95 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
-                              }`}
-                            >
-                              {/* Message body */}
-                              <div className="whitespace-pre-wrap">
-                                {isUser ? (
-                                  <ChatMarkdown text={stripThinking(m.text)} useMatrix={false} />
-                                ) : (
-                                  <ChatMarkdown
-                                    text={stripThinking(m.text)}
-                                    useMatrix={true}
-                                    isStreaming={false}
-                                    animateOnMount={false}
-                                    accentColor={botAccent}
-                                  />
-                                )}
-                              </div>
-                            </div>
-
+                        <ChatMessageFrame key={m.id ?? idx} botId={chattingBotId} isUser={isUser} actions={<>
                             {/* Granular Rewind Button on message hover/focus */}
                             {canRewind && (
                               <div className={`flex items-center gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity ${isUser ? "justify-end" : "justify-start"}`}>
@@ -912,8 +871,9 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                                 </button>
                               </div>
                             )}
-                          </div>
-                        </div>
+                        </>}>
+                          <ChatMarkdown text={stripThinking(m.text)} useMatrix={!isUser} animateOnMount={false} accentColor={botAccent} />
+                        </ChatMessageFrame>
                       );
                     })}
 
@@ -1021,39 +981,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                   </div>
                 )}
 
-                {/* Tactical Transmission Console (Bottom Bar) */}
-                <form
-                  onSubmit={submitChat}
-                  className="relative border-t border-white/10 bg-[#050709]/90 p-3 sm:p-4 backdrop-blur-md z-20"
-                >
-                  {/* Top glowing red line */}
-                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#ff1e2d]/60 to-transparent" />
-
-                  <div className="mx-auto flex flex-col gap-2 max-w-[860px] w-full">
-                    {/* Input Console */}
-                    <div className="flex items-center gap-3">
-                      <div className="relative flex-1 flex items-center">
-                        <input
-                          value={draft}
-                          onChange={(e) => setDraft(e.target.value)}
-                          disabled={!locked}
-                          placeholder={locked ? `Write to ${CHARACTERS[chattingBotId]?.name}...` : "Transmission paused"}
-                          className="w-full min-h-[50px] border border-white/15 bg-black/80 px-4 text-[14.5px] text-white placeholder:text-white/30 focus:outline-none focus:border-[#ff1e2d] focus:shadow-[0_0_20px_rgba(255,30,45,0.25)] transition-all font-mono"
-                        />
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={!locked || draft.trim() === ""}
-                        className="relative flex min-h-[50px] px-6 items-center justify-center gap-2 bg-[#ff1e2d] text-white font-mono text-[13px] font-bold tracking-[0.15em] uppercase hover:bg-[#e01020] disabled:opacity-40 transition-all shadow-[0_0_25px_rgba(255,30,45,0.35)] active:scale-[0.98] group overflow-hidden shrink-0"
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-                        <span>TRANSMIT</span>
-                        <Send className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                      </button>
-                    </div>
-                  </div>
-                </form>
+                <ChatComposer draft={draft} onDraft={setDraft} onSubmit={submitChat} disabled={!locked} name={CHARACTERS[chattingBotId]?.name ?? "contact"} />
               </>
             )}
           </div>

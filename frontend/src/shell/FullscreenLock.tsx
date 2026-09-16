@@ -39,20 +39,22 @@ export default function FullscreenLock({ onLockChange }: { onLockChange: (locked
         logAttempt();
       }
     }
-    function onClickAnywhere(): void {
+    function onInteraction(): void {
       if (document.fullscreenElement === null) {
         request();
       }
     }
     document.addEventListener("fullscreenchange", sync);
     document.addEventListener("visibilitychange", onHidden);
-    document.addEventListener("click", onClickAnywhere);
+    document.addEventListener("click", onInteraction);
+    document.addEventListener("keydown", onInteraction);
     window.addEventListener("blur", onHidden);
     sync();
     return () => {
       document.removeEventListener("fullscreenchange", sync);
       document.removeEventListener("visibilitychange", onHidden);
-      document.removeEventListener("click", onClickAnywhere);
+      document.removeEventListener("click", onInteraction);
+      document.removeEventListener("keydown", onInteraction);
       window.removeEventListener("blur", onHidden);
     };
   }, [request, logAttempt, onLockChange]);

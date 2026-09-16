@@ -27,7 +27,13 @@ export default function App(): React.JSX.Element {
   const [showAbout, setShowAbout] = useState(false);
   const [hideNav, setHideNav] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
-  const [assessmentSettings, setAssessmentSettings] = useState<AssessmentSettingsData>(DEFAULT_ASSESSMENT_SETTINGS);
+  const [assessmentSettings, setAssessmentSettings] = useState<AssessmentSettingsData>(() => {
+    try {
+      const saved = localStorage.getItem("redline_assessment_settings");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_ASSESSMENT_SETTINGS;
+  });
   const onLockChange = useCallback((v: boolean) => setLocked(v), []);
 
   // ELO badge ref for live-update pulse
@@ -55,7 +61,11 @@ export default function App(): React.JSX.Element {
       const custom = e as CustomEvent<number>;
       if (typeof custom.detail === "number") setCredits(custom.detail);
     }
-    function handleAssessment(e: Event) { setAssessmentSettings((e as CustomEvent<AssessmentSettingsData>).detail); }
+    function handleAssessment(e: Event) {
+      const data = (e as CustomEvent<AssessmentSettingsData>).detail;
+      setAssessmentSettings(data);
+      localStorage.setItem("redline_assessment_settings", JSON.stringify(data));
+    }
     function handleNavVis(e: Event) {
       const custom = e as CustomEvent<{ hidden: boolean }>;
       if (custom.detail && typeof custom.detail.hidden === "boolean") {
@@ -145,28 +155,27 @@ export default function App(): React.JSX.Element {
     );
   }
   if (!checked) return <main className="min-h-[100dvh] bg-[var(--color-bg-0)]" />;
-  if (identity === null) {
-    return (
-      <EnterScreen
-        onIdentified={(res) => {
-          if (res) {
-            setIdentity(res);
-          } else {
-            void me().then((m) => {
-              setIdentity(m);
-            });
-          }
-        }}
-      />
-    );
-  }
 
   return (
-    <main className="bot-theme no-steal redline-bg relative flex h-[100dvh] max-h-[100dvh] flex-col text-[var(--color-text-1)]" style={{ "--accent": shellAccent, "--accent-ink": shellAccentInk } as React.CSSProperties}>
+    <>
       {assessmentSettings.requireFullscreen && <FullscreenLock onLockChange={onLockChange} />}
       <AntiTamper settings={assessmentSettings} />
-      <div aria-hidden="true" className="redline-veil pointer-events-none absolute inset-0" />
-      <div className="relative z-10 flex min-h-[100dvh] flex-col">
+      {identity === null ? (
+        <EnterScreen
+          onIdentified={(res) => {
+            if (res) {
+              setIdentity(res);
+            } else {
+              void me().then((m) => {
+                setIdentity(m);
+              });
+            }
+          }}
+        />
+      ) : (
+        <main className="bot-theme no-steal redline-bg relative flex h-[100dvh] max-h-[100dvh] flex-col text-[var(--color-text-1)]" style={{ "--accent": shellAccent, "--accent-ink": shellAccentInk } as React.CSSProperties}>
+          <div aria-hidden="true" className="redline-veil pointer-events-none absolute inset-0" />
+          <div className="relative z-10 flex min-h-[100dvh] flex-col">
       {announcement && (
         <div
           ref={bannerRef}
@@ -340,6 +349,8 @@ export default function App(): React.JSX.Element {
       )}
       </div>
     </main>
+    )}
+    </>
   );
 }
 

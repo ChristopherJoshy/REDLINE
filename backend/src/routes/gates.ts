@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { BotId } from "../contracts/events.js";
 import { type DatabaseAdapter } from "../db/database.js";
-import { readAssessmentSettings, normalizeAssessmentSettings } from "../assessment/settings.js";
+import { readAssessmentSettings } from "../assessment/settings.js";
 import type { Bus } from "../ws/bus.js";
 import { env } from "../env.js";
 import { adminOk } from "../auth/codes.js";
@@ -58,26 +58,6 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
       solved: session ? solvedCount(db, session.teamId) : 0, round1Size: ROUND1_SIZE,
       round2Status: round2Status(db), round2TimeLeft: round2TimeLeft(db),
       round1TimeLeft: round1TimeLeft(db), assessmentSettings: readAssessmentSettings(db) };
-  });
-
-  app.get("/api/admin/assessment", async (req, reply) => {
-    if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
-    return readAssessmentSettings(db);
-  });
-
-  app.post("/api/admin/assessment", async (req, reply) => {
-    if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
-    const nextSettings = normalizeAssessmentSettings(req.body);
-    db.run(
-      "INSERT INTO game_state (key, value) VALUES ('assessment_settings', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-      JSON.stringify(nextSettings),
-    );
-    if (bus) {
-      for (const teamId of bus.activeTeams()) {
-        bus.broadcast(teamId, bus.frame("assessment_settings_sync", nextSettings));
-      }
-    }
-    return { ok: true, settings: nextSettings };
   });
 
   app.get("/api/admin/rounds", async (req, reply) => {

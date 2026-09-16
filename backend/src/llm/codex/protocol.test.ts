@@ -33,10 +33,10 @@ test("classifyRpcError maps auth/rate/overload/model without fragile prose match
 });
 
 test("fallback eligibility: pre-start errors fall back, midstream ones do not", () => {
-  for (const k of ["binary_missing", "process_unavailable", "not_authenticated", "model_unavailable", "rate_limited", "overloaded", "timeout_before_start", "transport_closed"] as const) {
+  for (const k of ["binary_missing", "process_unavailable", "not_authenticated", "model_unavailable", "rate_limited", "overloaded", "timeout_before_start", "transport_closed", "protocol_error", "turn_failed"] as const) {
     assert.equal(canFallbackBeforeStart(k), true, k);
   }
-  for (const k of ["timeout_midstream", "protocol_error", "turn_failed", "turn_incomplete", "unknown"] as const) {
+  for (const k of ["timeout_midstream", "turn_incomplete", "unknown"] as const) {
     assert.equal(canFallbackBeforeStart(k), false, k);
   }
   assert.equal(isTransientOverloaded("overloaded"), true);

@@ -10,6 +10,10 @@ import { BOT_TOOLS } from "./tools.js";
 export type BossId = "itachi" | "aizen";
 export type R2Phase = "p1" | "p2";
 
+export function bossSoundIds(boss: BossId): string[] {
+  return boss === "itachi" ? ITACHI_META.soundIds : AIZEN_META.soundIds;
+}
+
 const PROMPTS: Record<BossId, { p1: string; p2: string; releaseAt: number; itemKey: string; decoyKey: string }> = {
   itachi: { p1: ITACHI_P1_PROMPT, p2: ITACHI_P2_PROMPT, releaseAt: ITACHI_META.releaseAt, itemKey: ITACHI_META.itemKey, decoyKey: ITACHI_META.decoyKey },
   aizen: { p1: AIZEN_P1_PROMPT, p2: AIZEN_P2_PROMPT, releaseAt: AIZEN_META.releaseAt, itemKey: AIZEN_META.itemKey, decoyKey: AIZEN_META.decoyKey },
@@ -38,7 +42,7 @@ export const R2_TOOLS: ToolDef[] = [
   },
   {
     name: "forced_reset",
-    description: "Reset the phase to its start. Server allows at most twice per team per boss.",
+    description: "Clear this boss conversation history. This is disruptive: use only when the private encounter rule requires it, never on ordinary questions. Server allows at most twice per team per boss. Do not combine with handover.",
     parameters: { type: "object", properties: {}, required: [] },
   },
   {
@@ -46,8 +50,9 @@ export const R2_TOOLS: ToolDef[] = [
     description: "Give one bounded R2 ELO judgement for this player turn. Use an integer delta from -8 to 8 and a concise, player-facing reason. Call exactly once per R2 user turn.",
     parameters: {
       type: "object",
-      properties: { delta: { type: "integer" }, reason: { type: "string" } },
+      properties: { delta: { type: "integer", minimum: -8, maximum: 8 }, reason: { type: "string", minLength: 1, maxLength: 180, description: "Brief evidence-based assessment. No protected keys, phase labels, private checks, or reasoning traces." } },
       required: ["delta", "reason"],
+      additionalProperties: false,
     },
   },
 ];

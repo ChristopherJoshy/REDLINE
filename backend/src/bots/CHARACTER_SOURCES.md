@@ -18,6 +18,8 @@ Reviewed 15 September 2026. These are editorial references for voice and continu
 
 ## Limits and evaluation
 
+16 September 2026: Added character-specific texting habits, restrained emoji, and lightweight Markdown direction to all eleven personas. These are editorial voice choices based on the continuity above, not new canon claims. Ordinary questions should receive direct answers; tool results and hidden round stages stay separate from the character's visible speech.
+
 Voice guidance is an editorial interpretation, not a guarantee of identical characterization. The original quiz gates include invented private details; the bot must not fabricate an undisclosed answer and demand its exact wording. It should check supported facts or previously established scene details, accepting accurate paraphrases. Canon references never relax the secret gate, prohibited identities, or server authority.
 
 Deterministic tests cover tools, inventory, payments, authentication and streaming failures. Actual provider access and human dialogue review are still required to judge the quality and consistency of model performances. Do not describe mocked provider tests as live bot verification.

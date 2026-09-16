@@ -1,63 +1,28 @@
 import { useEffect, useRef } from "react";
-import { animate, stagger } from "animejs";
-import { reducedMotion } from "@/lib/motionTokens";
-import { Radio } from "lucide-react";
+import { gsap } from "gsap";
 
-/**
- * Tactical Typing/Decoding Indicator — animated red waveform spectrum with terminal telemetry.
- */
-export default function TypingBubble({
-  thinking = true,
-  accentColor = "#ff1e2d",
-  motionOff = false,
-}: {
+export default function TypingBubble({ thinking = true, accentColor = "var(--color-redline)", motionOff = false }: {
   thinking?: boolean;
   accentColor?: string;
   motionOff?: boolean;
 }): React.JSX.Element {
-  const barsRef = useRef<HTMLDivElement>(null);
-
+  const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (reducedMotion() || motionOff) return;
-    const bars = barsRef.current?.querySelectorAll<HTMLSpanElement>(".spectrum-bar");
-    if (!bars || bars.length === 0) return;
-
-    const anim = animate(Array.from(bars), {
-      scaleY: [0.3, 1.2, 0.4],
-      opacity: [0.4, 1, 0.5],
-      duration: 650,
-      delay: stagger(100, { start: 0 }),
-      ease: "inOutSine",
-      loop: true,
-    });
-
-    return () => {
-      anim.revert();
-    };
+    if (motionOff) return;
+    const media = gsap.matchMedia();
+    media.add("(prefers-reduced-motion: no-preference)", () => {
+      gsap.fromTo("[data-thinking-dot]", { y: 0, opacity: 0.35 }, {
+        y: -3, opacity: 0.9, duration: 0.5, stagger: 0.16, repeat: -1, yoyo: true, ease: "sine.inOut",
+      });
+    }, root);
+    return () => media.revert();
   }, [motionOff]);
-
   return (
-    <div
-      aria-label={thinking ? "Decrypting incoming transmission" : "Bot is typing"}
-      className="flex items-center gap-3 px-4 py-3 bg-[#0a0d12]/90 border border-white/10 backdrop-blur-md"
-    >
-      <Radio className="w-3.5 h-3.5" style={{ color: accentColor }} />
-      <span className="font-[family-name:var(--font-code)] text-[11px] font-bold tracking-[0.18em] text-white/60 uppercase select-none">
-        Decrypting Signal
+    <div ref={root} role="status" aria-label={thinking ? "Considering a reply" : "Typing a reply"} className="flex min-h-[44px] items-center gap-3 border border-white/12 bg-bg-1/85 px-4 py-3 text-text-3 backdrop-blur-md">
+      <span className="text-xs">{thinking ? "Thinking" : "Typing"}</span>
+      <span aria-hidden="true" className="flex items-center gap-1.5" style={{ color: accentColor }}>
+        {[0, 1, 2].map((index) => <span key={index} data-thinking-dot className="h-1 w-1 rounded-full bg-current opacity-50" />)}
       </span>
-      <div ref={barsRef} className="flex items-center gap-1 h-3.5 px-1">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <span
-            key={i}
-            className="spectrum-bar block w-1 h-3 rounded-none origin-bottom"
-            style={{
-              backgroundColor: accentColor,
-              boxShadow: `0 0 8px ${accentColor}aa`,
-            }}
-            aria-hidden="true"
-          />
-        ))}
-      </div>
     </div>
   );
 }

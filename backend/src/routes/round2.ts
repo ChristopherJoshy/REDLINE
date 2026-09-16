@@ -6,13 +6,14 @@ import type { Bus } from "../ws/bus.js";
 import type { ChatMessage } from "../llm/groq.js";
 import { streamPrimaryR2 } from "../llm/primary.js";
 import { sessionOf } from "./teams.js";
-import { R2_TOOLS, bossKeys, bossOf, escalationUsed, isBoss, r2Phase, userTurns, type BossId } from "../bots/r2.js";
+import { R2_TOOLS, bossKeys, bossSoundIds, bossOf, escalationUsed, isBoss, r2Phase, userTurns, type BossId } from "../bots/r2.js";
 import { ITACHI_P1_PROMPT, ITACHI_META } from "../bots/itachi.prompt.js";
 import { AIZEN_P1_PROMPT, AIZEN_META } from "../bots/aizen.prompt.js";
 import { foldAnswer, matchesAny, variants } from "../portal/normalize.js";
 import { applyElo } from "../elo/ratings.js";
 import { round2Status } from "./gates.js";
-import { parseSoundId } from "../bots/tools.js";
+import { parseSoundId, toolsForCharacter } from "../bots/tools.js";
+import { visibleDialogue } from "../chat/visibleDialogue.js";
 import { env } from "../env.js";
 
 const DISSOLVE: Record<BossId, string> = {
@@ -139,17 +140,20 @@ export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, 
     bus.broadcast(session.teamId, bus.frame("bot_typing", { teamId: session.teamId, botId: boss, typing: true }));
     const messages: ChatMessage[] = [
       { role: "system", content: directCharacter(boss, prompt) },
-      { role: "user", content: "[The challenger steps into the vault. Deliver your Phase-1 opener: one short speech.]" },
+      { role: "user", content: "The challenger has arrived. Address them directly with one or two original sentences in your voice. Do not narrate their actions, reveal private stages, start a quiz immediately, or claim an item transfer." },
     ];
     let fullText = "";
     try {
-      for await (const item of streamPrimaryR2(messages, R2_TOOLS, db, session.teamId, boss)) {
+      let playedSound = false;
+      const openerTools = toolsForCharacter(R2_TOOLS.filter((tool) => tool.name === "play_sound"), bossSoundIds(boss));
+      for await (const item of visibleDialogue(streamPrimaryR2(messages, openerTools, db, session.teamId, boss))) {
         if (item.kind === "delta") {
           fullText += item.text;
           bus.broadcast(session.teamId, bus.frame("bot_token", { botId: boss, delta: item.text }));
         } else if (item.kind === "tool" && item.call.name === "play_sound") {
-          const id = parseSoundId(item.call.args);
-          if (id !== undefined && round2Status(db) === "active") {
+          const id = parseSoundId(item.call.args, bossSoundIds(boss));
+          if (!playedSound && id !== undefined && round2Status(db) === "active") {
+            playedSound = true;
             db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", session.teamId, boss, id);
             bus.broadcast(session.teamId, bus.frame("sound_play", { botId: boss, soundId: id, src: `/sounds/${id}.mp3` }));
           }

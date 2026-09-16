@@ -9,7 +9,5 @@ export function useCinematicMotion(): boolean {
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
-  let disabled = false;
-  try { disabled = localStorage.getItem("redline_r2_motion") === "0"; } catch { /* optional */ }
-  return reduced || disabled;
+  return reduced;
 }

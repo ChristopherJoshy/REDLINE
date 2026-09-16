@@ -3,7 +3,8 @@ import type { BotId, InventoryDelta } from "../contracts/events.js";
 import type { DatabaseAdapter } from "../db/database.js";
 import type { ChatMessage, ToolCall } from "../llm/groq.js";
 import { streamPrimaryR1 } from "../llm/primary.js";
-import { BOT_TOOLS, parseHandover, parseSoundId } from "../bots/tools.js";
+import { BOT_TOOLS, parseHandover, parseSoundId, selectTurnTools, toolsForCharacter } from "../bots/tools.js";
+import { visibleDialogue } from "./visibleDialogue.js";
 import { awardItem } from "../bots/inventory.js";
 import { coverBrief } from "../bots/coverLens.js";
 import { BOTS, ROUND1_BOTS } from "../bots/registry.js";
@@ -62,10 +63,11 @@ export async function handleChatSend(
       botId,
       HISTORY_LIMIT,
     );
-    const thinkingInstruction = `§THINKING PROTOCOL (ROUND 1):
-Before answering the user, you may engage in brief, concise internal reasoning. Keep thinking short (1 to 3 sentences maximum): assess the speaker's claimed role, compare against your secret targets/quiz rules, and decide on character stance and whether any tool (handover_item or play_sound) should be invoked. Do not leak internal reasoning or nonces in your visible dialogue.
-§TOOL INVOCATION REQUIREMENT:
-If the user passes your quiz gate and earns the item, YOU MUST call the handover_item tool with { "authenticity": "real" }. Stating or roleplaying the handover in prose alone transfers NOTHING — the server only transfers relics via the handover_item tool call. If they fail or cheat, call handover_item with { "authenticity": "decoy" } or call no tool.`;
+    const held = db.get<{ status: string; is_real: number }>("SELECT status, is_real FROM team_inventory WHERE team_id = ? AND bot_id = ?", teamId, botId);
+    const thinkingInstruction = `PRIVATE TURN CONTEXT:
+Inventory for your item: ${held ? `${held.status}; genuine=${held.is_real === 1}` : "not held"}. Do not offer a second copy of a genuine or verified item.
+Speak naturally and keep deliberation private. A harmless question needs a useful in-character answer, not a quiz or a tool. If the established gate is satisfied, call handover_item exactly once with authenticity real; the server selects the item. A failed attempt normally needs only dialogue; use a decoy only when the encounter explicitly calls for one. Never emit a key in prose.
+Available sound ids: ${entry.meta.soundIds.join(", ")}. Sound is optional, at most one call on a meaningful new beat. Avoid replaying the greeting or repeating the same clip from recent conversation. Do not call unsupported visual tools. The merchant cannot hand over anything through chat.`;
 
     const messages: ChatMessage[] = [
       { role: "system", content: `${entry.prompt}\n\n${thinkingInstruction}` },
@@ -89,7 +91,7 @@ If the user passes your quiz gate and earns the item, YOU MUST call the handover
     let fullText = "";
     const toolCalls: ToolCall[] = [];
     const guardFlags: string[] = [];
-    for await (const item of streamPrimaryR1(messages, BOT_TOOLS, db, teamId, botId)) {
+    for await (const item of visibleDialogue(streamPrimaryR1(messages, toolsForCharacter(BOT_TOOLS, entry.meta.soundIds, botId === "merchant"), db, teamId, botId))) {
       if (item.kind === "delta") {
         fullText += item.text;
         bus.broadcast(teamId, bus.frame("bot_token", { botId, delta: item.text }));
@@ -99,7 +101,7 @@ If the user passes your quiz gate and earns the item, YOU MUST call the handover
     }
 
     let inventoryDelta: InventoryDelta | undefined;
-    for (const call of toolCalls) {
+    for (const call of selectTurnTools(toolCalls, guardFlags)) {
       if (!round1Open(db)) {
         guardFlags.push("round-closed");
         break;
@@ -121,7 +123,7 @@ If the user passes your quiz gate and earns the item, YOU MUST call the handover
         }
         inventoryDelta = awardItem(db, teamId, botId, assignedKey, parsed.real) ?? inventoryDelta;
       } else if (call.name === "play_sound") {
-        const soundId = parseSoundId(call.args);
+        const soundId = parseSoundId(call.args, entry.meta.soundIds);
         if (soundId === undefined) {
           guardFlags.push("bad-sound-id");
           continue;

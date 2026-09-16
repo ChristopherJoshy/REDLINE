@@ -872,7 +872,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                               </div>
                             )}
                         </>}>
-                          <ChatMarkdown text={stripThinking(m.text)} useMatrix={!isUser} animateOnMount={false} accentColor={botAccent} />
+                          <ChatMarkdown text={stripThinking(m.text)} />
                         </ChatMessageFrame>
                       );
                     })}
@@ -897,9 +897,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                           <div className="whitespace-pre-wrap">
                             <ChatMarkdown
                               text={stripThinking(activeBot?.streaming)}
-                              useMatrix={true}
                               isStreaming={true}
-                              accentColor={botAccent}
                             />
                           </div>
                         </div>

@@ -34,6 +34,7 @@ function CornerBracket({ className }: { className: string }): React.JSX.Element 
 export default function AdminBoard(): React.JSX.Element {
   const [rows, setRows] = useState<BoardRow[]>([]);
   const [isRound2, setIsRound2] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   useDocumentTitle("Leaderboard — REDLINE Arena");
   const [adminCode, setAdminCode] = useState(() => localStorage.getItem("redline_admin_code") ?? "");
   const [authed, setAuthed] = useState(false);
@@ -58,6 +59,7 @@ export default function AdminBoard(): React.JSX.Element {
         setIsRound2(data.round2 ?? false);
         if (!dead) {
           setRows(data.rows);
+          setLastUpdated(new Date().toLocaleTimeString());
           setAuthed(true);
           setError("");
         }
@@ -66,12 +68,14 @@ export default function AdminBoard(): React.JSX.Element {
       }
     }
     void load();
-    const t = setInterval(load, 5000);
+    // Auto-refresh: 3s in Round 2 (single 0/1 boss completion flips fast),
+    // 5s in Round 1. Re-created when round changes via isRound2 dep.
+    const t = setInterval(load, isRound2 ? 3000 : 5000);
     return () => {
       dead = true;
       clearInterval(t);
     };
-  }, [adminCode]);
+  }, [adminCode, isRound2]);
 
   function submitCode(e: React.FormEvent): void {
     e.preventDefault();
@@ -88,6 +92,7 @@ export default function AdminBoard(): React.JSX.Element {
         const data = (await res.json()) as { rows: BoardRow[]; round2?: boolean };
         setIsRound2(data.round2 ?? false);
         setRows(data.rows);
+        setLastUpdated(new Date().toLocaleTimeString());
         setAuthed(true);
       })
       .catch(() => setError("Network unreachable."));
@@ -184,6 +189,20 @@ export default function AdminBoard(): React.JSX.Element {
           <h1 className="board-title font-[family-name:var(--font-display)] text-[clamp(30px,5vw,52px)] font-bold tracking-[0.28em] text-[#F5F5F5] uppercase">
             Leaderboard
           </h1>
+          <div className="mt-3 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.25em]">
+            <span className="inline-flex items-center gap-1.5 border border-[#00D9A6]/40 bg-[#00D9A6]/10 px-2 py-1 text-[#00D9A6]">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#00D9A6]" aria-hidden="true" />
+              Live · auto-updates every {isRound2 ? "3" : "5"}s
+            </span>
+            <span className="border border-[#3F3F46] bg-[#090909] px-2 py-1 text-[#8A8A8A]">
+              {isRound2 ? "Round 2 · Selected squads · 0/1 boss" : "Round 1 · 0/8 relics"}
+            </span>
+          </div>
+          {lastUpdated !== null && (
+            <p className="mt-2 font-mono text-[11px] tracking-[0.2em] text-[#8A8A8A] uppercase">
+              Last sync {lastUpdated}
+            </p>
+          )}
           <div className="mt-4 h-[2px] w-40 bg-gradient-to-r from-transparent via-[#E10600] to-transparent shadow-[0_0_12px_rgba(225,6,0,0.8)]" aria-hidden="true" />
         </header>
 
@@ -211,7 +230,9 @@ export default function AdminBoard(): React.JSX.Element {
                       No Active Telemetry
                     </p>
                     <p className="mt-1 text-[13px] text-[#8A8A8A]">
-                      Awaiting first Guardrail Bypass event.
+                      {isRound2
+                        ? "No selected squads yet, or awaiting first boss completion."
+                        : "Awaiting first Guardrail Bypass event."}
                     </p>
                   </div>
                 ) : (

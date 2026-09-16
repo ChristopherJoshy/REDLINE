@@ -145,22 +145,28 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     if (!guard(req)) {
       return reply.code(401).send({ error: "unauthorized" });
     }
+    // Round 2 board shows ONLY selected teams (round2_eligible = 1, set at
+    // start-round2 from selectedTeamIds) with 0/1 boss completion. Round 1
+    // shows all teams with 0/8 solves. round2 flag covers countdown/active/
+    // paused so the 0/1 denominator switches as soon as Round 2 starts.
+    const r2 = round2Status(db) !== "off";
+    const teamFilter = r2
+      ? "WHERE t.round2_eligible = 1"
+      : "";
+    const solvedExpr = r2
+      ? "(SELECT COUNT(*) FROM team_inventory i JOIN r2_assignments a ON i.team_id = a.team_id AND i.bot_id = a.boss WHERE i.team_id = t.id AND i.status = 'verified')"
+      : "(SELECT COUNT(*) FROM team_inventory i WHERE i.team_id = t.id AND i.status = 'verified' AND i.bot_id != 'itachi' AND i.bot_id != 'aizen')";
     const rows = db.all<BoardRow>(
       `SELECT t.name, COALESCE(
           (SELECT obtained_by FROM team_inventory WHERE team_id = t.id AND status = 'verified' AND obtained_by IS NOT NULL GROUP BY obtained_by ORDER BY COUNT(*) DESC LIMIT 1),
           (SELECT display_name FROM chat_logs WHERE team_id = t.id AND role = 'user' AND display_name IS NOT NULL AND display_name != '' GROUP BY display_name ORDER BY COUNT(*) DESC LIMIT 1),
           (SELECT display_name FROM team_members WHERE team_id = t.id ORDER BY rowid ASC LIMIT 1)
         ) AS hint, t.elo,
-        CASE WHEN (SELECT status FROM gates LIMIT 1) = 'round2' THEN
-          (SELECT COUNT(*) FROM team_inventory i JOIN r2_assignments a ON i.team_id = a.team_id AND i.bot_id = a.boss WHERE i.team_id = t.id AND i.status = 'verified')
-        ELSE
-          (SELECT COUNT(*) FROM team_inventory i WHERE i.team_id = t.id AND i.status = 'verified' AND i.bot_id != 'itachi' AND i.bot_id != 'aizen')
-        END AS solved,
+        ${solvedExpr} AS solved,
         (SELECT COUNT(*) FROM elo_log l WHERE l.team_id = t.id AND (l.reason LIKE 'rewind:%' OR l.reason LIKE 'admin_rewind:%')) AS rewinds,
         (SELECT MAX(i.verified_at) FROM team_inventory i WHERE i.team_id = t.id AND i.status = 'verified') AS lastSolve
-       FROM teams t ORDER BY t.elo DESC, lastSolve ASC`,
+       FROM teams t ${teamFilter} ORDER BY t.elo DESC, lastSolve ASC`,
     );
-    const r2 = round2Status(db) === "active";
     return { rows, round2: r2 };
   });
 

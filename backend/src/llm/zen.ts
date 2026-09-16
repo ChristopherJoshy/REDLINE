@@ -131,7 +131,7 @@ export async function* streamZenChatWithKey(
 
   const durationMs = Date.now() - startTime;
   const promptEstimate = messages.reduce((acc, m) => acc + Math.max(1, Math.ceil(m.content.length / 3.8)), 0);
-  tokenTracker.recordStreamUsage(promptEstimate, zenCompletionTokens, durationMs);
+  tokenTracker.recordStreamUsage(promptEstimate, zenCompletionTokens, durationMs, "opencode", MODEL);
 
   yield { kind: "done", finish: "stop", reasoning };
 }

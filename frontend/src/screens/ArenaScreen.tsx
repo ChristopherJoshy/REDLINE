@@ -838,9 +838,37 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                       const canRewind = m.id !== undefined && chattingBotId !== null;
                       const isRewindingThis = m.id !== undefined && rewindingId === m.id;
                       const isLatestBotMsg = !isUser && idx === (activeBot?.messages.length ?? 0) - 1;
+                      const isError = m.retryable === true;
 
                       return (
                         <ChatMessageFrame key={m.id ?? idx} botId={chattingBotId} isUser={isUser} actions={<>
+                            {/* Retry button for inference errors */}
+                            {isError && chattingBotId !== null && (() => {
+                              // Find the last user message before this error
+                              let lastUserText = "";
+                              for (let j = idx - 1; j >= 0; j--) {
+                                if (activeBot.messages[j]?.role === "user") {
+                                  lastUserText = activeBot.messages[j]!.text;
+                                  break;
+                                }
+                              }
+                              return lastUserText ? (
+                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity justify-start">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      unlockAudio();
+                                      send(chattingBotId, lastUserText);
+                                    }}
+                                    className="flex items-center gap-1 font-mono text-[10px] font-bold text-amber-400 hover:brightness-125 px-1.5 py-0.5 bg-black/60 border border-amber-500/30 transition"
+                                    title="Retry this message"
+                                  >
+                                    <RotateCcw className="w-3 h-3" />
+                                    <span>RETRY</span>
+                                  </button>
+                                </div>
+                              ) : null;
+                            })()}
                             {/* Granular Rewind Button on message hover/focus */}
                             {canRewind && (
                               <div className={`flex items-center gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity ${isUser ? "justify-end" : "justify-start"}`}>

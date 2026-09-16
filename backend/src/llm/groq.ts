@@ -139,10 +139,12 @@ async function* streamChatWithKey(
       exactUsage.prompt_tokens ?? 0,
       exactUsage.completion_tokens ?? estimatedCompletion,
       durationMs,
+      "groq",
+      MODEL
     );
   } else {
     const estimatedPrompt = messages.reduce((acc, m) => acc + Math.max(1, Math.ceil(m.content.length / 3.8)), 0);
-    tokenTracker.recordStreamUsage(estimatedPrompt, estimatedCompletion, durationMs);
+    tokenTracker.recordStreamUsage(estimatedPrompt, estimatedCompletion, durationMs, "groq", MODEL);
   }
 
   yield { kind: "done", finish };

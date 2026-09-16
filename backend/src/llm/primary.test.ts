@@ -42,7 +42,7 @@ test("pre-start Codex failure falls back to existing provider", async () => {
   }
 });
 
-test("midstream Codex failure NEVER falls back (no duplication)", async () => {
+test("midstream Codex failure yields truncated done (no fallback, no duplication)", async () => {
   seedUsageCacheForTests({}, { connected: true }, [{ id: CODEX_MODEL }]);
   resetPrimaryForTests();
   const stdout = new PassThrough();
@@ -89,13 +89,13 @@ test("midstream Codex failure NEVER falls back (no duplication)", async () => {
   try {
     const calls = { n: 0 };
     const seen: StreamYield[] = [];
-    await assert.rejects(async () => {
-      for await (const item of withCodexPrimary("r1", MSGS, [], undefined, () => fakeFallback(calls), "t", "b", server)) {
-        seen.push(item);
-      }
-    });
+    // No rejection — midstream failure now yields truncated done instead of throwing
+    for await (const item of withCodexPrimary("r1", MSGS, [], undefined, () => fakeFallback(calls), "t", "b", server)) {
+      seen.push(item);
+    }
     assert.equal(calls.n, 0, "fallback must not run after output started");
-    assert.ok(seen.some((o) => o.kind === "delta"), "partial output preserved for handler error path");
+    assert.ok(seen.some((o) => o.kind === "delta"), "partial output preserved");
+    assert.ok(seen.some((o) => o.kind === "done"), "terminal done emitted after midstream failure");
   } finally {
     server.close();
     resetPrimaryForTests();

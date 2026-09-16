@@ -376,7 +376,7 @@ async function* runCodexTurn(opts: CodexTurnOptions): AsyncGenerator<StreamYield
     const durationMs = Date.now() - turnStartTime;
     const promptEstimate = opts.messages.reduce((acc, m) => acc + Math.max(1, Math.ceil(m.content.length / 3.8)), 0);
     const completionEstimate = Math.max(1, Math.ceil(completionChars / 4));
-    tokenTracker.recordStreamUsage(promptEstimate, completionEstimate, durationMs);
+    tokenTracker.recordStreamUsage(promptEstimate, completionEstimate, durationMs, "codex", CODEX_MODEL);
 
     const calls: ToolCall[] = pendingTools.map((p) => ({ id: p.id, name: p.name, args: p.args }));
     pendingTools.length = 0;

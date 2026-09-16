@@ -19,7 +19,7 @@ import { useCinematicMotion } from "@/portal/useCinematicMotion";
 import { getCover } from "@/api/profiles";
 import { submitItem } from "@/api/merchant";
 import { apiFetch } from "@/api/client";
-import { ShoppingBag, ArrowDown, CheckCircle2, Shield, ArrowLeft, VenetianMask } from "lucide-react";
+import { ShoppingBag, ArrowDown, CheckCircle2, Shield, ArrowLeft, VenetianMask, RotateCcw } from "lucide-react";
 import { DUR } from "@/lib/motionTokens";
 
 interface RoundTwoScreenProps {
@@ -280,12 +280,27 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
       {state.messages.length === 0 && !state.typing && state.streaming === "" && <div className="mx-4 mt-4 flex max-w-[380px] items-start gap-3 border border-white/15 bg-bg-0/85 p-3"><Shield className="mt-0.5 h-4 w-4 shrink-0 text-redline" /><div><p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-redline">Mission objective</p><p className="mt-1 text-xs leading-relaxed text-text-2">Gain trust and extract the {lore?.targetItem.name}.</p></div></div>}
       {/* Chat Messages Feed */}
       <div ref={feedRef} onScroll={(e) => { const el = e.currentTarget; nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 96; if (nearBottomRef.current) setShowLatest(false); }} data-r2-panel className={CHAT_FEED} role="log" aria-label={`${lore?.name} conversation`} aria-live="polite">
-        {state.messages.map((message, index) => (
-          <ChatMessageFrame key={message.id ?? index} botId={boss} isUser={message.role === "user"}>
+        {state.messages.map((message, index) => {
+          const isError = message.retryable === true;
+          return (
+          <ChatMessageFrame key={message.id ?? index} botId={boss} isUser={message.role === "user"} actions={isError ? (() => {
+            let lastUserText = "";
+            for (let j = index - 1; j >= 0; j--) {
+              if (state.messages[j]?.role === "user") { lastUserText = state.messages[j]!.text; break; }
+            }
+            return lastUserText ? (
+              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity justify-start">
+                <button type="button" onClick={() => { send(boss, lastUserText); }} className="flex items-center gap-1 font-mono text-[10px] font-bold text-amber-400 hover:brightness-125 px-1.5 py-0.5 bg-black/60 border border-amber-500/30 transition" title="Retry">
+                  <RotateCcw className="w-3 h-3" /><span>RETRY</span>
+                </button>
+              </div>
+            ) : null;
+          })() : undefined}>
             {message.role === "ally" && <p className="mb-1 text-xs text-text-3">{message.name ?? "Relay"}{message.confirmed ? " · Confirmed" : ""}</p>}
             <ChatMarkdown text={message.text} />
           </ChatMessageFrame>
-        ))}
+          );
+        })}
 
         {hasItem && (
           <div className="redline-gold-card self-center my-2 flex w-full max-w-[480px] items-center gap-4 rounded-[10px] p-4">

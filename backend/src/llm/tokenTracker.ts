@@ -61,9 +61,12 @@ class TokenTracker {
   /**
    * Record completed stream token usage (exact or estimated) and active duration.
    */
-  recordStreamUsage(prompt: number, completion: number, durationMs?: number): void {
-    this.totalPromptTokens += Math.max(0, prompt);
-    this.totalCompletionTokens += Math.max(0, completion);
+  recordStreamUsage(prompt: number, completion: number, durationMs?: number, provider?: string, model?: string): void {
+    const safePrompt = Math.max(0, prompt);
+    const safeCompletion = Math.max(0, completion);
+    
+    this.totalPromptTokens += safePrompt;
+    this.totalCompletionTokens += safeCompletion;
     this.totalRequests += 1;
     if (durationMs && durationMs > 0) {
       this.totalActiveStreamDurationMs += durationMs;
@@ -72,6 +75,24 @@ class TokenTracker {
     this.saveState("total_prompt_tokens", this.totalPromptTokens.toString());
     this.saveState("total_completion_tokens", this.totalCompletionTokens.toString());
     this.saveState("total_llm_requests", this.totalRequests.toString());
+
+    if (provider && model && this.db) {
+      try {
+        const promptKey = `model_usage:${provider}:${model}:prompt`;
+        const compKey = `model_usage:${provider}:${model}:completion`;
+        
+        this.db.run(
+          "INSERT INTO game_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + ?",
+          promptKey, safePrompt.toString(), safePrompt
+        );
+        this.db.run(
+          "INSERT INTO game_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + ?",
+          compKey, safeCompletion.toString(), safeCompletion
+        );
+      } catch {
+        // Non-blocking telemetry
+      }
+    }
   }
 
   private saveState(key: string, value: string): void {

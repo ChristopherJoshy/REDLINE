@@ -555,6 +555,19 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     const messagesCount = db.get<{ n: number }>("SELECT COUNT(*) AS n FROM chat_logs")?.n ?? 0;
     const solvesCount = db.get<{ n: number }>("SELECT COUNT(*) AS n FROM team_inventory WHERE status = 'verified'")?.n ?? 0;
     const tokenMetrics = tokenTracker.getMetrics();
+    const modelUsageRows = db.all<{ key: string; value: string }>("SELECT key, value FROM game_state WHERE key LIKE 'model_usage:%'");
+    const modelsMap: Record<string, { provider: string; model: string; promptTokens: number; completionTokens: number }> = {};
+    for (const row of modelUsageRows) {
+      const parts = row.key.split(":");
+      if (parts.length < 4) continue;
+      const provider = parts[1]!;
+      const model = parts[2]!;
+      const type = parts[3]!;
+      const modelId = `${provider}:${model}`;
+      if (!modelsMap[modelId]) modelsMap[modelId] = { provider, model, promptTokens: 0, completionTokens: 0 };
+      if (type === "prompt") modelsMap[modelId]!.promptTokens += parseInt(row.value, 10) || 0;
+      if (type === "completion") modelsMap[modelId]!.completionTokens += parseInt(row.value, 10) || 0;
+    }
     return {
       uptime: Math.round(process.uptime()),
       activeConnections: bus ? bus.connectionCount() : 0,
@@ -573,6 +586,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       peakTps: tokenMetrics.peakTps,
       averageTps: tokenMetrics.averageTps,
       totalLlmRequests: tokenMetrics.totalRequests,
+      modelUsage: Object.values(modelsMap),
       ...codexHealthSummary(),
     };
   });

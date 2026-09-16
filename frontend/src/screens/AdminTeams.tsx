@@ -117,6 +117,7 @@ interface SystemHealth {
   peakTps?: number;
   averageTps?: number;
   totalLlmRequests?: number;
+  modelUsage?: { provider: string; model: string; promptTokens: number; completionTokens: number }[];
 }
 
 interface ChatLogMessage {
@@ -2138,9 +2139,41 @@ export default function AdminTeams(): React.JSX.Element {
                       {systemHealth.currentTps ?? 0} TPS
                     </p>
                   </div>
-                </div>
+              </div>
 
-                <div className="pt-4 border-t border-[#3F3F46] flex flex-wrap items-center gap-3">
+              {systemHealth.modelUsage && systemHealth.modelUsage.length > 0 && (
+                <div className="mt-6 border border-[#3F3F46] rounded-[2px] overflow-hidden">
+                  <div className="bg-[#18181B] px-4 py-3 border-b border-[#3F3F46] font-mono text-[11px] font-bold text-[#A1A1AA] uppercase tracking-wider">
+                    Provider & Model Token Telemetry
+                  </div>
+                  <div className="divide-y divide-[#3F3F46]">
+                    {systemHealth.modelUsage.map((m, idx) => (
+                      <div key={idx} className="flex flex-wrap items-center justify-between gap-4 p-4 bg-[#050505]">
+                        <div className="flex flex-col">
+                          <span className="font-mono font-bold text-[13px] text-[#F4F4F5]">{m.model}</span>
+                          <span className="font-mono text-[11px] text-[#A1A1AA] uppercase">{m.provider}</span>
+                        </div>
+                        <div className="flex gap-6 font-mono text-[13px] text-[#A1A1AA]">
+                          <div className="flex flex-col text-right">
+                            <span className="text-[10px] uppercase">Prompt</span>
+                            <span className="text-[#F4F4F5]">{m.promptTokens.toLocaleString()}</span>
+                          </div>
+                          <div className="flex flex-col text-right">
+                            <span className="text-[10px] uppercase">Completion</span>
+                            <span className="text-[#F4F4F5]">{m.completionTokens.toLocaleString()}</span>
+                          </div>
+                          <div className="flex flex-col text-right">
+                            <span className="text-[10px] uppercase">Total</span>
+                            <span className="text-[#10B981] font-bold">{(m.promptTokens + m.completionTokens).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-4 mt-6 border-t border-[#3F3F46] flex flex-wrap items-center gap-3">
                   <button
                     type="button"
                     onClick={handleBackup}

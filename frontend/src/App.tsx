@@ -374,7 +374,7 @@ function ProfileDropdown({ identity, credits, logout, setIdentity }: any) {
         <div className="absolute right-0 top-[calc(100%+12px)] w-56 rounded-[8px] border border-white/10 bg-[rgba(10,14,20,0.95)] backdrop-blur-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] p-2 z-50 flex flex-col gap-1 origin-top-right">
           <div className="px-3 py-2 border-b border-white/10 mb-1">
             <p className="font-bold text-[13px] text-white truncate">{identity.teamName || "Vanguard"}</p>
-            <p className="font-[family-name:var(--font-code)] text-[10px] text-[var(--color-text-3)] mt-0.5">Operative</p>
+            <p className="font-[family-name:var(--font-code)] text-[10px] text-[var(--color-text-3)] mt-0.5">{identity.displayName || "Operative"}</p>
           </div>
           
           <div className="flex items-center justify-between px-3 py-2">

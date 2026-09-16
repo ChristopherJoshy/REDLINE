@@ -151,8 +151,8 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     // paused so the 0/1 denominator switches as soon as Round 2 starts.
     const r2 = round2Status(db) !== "off";
     const teamFilter = r2
-      ? "WHERE t.round2_eligible = 1"
-      : "";
+      ? "WHERE t.round2_eligible = 1 AND t.is_archived = 0"
+      : "WHERE t.is_archived = 0";
     const solvedExpr = r2
       ? "(SELECT COUNT(*) FROM team_inventory i JOIN r2_assignments a ON i.team_id = a.team_id AND i.bot_id = a.boss WHERE i.team_id = t.id AND i.status = 'verified')"
       : "(SELECT COUNT(*) FROM team_inventory i WHERE i.team_id = t.id AND i.status = 'verified' AND i.bot_id != 'itachi' AND i.bot_id != 'aizen')";
@@ -174,8 +174,8 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     if (!guard(req)) {
       return reply.code(401).send({ error: "unauthorized" });
     }
-    const teams = db.all<{ id: string; name: string; hint: string; join_code: string | null; elo: number; is_qualified: number; created_at: string }>(
-      "SELECT id, name, hint, join_code, elo, is_qualified, created_at FROM teams ORDER BY elo DESC"
+    const teams = db.all<{ id: string; name: string; hint: string; join_code: string | null; elo: number; is_qualified: number; is_archived: number; created_at: string }>(
+      "SELECT id, name, hint, join_code, elo, is_qualified, is_archived, created_at FROM teams ORDER BY elo DESC"
     );
     const result = teams.map((team) => {
       const members = db.all<{ display_name: string; role: string; joined_at: string }>(
@@ -219,7 +219,37 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     };
   });
 
+  app.post("/api/admin/archive-unqualified", async (req, reply) => {
+    if (!guard(req)) return reply.code(401).send({ error: "unauthorized" });
+    const reason = "archived non-qualified teams";
+    db.transaction(() => {
+      // Any team that is neither qualified nor round2 eligible gets archived
+      db.run("UPDATE teams SET is_archived = 1 WHERE is_qualified = 0 AND round2_eligible = 0");
+      db.run("INSERT INTO admin_audit (action, target_id, reason, detail) VALUES (?, ?, ?, ?)", "archive_unqualified", null, reason, "{}");
+    });
+    return { ok: true };
+  });
 
+  app.put("/api/admin/teams/:teamId/members", async (req, reply) => {
+    if (!guard(req)) return reply.code(401).send({ error: "unauthorized" });
+    const { teamId } = req.params as { teamId: string };
+    const body = req.body as { members: { display_name: string; role: string; }[] };
+    
+    if (!body || !Array.isArray(body.members)) {
+      return reply.code(400).send({ error: "invalid members array" });
+    }
+    
+    db.transaction(() => {
+      db.run("DELETE FROM team_members WHERE team_id = ?", teamId);
+      for (const m of body.members) {
+        if (typeof m.display_name === 'string' && m.display_name.trim()) {
+          db.run("INSERT INTO team_members (team_id, display_name, role) VALUES (?, ?, ?)", teamId, m.display_name.trim(), m.role || "member");
+        }
+      }
+      db.run("INSERT INTO admin_audit (action, target_id, reason, detail) VALUES (?, ?, ?, ?)", "update_members", teamId, "admin modified members", JSON.stringify(body.members));
+    });
+    return { ok: true };
+  });
 
   app.get("/api/admin/export.json", async (req, reply) => {
     if (!guard(req)) {
@@ -440,11 +470,11 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     if (typeof query.teamId !== "string") {
       return reply.code(400).send({ error: "teamId required" });
     }
-    let messages: Array<{ id: number; bot_id: string; role: string; text_final: string; created_at: string }>;
+    let messages: Array<{ id: number; bot_id: string; role: string; text_final: string; display_name: string; created_at: string }>;
     let traces: Array<{ id: number; bot_id: string; phase: string; trace_json: string; guard_json: string; created_at: string }>;
     if (typeof query.botId === "string" && query.botId !== "all" && query.botId !== "") {
       messages = db.all(
-        "SELECT id, bot_id, role, text_final, created_at FROM chat_logs WHERE team_id = ? AND bot_id = ? ORDER BY id ASC",
+        "SELECT id, bot_id, role, text_final, display_name, created_at FROM chat_logs WHERE team_id = ? AND bot_id = ? ORDER BY id ASC",
         query.teamId,
         query.botId
       );
@@ -455,7 +485,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       );
     } else {
       messages = db.all(
-        "SELECT id, bot_id, role, text_final, created_at FROM chat_logs WHERE team_id = ? ORDER BY id ASC",
+        "SELECT id, bot_id, role, text_final, display_name, created_at FROM chat_logs WHERE team_id = ? ORDER BY id ASC",
         query.teamId
       );
       traces = db.all(
@@ -667,6 +697,25 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
   });
 
   // Delete key from pool
+  app.delete("/api/admin/logs", async (req, reply) => {
+    if (!guard(req)) {
+      return reply.code(401).send({ error: "unauthorized" });
+    }
+    const query = req.query as { target?: string };
+    const target = query.target;
+    
+    if (target === "stream") {
+      db.run("DELETE FROM security_logs");
+      // Note: We don't delete elo_log or team_inventory as it affects game state.
+      // The frontend will handle stream filtering locally using a timestamp.
+      return { ok: true, cleared: "stream" };
+    } else if (target === "audit") {
+      db.run("DELETE FROM admin_audit");
+      return { ok: true, cleared: "audit" };
+    }
+    return reply.code(400).send({ error: "invalid target" });
+  });
+
   app.delete("/api/admin/keys/:id", async (req, reply) => {
     if (!guard(req) || !settingsPinGuard(req)) {
       return reply.code(401).send({ error: "unauthorized - settings pin required" });

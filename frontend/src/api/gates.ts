@@ -12,6 +12,7 @@ export interface Gates {
   round2Status: "off" | "countdown" | "active" | "paused";
   round2TimeLeft: number;
   round1TimeLeft: number;
+  assessmentSettings?: any;
 }
 
 export interface RoundState {

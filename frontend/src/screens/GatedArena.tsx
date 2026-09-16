@@ -26,18 +26,19 @@ function SealedScreen({ message = "Round 1 is done for your team. Wait for the o
   );
 }
 
-function CountdownBanner({ endsAt, round }: { endsAt: string; round: 1 | 2 }): React.JSX.Element {
+function CountdownBanner({ endsAt, round, serverNow }: { endsAt: string; round: 1 | 2; serverNow: string }): React.JSX.Element {
   const [left, setLeft] = useState(0);
+  const [offset] = useState(() => new Date(serverNow).getTime() - Date.now());
   useDocumentTitle(`Round ${round} Starting — REDLINE Arena`);
   useEffect(() => {
     function tick(): void {
-      const ms = new Date(endsAt).getTime() - Date.now();
+      const ms = new Date(endsAt).getTime() - (Date.now() + offset);
       setLeft(Math.max(0, Math.ceil(ms / 1000)));
     }
     tick();
     const id = setInterval(tick, 250);
     return () => clearInterval(id);
-  }, [endsAt]);
+  }, [endsAt, offset]);
   return (
     <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-hidden bg-cover bg-center p-[var(--space)]" style={{ backgroundImage: "url('/backgrounds/login-uiwork.png')" }}>
       <div aria-hidden="true" className="absolute inset-0 bg-[rgba(5,7,10,0.78)]" />
@@ -174,6 +175,9 @@ export default function GatedArena({ teamId, displayName, locked }: { teamId: st
         const g = await getGates();
         if (!dead) {
           setGates(g);
+          if (g.assessmentSettings) {
+            window.dispatchEvent(new CustomEvent("arena:assessment_settings", { detail: g.assessmentSettings }));
+          }
           if (g.round2Status === "countdown" && !countdownEndsAt) {
             // Fetch countdown endsAt from a lightweight endpoint
             // The server broadcasts it via WS, but we also poll
@@ -218,14 +222,17 @@ export default function GatedArena({ teamId, displayName, locked }: { teamId: st
     }
   }, [gates?.round2Status]);
 
+  const serverOffset = gates ? new Date(gates.serverNow).getTime() - Date.now() : 0;
+  const effectiveNow = now + serverOffset;
+
   const round1Active = gates !== null
     && gates.round1.status === "active"
     && gates.round1Open
-    && (gates.round1.endsAt === null || Date.parse(gates.round1.endsAt) > now);
+    && (gates.round1.endsAt === null || Date.parse(gates.round1.endsAt) > effectiveNow);
   const round2Active = gates !== null
     && gates.round2.status === "active"
     && gates.round2Status === "active"
-    && (gates.round2.endsAt === null || Date.parse(gates.round2.endsAt) > now);
+    && (gates.round2.endsAt === null || Date.parse(gates.round2.endsAt) > effectiveNow);
 
   if (boss !== null) {
     if (roundEnded || !round2Active) {
@@ -237,7 +244,7 @@ export default function GatedArena({ teamId, displayName, locked }: { teamId: st
     return <SealedScreen message="Sorry, you are not selected to move to Round 2." />;
   }
   if (countdownEndsAt) {
-    return <CountdownBanner endsAt={countdownEndsAt} round={2} />;
+    return <CountdownBanner endsAt={countdownEndsAt} round={2} serverNow={gates!.serverNow} />;
   }
   if (gates !== null && gates.qualified && gates.vaultOpen && round2Active) {
     return <PortalGate onEnter={setBoss} />;
@@ -249,7 +256,7 @@ export default function GatedArena({ teamId, displayName, locked }: { teamId: st
     return <SealedScreen message="Checking the round status before opening the arena." />;
   }
   if (gates.round1.status === "countdown" && gates.round1.startsAt !== null) {
-    return <CountdownBanner endsAt={gates.round1.startsAt} round={1} />;
+    return <CountdownBanner endsAt={gates.round1.startsAt} round={1} serverNow={gates.serverNow} />;
   }
   if (!round1Active) {
     const message = gates.round1.status === "countdown"

@@ -134,6 +134,7 @@ interface ChatLogMessage {
   role: string;
   text_final: string;
   created_at: string;
+  display_name?: string;
 }
 
 interface ReasoningTrace {
@@ -154,6 +155,7 @@ interface AnnouncementItem {
 }
 
 const R1_BOTS = ["wick", "spidey", "escanor", "stark", "joker", "light", "levi", "deadpool"] as const;
+const ALL_BOTS = [...R1_BOTS, "itachi", "aizen"] as const;
 
 export default function AdminTeams(): React.JSX.Element {
   const [adminCode, setAdminCode] = useState<string>(() => localStorage.getItem("redline_admin_code") ?? "");
@@ -736,7 +738,7 @@ export default function AdminTeams(): React.JSX.Element {
     if (!invModalTeam || adminCode === "") return;
     setBusy(true);
     try {
-      const promises = R1_BOTS.map((botId) => {
+      const promises = ALL_BOTS.map((botId) => {
         const char = CHARACTERS[botId];
         return apiFetch("/api/admin/inventory-override", {
           method: "POST",
@@ -747,7 +749,7 @@ export default function AdminTeams(): React.JSX.Element {
       await Promise.all(promises);
       notify(`Updated all 8 characters to ${status.toUpperCase()}`);
 
-      const newInv: AdminInventoryItem[] = R1_BOTS.map((botId) => ({
+      const newInv: AdminInventoryItem[] = ALL_BOTS.map((botId) => ({
         bot_id: botId,
         item_key: CHARACTERS[botId].targetItem.name,
         is_real: 1,
@@ -888,7 +890,7 @@ export default function AdminTeams(): React.JSX.Element {
 
   const totalMembers = teams.reduce((acc, t) => acc + t.members.length, 0);
   const totalSolves = teams.reduce((acc, t) => acc + t.solved, 0);
-  const highestElo = teams.length > 0 ? Math.max(...teams.map((t) => t.elo)) : 1200;
+  const highestElo = teams.length > 0 ? Math.max(...teams.map((t) => t.elo)) : 0;
 
   if (checkingAuth) {
     return (
@@ -2794,7 +2796,7 @@ export default function AdminTeams(): React.JSX.Element {
 
             {/* 2-Column Grid Layout for all 8 characters */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono">
-              {R1_BOTS.map((botId) => {
+              {ALL_BOTS.map((botId) => {
                 const char = CHARACTERS[botId];
                 const held = invModalTeam.inventory.find((i) => i.bot_id === botId);
                 const currentStatus = held ? held.status : "locked";
@@ -2960,7 +2962,7 @@ export default function AdminTeams(): React.JSX.Element {
                 >
                   Global
                 </button>
-                {R1_BOTS.map((b) => {
+                {ALL_BOTS.map((b) => {
                   const charName = CHARACTERS[b]?.name ?? b;
                   const isSelected = commsBotFilter === b;
                   return (
@@ -3003,7 +3005,7 @@ export default function AdminTeams(): React.JSX.Element {
                     >
                       <div className="flex items-center justify-between gap-3 text-[11px] text-[#A1A1AA] font-bold">
                         <div className="flex items-center gap-2">
-                          <span>{msg.role === "user" ? "OPERATOR PROMPT" : `BOT: ${CHARACTERS[msg.bot_id as keyof typeof CHARACTERS]?.name ?? msg.bot_id}`}</span>
+                          <span>{msg.role === "user" ? `OPERATOR PROMPT (${msg.display_name || "Unknown"})` : `BOT: ${CHARACTERS[msg.bot_id as keyof typeof CHARACTERS]?.name ?? msg.bot_id}`}</span>
                         </div>
                         <span>{msg.created_at.slice(11, 19)}</span>
                       </div>
@@ -3028,13 +3030,26 @@ export default function AdminTeams(): React.JSX.Element {
                           <span>Latency: {traceObj.ms ? `${traceObj.ms}ms` : "N/A"} • {trace.created_at.slice(11, 19)}</span>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 mb-2">
                           <span className={`text-[11px] font-bold px-2 py-0.5 rounded-[2px] uppercase ${
                             guardObj.risk === "flagged" ? "bg-[#EF4444]/10 border border-[#EF4444] text-[#EF4444]" : "bg-[#10B981]/10 border border-[#10B981] text-[#10B981]"
                           }`}>
                             Guard: {guardObj.risk || "clean"}
                           </span>
                         </div>
+
+                        {traceObj.reasoning && (
+                          <div className="text-[12px] text-[#D4D4D8] border-l-2 border-[#10B981] pl-3 py-1 my-1 bg-[#18181B] rounded-[2px]">
+                            <span className="text-[10px] font-bold text-[#10B981] uppercase block mb-1">Internal Monologue</span>
+                            <p className="whitespace-pre-wrap">{traceObj.reasoning}</p>
+                          </div>
+                        )}
+                        {traceObj.toolCalls && traceObj.toolCalls.length > 0 && (
+                          <div className="text-[12px] text-[#A1A1AA] border-l-2 border-[#3F3F46] pl-3 py-1 my-1 bg-[#18181B] rounded-[2px]">
+                            <span className="text-[10px] font-bold text-[#A1A1AA] uppercase block mb-1">Tool Execution</span>
+                            <pre className="whitespace-pre-wrap overflow-x-auto text-[10px]">{JSON.stringify(traceObj.toolCalls, null, 2)}</pre>
+                          </div>
+                        )}
                       </div>
                     );
                   })
@@ -3101,7 +3116,7 @@ export default function AdminTeams(): React.JSX.Element {
                 >
                   All Characters (Full Squad Wipe)
                 </button>
-                {R1_BOTS.map((b) => {
+                {ALL_BOTS.map((b) => {
                   const isSelected = rewindBot === b;
                   return (
                     <button

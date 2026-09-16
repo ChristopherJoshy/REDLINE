@@ -4,7 +4,6 @@ import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import { identify, joinTeam, getActiveMembers, type JoinResult, type IdentifyResult } from "@/api/teams";
 import { Shield, User, ArrowRight, Lock, KeyRound } from "lucide-react";
 import { DUR, EASE, reducedMotion } from "@/lib/motionTokens";
-import FullscreenLock from "@/shell/FullscreenLock";
 type SettleTimerId = number;
 type FlickerTimerId = number;
 const MATRIX_GLYPHS = "アカサタナハマヤラワ0123456789ABCDEFRL<>*+#";
@@ -176,7 +175,6 @@ export default function EnterScreen({ onIdentified }: { onIdentified: (res?: Ide
 
   return (
     <main className="relative flex h-[100dvh] max-h-[100dvh] flex-col items-center justify-center p-4 select-none overflow-hidden">
-      <FullscreenLock onLockChange={() => {}} />
       {/* Background Image */}
       <div
         className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"

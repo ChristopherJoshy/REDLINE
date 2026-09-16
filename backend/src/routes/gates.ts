@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { BotId } from "../contracts/events.js";
-import type { RoundNumber } from "../contracts/rounds.js";
-import type { DatabaseAdapter } from "../db/database.js";
+import { type DatabaseAdapter } from "../db/database.js";
+import { readAssessmentSettings } from "../assessment/settings.js";
 import type { Bus } from "../ws/bus.js";
 import { env } from "../env.js";
 import { adminOk } from "../auth/codes.js";
@@ -53,7 +53,7 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
       qualified: session ? (vaultOpen(db) && isQualified(db, session.teamId)) : false,
       solved: session ? solvedCount(db, session.teamId) : 0, round1Size: ROUND1_SIZE,
       round2Status: round2Status(db), round2TimeLeft: round2TimeLeft(db),
-      round1TimeLeft: round1TimeLeft(db) };
+      round1TimeLeft: round1TimeLeft(db), assessmentSettings: readAssessmentSettings(db) };
   });
   app.get("/api/admin/rounds", async (req, reply) => {
     if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
@@ -142,6 +142,9 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
               db.run("UPDATE teams SET round2_eligible = 1, is_qualified = 1 WHERE is_qualified = 1");
             }
             
+            // Archive teams that are not eligible for Round 2
+            db.run("UPDATE teams SET is_archived = 1 WHERE round2_eligible = 0");
+            
             // Auto-assign random boss (Itachi or Aizen) for advancing teams
             const advancing = db.all<{ id: string }>("SELECT id FROM teams WHERE round2_eligible = 1");
             for (const t of advancing) {
@@ -209,7 +212,7 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
       }
     });
   }
-  function registerStop(path: string, round: RoundNumber): void {
+  function registerStop(path: string, round: 1 | 2): void {
     app.post(path, async (req, reply) => {
       if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
       stopRound(db, round);

@@ -162,7 +162,7 @@ export default function App(): React.JSX.Element {
   }
 
   return (
-    <main className="bot-theme no-steal redline-bg relative flex min-h-[100dvh] flex-col text-[var(--color-text-1)]" style={{ "--accent": shellAccent, "--accent-ink": shellAccentInk } as React.CSSProperties}>
+    <main className="bot-theme no-steal redline-bg relative flex h-[100dvh] max-h-[100dvh] flex-col text-[var(--color-text-1)]" style={{ "--accent": shellAccent, "--accent-ink": shellAccentInk } as React.CSSProperties}>
       {assessmentSettings.requireFullscreen && <FullscreenLock onLockChange={onLockChange} />}
       <AntiTamper settings={assessmentSettings} />
       <div aria-hidden="true" className="redline-veil pointer-events-none absolute inset-0" />

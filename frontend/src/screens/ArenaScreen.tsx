@@ -161,6 +161,8 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
     return () => window.removeEventListener("arena:open_satchel", openSatchel);
   }, []);
 
+
+
   useEffect(() => {
     window.dispatchEvent(
       new CustomEvent("arena:nav_visibility", { detail: { hidden: chattingBotId !== null } })
@@ -404,6 +406,12 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
   const botAccent = CHARACTERS[chatBot]?.accent ?? "#ff1e2d";
   const botAccentInk = CHARACTERS[chatBot]?.accentInk ?? "#ffffff";
   const botThemeStyle = { "--accent": botAccent, "--accent-ink": botAccentInk } as React.CSSProperties;
+  const chatFeedRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (chatFeedRef.current) {
+      chatFeedRef.current.scrollTop = chatFeedRef.current.scrollHeight;
+    }
+  }, [activeBot?.messages, activeBot?.streaming, activeBot?.typing]);
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("arena:accent", { detail: { accent: botAccent, ink: botAccentInk } }));
   }, [botAccent, botAccentInk]);
@@ -832,7 +840,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                   </div>
 
                   {/* Scrollable Message Feed */}
-                  <div className={CHAT_FEED} aria-live="polite">
+                  <div className={CHAT_FEED} aria-live="polite" ref={chatFeedRef}>
                     {activeBot?.messages.map((m, idx) => {
                       const isUser = m.role === "user";
                       const canRewind = m.id !== undefined && chattingBotId !== null;

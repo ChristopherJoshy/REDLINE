@@ -14,7 +14,11 @@ export default function FullscreenLock({ onLockChange }: { onLockChange: (locked
   }, []);
 
   const request = useCallback(() => {
-    void document.documentElement.requestFullscreen().catch(() => {});
+    void document.documentElement.requestFullscreen().then(() => {
+      if ("keyboard" in navigator && "lock" in (navigator as any).keyboard) {
+        (navigator as any).keyboard.lock(["Escape"]).catch(() => {});
+      }
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -35,13 +39,20 @@ export default function FullscreenLock({ onLockChange }: { onLockChange: (locked
         logAttempt();
       }
     }
+    function onClickAnywhere(): void {
+      if (document.fullscreenElement === null) {
+        request();
+      }
+    }
     document.addEventListener("fullscreenchange", sync);
     document.addEventListener("visibilitychange", onHidden);
+    document.addEventListener("click", onClickAnywhere);
     window.addEventListener("blur", onHidden);
     sync();
     return () => {
       document.removeEventListener("fullscreenchange", sync);
       document.removeEventListener("visibilitychange", onHidden);
+      document.removeEventListener("click", onClickAnywhere);
       window.removeEventListener("blur", onHidden);
     };
   }, [request, logAttempt, onLockChange]);

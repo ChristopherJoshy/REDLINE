@@ -82,8 +82,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
     if (reveal !== "open") return;
     const feed = feedRef.current;
     if (!feed) return;
-    if (nearBottomRef.current) feed.scrollTo({ top: feed.scrollHeight, behavior: "auto" });
-    else setShowLatest(true);
+    if (feed) feed.scrollTop = feed.scrollHeight;
   }, [state?.messages.length, state?.streaming, reveal, merchantView]);
 
   useEffect(() => {

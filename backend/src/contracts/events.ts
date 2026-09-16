@@ -50,6 +50,7 @@ export interface InventoryDelta {
   botId: BotId;
   itemKey: string;
   status: "locked" | "obtained" | "submitted" | "verified";
+  obtainedBy?: string;
 }
 
 export interface BotDoneData {

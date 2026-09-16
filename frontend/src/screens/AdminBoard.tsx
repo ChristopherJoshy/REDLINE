@@ -33,6 +33,7 @@ function CornerBracket({ className }: { className: string }): React.JSX.Element 
 
 export default function AdminBoard(): React.JSX.Element {
   const [rows, setRows] = useState<BoardRow[]>([]);
+  const [isRound2, setIsRound2] = useState(false);
   useDocumentTitle("Leaderboard — REDLINE Arena");
   const [adminCode, setAdminCode] = useState(() => localStorage.getItem("redline_admin_code") ?? "");
   const [authed, setAuthed] = useState(false);
@@ -53,7 +54,8 @@ export default function AdminBoard(): React.JSX.Element {
           }
           return;
         }
-        const data = (await res.json()) as { rows: BoardRow[] };
+        const data = (await res.json()) as { rows: BoardRow[]; round2?: boolean };
+        setIsRound2(data.round2 ?? false);
         if (!dead) {
           setRows(data.rows);
           setAuthed(true);
@@ -83,7 +85,8 @@ export default function AdminBoard(): React.JSX.Element {
           setError("Invalid PIN code.");
           return;
         }
-        const data = (await res.json()) as { rows: BoardRow[] };
+        const data = (await res.json()) as { rows: BoardRow[]; round2?: boolean };
+        setIsRound2(data.round2 ?? false);
         setRows(data.rows);
         setAuthed(true);
       })
@@ -251,7 +254,7 @@ export default function AdminBoard(): React.JSX.Element {
 
                         <div className="col-span-2 text-center sm:col-span-2">
                           <span className={`font-mono text-[14px] font-bold ${r.solved > 0 ? "text-[#00D9A6]" : "text-[#8A8A8A]"}`}>
-                            {r.solved}/8
+                            {r.solved}/{isRound2 ? 1 : 8}
                           </span>
                         </div>
 

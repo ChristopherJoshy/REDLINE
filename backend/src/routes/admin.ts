@@ -133,7 +133,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       bus.broadcast(session.teamId, bus.frame("chat_sync", { history: { [botId]: remainingMsgs } }));
       bus.broadcast(session.teamId, bus.frame("elo_update", { teamId: session.teamId, elo: after, delta: -1, reason: `rewind:${botId}` }));
       const items = db.all<InventoryDelta>(
-        "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
+        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy FROM team_inventory WHERE team_id = ?",
         session.teamId,
       );
       bus.broadcast(session.teamId, bus.frame("inventory_sync", { items }));
@@ -146,13 +146,22 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       return reply.code(401).send({ error: "unauthorized" });
     }
     const rows = db.all<BoardRow>(
-      `SELECT t.name, (SELECT display_name FROM team_members m WHERE m.team_id = t.id ORDER BY rowid ASC LIMIT 1) AS hint, t.elo,
-        (SELECT COUNT(*) FROM team_inventory i WHERE i.team_id = t.id AND i.status = 'verified') AS solved,
+      `SELECT t.name, COALESCE(
+          (SELECT obtained_by FROM team_inventory WHERE team_id = t.id AND status = 'verified' AND obtained_by IS NOT NULL GROUP BY obtained_by ORDER BY COUNT(*) DESC LIMIT 1),
+          (SELECT display_name FROM chat_logs WHERE team_id = t.id AND role = 'user' AND display_name IS NOT NULL AND display_name != '' GROUP BY display_name ORDER BY COUNT(*) DESC LIMIT 1),
+          (SELECT display_name FROM team_members WHERE team_id = t.id ORDER BY rowid ASC LIMIT 1)
+        ) AS hint, t.elo,
+        CASE WHEN (SELECT status FROM gates LIMIT 1) = 'round2' THEN
+          (SELECT COUNT(*) FROM team_inventory i JOIN r2_assignments a ON i.team_id = a.team_id AND i.bot_id = a.boss WHERE i.team_id = t.id AND i.status = 'verified')
+        ELSE
+          (SELECT COUNT(*) FROM team_inventory i WHERE i.team_id = t.id AND i.status = 'verified' AND i.bot_id != 'itachi' AND i.bot_id != 'aizen')
+        END AS solved,
         (SELECT COUNT(*) FROM elo_log l WHERE l.team_id = t.id AND (l.reason LIKE 'rewind:%' OR l.reason LIKE 'admin_rewind:%')) AS rewinds,
         (SELECT MAX(i.verified_at) FROM team_inventory i WHERE i.team_id = t.id AND i.status = 'verified') AS lastSolve
        FROM teams t ORDER BY t.elo DESC, lastSolve ASC`,
     );
-    return { rows };
+    const r2 = round2Status(db) === "active";
+    return { rows, round2: r2 };
   });
 
   app.get("/api/admin/overview", async (req, reply) => {
@@ -350,7 +359,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     });
     if (bus) {
       const items = db.all<InventoryDelta>(
-        "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
+        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy FROM team_inventory WHERE team_id = ?",
         teamId,
       );
       bus.broadcast(teamId, bus.frame("inventory_sync", { items }));
@@ -408,7 +417,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       bus.broadcast(teamId, bus.frame("chat_sync", { history }));
       bus.broadcast(teamId, bus.frame("elo_update", { teamId, elo: after, delta: -penalty, reason: `admin_rewind:${botId ?? "all"}` }));
       const items = db.all<InventoryDelta>(
-        "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
+        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy FROM team_inventory WHERE team_id = ?",
         teamId,
       );
       bus.broadcast(teamId, bus.frame("inventory_sync", { items }));

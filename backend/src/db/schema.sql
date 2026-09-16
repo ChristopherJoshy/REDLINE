@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS team_inventory (
   status TEXT NOT NULL DEFAULT 'locked',
   obtained_at TEXT,
   verified_at TEXT,
+  obtained_by TEXT,
   attempt_count INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (team_id, bot_id)
 );
@@ -57,6 +58,7 @@ CREATE TABLE IF NOT EXISTS chat_logs (
   bot_id TEXT NOT NULL,
   role TEXT NOT NULL,
   text_final TEXT NOT NULL,
+  display_name TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 

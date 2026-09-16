@@ -205,7 +205,7 @@ async function boot(): Promise<void> {
         bus.send(socket, bus.frame("hello_ack", {}));
         // Fresh mounts (or a dropped room) start from current truth, not empty.
         const items = db.all<InventoryDelta>(
-          "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
+          "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy FROM team_inventory WHERE team_id = ?",
           session.teamId,
         );
         bus.send(socket, bus.frame("assessment_settings_sync", assessmentSettings));

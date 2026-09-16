@@ -91,7 +91,7 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
         return { elo, credits };
       });
       const items = db.all<InventoryDelta>(
-        "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
+        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy FROM team_inventory WHERE team_id = ?",
         session.teamId,
       );
       bus.broadcast(session.teamId, bus.frame("inventory_sync", { items, credits }));

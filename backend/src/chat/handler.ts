@@ -56,7 +56,7 @@ export async function handleChatSend(
   bus.broadcast(teamId, bus.frame("bot_typing", { teamId, botId, typing: true }));
   const started = Date.now();
   try {
-    db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final) VALUES (?, ?, ?, ?)", teamId, botId, "user", text);
+    db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES (?, ?, ?, ?, ?)", teamId, botId, "user", text, displayName);
     const history = db.all<HistoryRow>(
       "SELECT role, text_final FROM chat_logs WHERE team_id = ? AND bot_id = ? ORDER BY id DESC LIMIT ?",
       teamId,
@@ -121,7 +121,7 @@ Available sound ids: ${entry.meta.soundIds.join(", ")}. Sound is optional, at mo
         if (parsed.itemKey && parsed.itemKey.trim().toLowerCase() !== assignedKey.toLowerCase()) {
           guardFlags.push("item-mismatch");
         }
-        inventoryDelta = awardItem(db, teamId, botId, assignedKey, parsed.real) ?? inventoryDelta;
+        inventoryDelta = awardItem(db, teamId, botId, assignedKey, parsed.real, displayName) ?? inventoryDelta;
       } else if (call.name === "play_sound") {
         const soundId = parseSoundId(call.args, entry.meta.soundIds);
         if (soundId === undefined) {
@@ -135,7 +135,7 @@ Available sound ids: ${entry.meta.soundIds.join(", ")}. Sound is optional, at mo
       }
     }
 
-    db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final) VALUES (?, ?, ?, ?)", teamId, botId, "assistant", fullText);
+    db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES (?, ?, ?, ?, ?)", teamId, botId, "assistant", fullText, displayName);
     db.run(
       "INSERT INTO reasoning_traces (team_id, bot_id, phase, trace_json, guard_json) VALUES (?, ?, ?, ?, ?)",
       teamId,
@@ -146,7 +146,7 @@ Available sound ids: ${entry.meta.soundIds.join(", ")}. Sound is optional, at mo
     );
     if (inventoryDelta !== undefined) {
       const items = db.all<InventoryDelta>(
-        "SELECT bot_id AS botId, item_key AS itemKey, status FROM team_inventory WHERE team_id = ?",
+        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy FROM team_inventory WHERE team_id = ?",
         teamId,
       );
       bus.broadcast(teamId, bus.frame("inventory_sync", { items }));

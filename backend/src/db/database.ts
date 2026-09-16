@@ -86,6 +86,10 @@ export function openDatabase(path: string, schemaPath: string): DatabaseAdapter 
     driver.exec("ALTER TABLE cover_profiles_new RENAME TO cover_profiles");
   }
   driver.exec("DELETE FROM cover_profiles WHERE bot_id = '*';");
+  // Migrate: add obtained_by to team_inventory if missing
+  try { driver.exec("ALTER TABLE team_inventory ADD COLUMN obtained_by TEXT;"); } catch { /* already exists */ }
+  // Migrate: add display_name to chat_logs if missing
+  try { driver.exec("ALTER TABLE chat_logs ADD COLUMN display_name TEXT NOT NULL DEFAULT '';"); } catch { /* already exists */ }
   return {
     exec: (sql) => driver.exec(sql),
     run: (sql, ...params) => {

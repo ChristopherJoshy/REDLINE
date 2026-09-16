@@ -11,6 +11,7 @@ import type { ChatMessage, StreamYield, ToolDef } from "../groq.js";
 
 interface ScriptOpts {
   deltaText?: string;
+  deltaChunks?: Array<{ text: string; itemId?: string }>;
   tool?: { name: string; args: unknown } | undefined;
   terminalStatus?: string;
   emitToolBeforeResponse?: boolean;
@@ -56,10 +57,11 @@ function makeScriptedServer(script: ScriptOpts): { server: CodexAppServer; seen:
           setImmediate(() => {
             const srv = serverRef;
             if (!srv) return;
-            if (script.deltaText) {
-              srv.injectLineForTests(
-                JSON.stringify({ method: "item/agentMessage/delta", params: { threadId: "t1", turnId: "turn1", itemId: "i1", delta: script.deltaText } }),
-              );
+            const chunks = script.deltaChunks ?? (script.deltaText === undefined ? [] : [{ text: script.deltaText, itemId: "i1" }]);
+            for (const chunk of chunks) {
+              const params: Record<string, unknown> = { threadId: "t1", turnId: "turn1", delta: chunk.text };
+              if (chunk.itemId !== undefined) params["itemId"] = chunk.itemId;
+              srv.injectLineForTests(JSON.stringify({ method: "item/agentMessage/delta", params }));
             }
             if (script.tool) {
               srv.injectLineForTests(
@@ -138,6 +140,24 @@ test("R1 uses gpt-5.6-luna + medium; deltas/tools/done map to StreamYield", asyn
     // Neutral ack, no side-effect claim.
     assert.ok(writes.some((w) => w.includes("Tool request recorded for host-side validation.")));
     assert.ok(!writes.some((w) => w.toLowerCase().includes("awarded") || w.toLowerCase().includes("transferred")));
+  } finally {
+    server.close();
+    resetUsageCacheForTests();
+  }
+});
+
+test("preserves repeated Codex chunks when item ids are absent", async () => {
+  seedUsageCacheForTests({}, { connected: true }, [{ id: CODEX_MODEL }]);
+  const { server } = makeScriptedServer({
+    deltaChunks: [{ text: "A " }, { text: "A " }, { text: "complete sentence." }],
+  });
+  try {
+    const out = await collect(streamCodexChat({ phase: "r1", messages: msgs(), tools: TOOLS, server }));
+    assert.deepEqual(out.filter((item) => item.kind === "delta"), [
+      { kind: "delta", text: "A " },
+      { kind: "delta", text: "A " },
+      { kind: "delta", text: "complete sentence." },
+    ]);
   } finally {
     server.close();
     resetUsageCacheForTests();

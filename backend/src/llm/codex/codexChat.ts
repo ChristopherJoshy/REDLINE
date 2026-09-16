@@ -217,11 +217,14 @@ async function* runCodexTurn(opts: CodexTurnOptions): AsyncGenerator<StreamYield
         const delta = typeof ev.params["delta"] === "string" ? (ev.params["delta"] as string) : "";
         const itemId = typeof ev.params["itemId"] === "string" ? (ev.params["itemId"] as string) : "";
         if (delta !== "") {
-          // Dedupe: the same delta may arrive via thread + turn routing.
-          const key = `${itemId}::${delta}`;
-          if (seenDeltas.has(key)) return;
-          if (seenDeltas.size > 500) seenDeltas.clear();
-          seenDeltas.add(key);
+          // Dedupe only when Codex supplies an item id. Without one, repeated
+          // chunks are legitimate content (spaces and short words repeat often).
+          if (itemId !== "") {
+            const key = `${itemId}::${delta}`;
+            if (seenDeltas.has(key)) return;
+            if (seenDeltas.size > 500) seenDeltas.clear();
+            seenDeltas.add(key);
+          }
           started = true;
           deltaCount += 1;
           completionChars += delta.length;

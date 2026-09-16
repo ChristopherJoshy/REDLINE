@@ -1,5 +1,5 @@
 // OpenCode Zen Responses API client for Round 2 boss AI.
-// Model: muse-spark-1.3-contributor-free (verified upstream ID for Muse Spark 1.3 Free)
+// Model: muse-spark-1.2-contributor-free (verified upstream ID for Muse Spark Free)
 // Reasoning is captured strictly server-side for reasoning_traces and never streamed to players.
 import { randomUUID } from "node:crypto";
 import type { DatabaseAdapter } from "../db/database.js";
@@ -7,7 +7,7 @@ import { runWithRotation } from "./keyPool.js";
 import type { ChatMessage, StreamYield, ToolDef } from "./groq.js";
 import { tokenTracker } from "./tokenTracker.js";
 
-const MODEL = "muse-spark-1.3-contributor-free";
+const MODEL = "muse-spark-1.2-contributor-free";
 const ZEN_RESPONSES_URL = "https://opencode.ai/zen/v1/responses";
 
 export async function* streamZenChatWithKey(

@@ -204,20 +204,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     };
   });
 
-  app.delete("/api/admin/teams/:teamId", async (req, reply) => {
-    if (!guard(req)) return reply.code(401).send({ error: "unauthorized" });
-    const { teamId } = req.params as { teamId: string };
-    db.transaction(() => {
-      db.run("DELETE FROM team_members WHERE team_id = ?", teamId);
-      db.run("DELETE FROM team_inventory WHERE team_id = ?", teamId);
-      db.run("DELETE FROM chat_logs WHERE team_id = ?", teamId);
-      db.run("DELETE FROM elo_log WHERE team_id = ?", teamId);
-      db.run("DELETE FROM security_events WHERE team_id = ?", teamId);
-      db.run("DELETE FROM round1_history WHERE team_id = ?", teamId);
-      db.run("DELETE FROM teams WHERE id = ?", teamId);
-    });
-    return { ok: true };
-  });
+
 
   app.get("/api/admin/export.json", async (req, reply) => {
     if (!guard(req)) {
@@ -574,7 +561,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     const modelsMap: Record<string, { provider: string; model: string; promptTokens: number; completionTokens: number }> = {
       "codex:gpt-5.6-luna": { provider: "codex", model: "gpt-5.6-luna", promptTokens: 0, completionTokens: 0 },
       "groq:qwen/qwen3.8-27b": { provider: "groq", model: "qwen/qwen3.8-27b", promptTokens: 0, completionTokens: 0 },
-      "opencode:muse-spark-1.3-contributor-free": { provider: "opencode", model: "muse-spark-1.3-contributor-free", promptTokens: 0, completionTokens: 0 }
+      "opencode:muse-spark-1.2-contributor-free": { provider: "opencode", model: "muse-spark-1.2-contributor-free", promptTokens: 0, completionTokens: 0 }
     };
     for (const row of modelUsageRows) {
       const parts = row.key.split(":");

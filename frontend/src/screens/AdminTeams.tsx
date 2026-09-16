@@ -2400,7 +2400,7 @@ export default function AdminTeams(): React.JSX.Element {
                         <h3 className="font-mono font-bold text-[16px] text-[#F4F4F5] uppercase">OpenCode Zen (Round 2)</h3>
                       </div>
                       <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA]">
-                        muse-spark-1.3
+                        muse-spark-1.2
                       </span>
                     </div>
                     <p className="text-[12px] text-[#A1A1AA]">

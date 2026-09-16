@@ -65,8 +65,8 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function effortFor(_phase: CodexPhase): CodexEffort {
-  return "medium";
+function effortFor(phase: CodexPhase): CodexEffort {
+  return phase === "r2" ? "high" : "low";
 }
 
 function sanitizeLogId(v: string | undefined): string {

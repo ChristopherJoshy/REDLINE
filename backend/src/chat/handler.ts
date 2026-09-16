@@ -25,9 +25,12 @@ function fence(nonce: string, text: string): string {
   return `<UNTRUSTED_${nonce}>\n${text}\n</UNTRUSTED_${nonce}>`;
 }
 function merchantIntel(db: DatabaseAdapter, teamId: string): string {
+  const boss = round2Status(db) === "active" ? bossOf(teamId, db) : undefined;
   const rows = db.all<{ bot_id: string; tier: number }>(
-    "SELECT bot_id, tier FROM merchant_clues WHERE team_id = ? ORDER BY bot_id, tier",
-    teamId,
+    boss === undefined
+      ? "SELECT bot_id, tier FROM merchant_clues WHERE team_id = ? AND bot_id NOT IN ('itachi', 'aizen') ORDER BY bot_id, tier"
+      : "SELECT bot_id, tier FROM merchant_clues WHERE team_id = ? AND bot_id = ? ORDER BY tier",
+    ...(boss === undefined ? [teamId] : [teamId, boss]),
   );
   const unlocked = rows.flatMap((row) => {
     const clue = clueFor(row.bot_id as BotId, row.tier as 1 | 2);
@@ -36,6 +39,9 @@ function merchantIntel(db: DatabaseAdapter, teamId: string): string {
   return unlocked.length > 0 ? unlocked.join("\n") : "No mark intel is unlocked for this team.";
 }
 const MIN_REAL_HANDOVER_TURNS = 3;
+const MIN_REAL_HANDOVER_TURNS_BY_BOT: Partial<Record<BotId, number>> = {
+  escanor: 6,
+};
 
 function userTurnCount(db: DatabaseAdapter, teamId: string, botId: BotId): number {
   return db.get<{ n: number }>(
@@ -59,11 +65,11 @@ export async function handleChatSend(
   }
   if (isBoss(botId)) {
     if (bossOf(teamId, db) !== botId) {
-      bus.broadcast(teamId, bus.frame("bot_error", { botId, message: "not your vault", retryable: false }));
+      bus.sendMember(teamId, displayName, bus.frame("bot_error", { botId, message: "not your vault", retryable: false }));
       return;
     }
     if (round2Status(db) !== "active") {
-      bus.broadcast(teamId, bus.frame("bot_error", { botId, message: "round 2 not active", retryable: false }));
+      bus.sendMember(teamId, displayName, bus.frame("bot_error", { botId, message: "round 2 not active", retryable: false }));
       return;
     }
     await handleR2Chat(bus, db, teamId, botId, text, displayName);
@@ -146,7 +152,7 @@ Available sound ids: ${entry.meta.soundIds.join(", ")}. Sound is optional, at mo
           guardFlags.push("malformed-handover");
           continue;
         }
-        if (parsed.real && userTurnCount(db, teamId, botId) < MIN_REAL_HANDOVER_TURNS) {
+        if (parsed.real && userTurnCount(db, teamId, botId) < (MIN_REAL_HANDOVER_TURNS_BY_BOT[botId] ?? MIN_REAL_HANDOVER_TURNS)) {
           guardFlags.push("real-handover-before-quiz");
           continue;
         }

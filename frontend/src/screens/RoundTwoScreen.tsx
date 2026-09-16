@@ -14,6 +14,7 @@ import { AVATAR_FOCUS, CHARACTERS, CHAT_BACKGROUND } from "@/data/characterLore"
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import RewindButton from "@/chat/RewindButton";
 import ProfileModal from "@/components/ProfileModal";
+import MerchantCounter from "@/components/MerchantCounter";
 import BossCutscene from "@/portal/BossCutscene";
 import { useCinematicMotion } from "@/portal/useCinematicMotion";
 import { getCover } from "@/api/profiles";
@@ -262,6 +263,18 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
                   </button>
                 )}
               </div>
+              <div className="grid grid-cols-2 gap-3" aria-label="Round 2 player selector">
+                <button type="button" onClick={() => { setMerchantView(false); }} className="group relative min-h-[108px] overflow-hidden border-2 border-[var(--accent)] bg-black/60 text-left shadow-[0_0_18px_var(--accent-wash)]">
+                  <img src={lore?.heroImage ?? lore?.avatar} alt="" className="absolute inset-0 h-full w-full object-cover opacity-55 transition-transform duration-500 group-hover:scale-105" />
+                  <span className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent" />
+                  <span className="relative flex h-full flex-col justify-end p-3"><span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[var(--accent)]">Assigned boss</span><span className="mt-1 text-sm font-bold uppercase text-white">{lore?.name ?? boss}</span></span>
+                </button>
+                <button type="button" onClick={() => { setMerchantView(true); setChatting(true); }} className="group relative min-h-[108px] overflow-hidden border border-white/20 bg-black/60 text-left transition hover:border-[var(--accent)]">
+                  <img src={CHARACTERS.merchant?.heroImage ?? CHARACTERS.merchant?.avatar} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45 transition-transform duration-500 group-hover:scale-105" />
+                  <span className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent" />
+                  <span className="relative flex h-full flex-col justify-end p-3"><span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[var(--color-gold-bright)]">Vault utility</span><span className="mt-1 text-sm font-bold uppercase text-white">Merchant</span></span>
+                </button>
+              </div>
               {lore && (
                 <div className="flex flex-col gap-3">
                   <h2 className="font-[family-name:var(--font-display)] text-[34px] font-bold tracking-[0.04em] text-white leading-none uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
@@ -332,7 +345,7 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
       {phaseReveal && !celebration && <BossCutscene boss={boss} scene="phase" motionOff={motionOff} onDone={() => setPhaseReveal(false)} />}
 
       {jumpscare && (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-[rgba(65,0,5,0.92)]" aria-hidden="true">
+        <div className={`pointer-events-none fixed inset-0 z-50 flex items-center justify-center ${boss === "itachi" ? "r2-jumpscare-itachi" : "r2-jumpscare-aizen"}`} aria-hidden="true">
           <div className="relative h-full w-full overflow-hidden border-[10px] border-[var(--accent)]">
             <img src={lore?.avatar} alt="" className="h-full w-full scale-110 object-cover object-center contrast-150 saturate-0" />
             <div className="absolute inset-0 bg-[rgba(255,0,15,0.35)] mix-blend-screen" />
@@ -342,30 +355,18 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
       )}
 
       {merchantView ? (
-        <section data-r2-panel className="flex min-h-0 flex-1 overflow-y-auto items-center justify-center p-4 sm:p-8" aria-label="Vault merchant altar">
-          <div className="w-full max-w-[480px] border border-white/15 bg-bg-0/90 p-6 text-center sm:p-8">
-            <ShoppingBag className="mx-auto mb-3 h-8 w-8 text-[var(--color-gold-bright)]" aria-hidden="true" />
-            <p className="font-mono text-[11px] tracking-[0.2em] text-[var(--color-text-3)]">MERCHANT / VAULT ALTAR</p>
-            <h4 className="mt-2 text-[20px] font-bold text-white">{verified ? "Relic verified" : hasItem ? "The relic is ready to be appraised" : "No confirmed relic yet"}</h4>
-            <p className="mx-auto mt-2 max-w-[42ch] text-[14px] text-[var(--color-text-2)]">{verified ? "Your relic has been filed. Your team’s Elo has been updated." : hasItem ? `Present ${lore?.targetItem.name} for verification.` : "Earn a relic from your assigned boss, then return here for appraisal."}</p>
-            {hasItem && (
-              <button ref={altarBtnRef} type="button" onClick={() => void offer()} disabled={offerBusy || !locked} className="redline-cta mt-5 min-h-[48px] rounded-[6px] px-5 text-[14px] font-semibold disabled:opacity-50">
-                {offerBusy ? "Appraising…" : "Lay relic on the altar"}
-              </button>
-            )}
-            {offerError !== "" && <p role="alert" className="acc-text mt-3 text-[13px] font-semibold">{offerError}</p>}
+        <section data-r2-panel className="flex min-h-0 flex-1 overflow-y-auto items-start justify-center p-4 sm:p-8" aria-label="Vault merchant altar">
+          <div className="w-full max-w-[860px]">
+            <MerchantCounter inventory={inventory} credits={credits} say={send} displayName={displayName} allowedBotIds={[boss]} />
           </div>
         </section>
       ) : (
         <>
-
-      {state.messages.length === 0 && !state.typing && state.streaming === "" && <div className="mx-4 mt-4 flex max-w-[380px] items-start gap-3 border border-white/15 bg-bg-0/85 p-3"><Shield className="mt-0.5 h-4 w-4 shrink-0 text-redline" /><div><p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-redline">Mission objective</p><p className="mt-1 text-xs leading-relaxed text-text-2">Gain trust and extract the {lore?.targetItem.name}.</p></div></div>}
-      {/* Chat Messages Feed */}
       <div ref={feedRef} onScroll={(e) => { const el = e.currentTarget; nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 96; if (nearBottomRef.current) setShowLatest(false); }} data-r2-panel className={CHAT_FEED} role="log" aria-label={`${lore?.name} conversation`} aria-live="polite">
         {state.messages.map((message, index) => {
           const isError = message.retryable === true;
           return (
-          <ChatMessageFrame key={message.id ?? index} botId={boss} isUser={message.role === "user"} actions={isError ? (() => {
+          <ChatMessageFrame key={message.id ?? index} botId={boss} isUser={message.role === "user"} className={message.role === "user" ? "" : "r2-reply-signal"} actions={isError ? (() => {
             let lastUserText = "";
             for (let j = index - 1; j >= 0; j--) {
               if (state.messages[j]?.role === "user") { lastUserText = state.messages[j]!.text; break; }
@@ -417,7 +418,7 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
 
         {state.typing && state.streaming === "" && <div className="self-start flex gap-3"><img src={lore?.avatar} alt="" className={`h-9 w-9 shrink-0 border border-white/15 object-cover ${AVATAR_FOCUS[boss]}`} /><TypingBubble accentColor={lore?.accent} motionOff={motionOff} /></div>}
         {state.streaming !== "" && (
-          <ChatMessageFrame botId={boss}>
+          <ChatMessageFrame botId={boss} className="r2-reply-signal">
             <ChatMarkdown text={state.streaming} isStreaming />
           </ChatMessageFrame>
         )}

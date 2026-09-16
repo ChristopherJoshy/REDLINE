@@ -475,6 +475,7 @@ export default function AdminTeams(): React.JSX.Element {
 
   const [commsModalTeam, setCommsModalTeam] = useState<AdminTeamOverview | null>(null);
   const [commsBotFilter, setCommsBotFilter] = useState<string>("all");
+  const [commsMemberFilter, setCommsMemberFilter] = useState<string>("all");
   const [commsTab, setCommsTab] = useState<"messages" | "traces">("messages");
   const [commsMessages, setCommsMessages] = useState<ChatLogMessage[]>([]);
   const [commsTraces, setCommsTraces] = useState<ReasoningTrace[]>([]);
@@ -600,11 +601,13 @@ export default function AdminTeams(): React.JSX.Element {
   // Load comms transcript when modal opens
   useEffect(() => {
     if (!commsModalTeam || adminCode === "") return;
+    const team = commsModalTeam;
     let dead = false;
     async function loadComms(): Promise<void> {
       setCommsLoading(true);
       try {
-        const url = `/api/admin/transcripts?teamId=${commsModalTeam?.id}&botId=${commsBotFilter}`;
+        const params = new URLSearchParams({ teamId: team.id, botId: commsBotFilter, displayName: commsMemberFilter });
+        const url = `/api/admin/transcripts?${params.toString()}`;
         const res = await apiFetch(url, { headers: { "x-admin-code": adminCode } });
         if (res.ok && !dead) {
           const data = (await res.json()) as { messages: ChatLogMessage[]; traces: ReasoningTrace[] };
@@ -619,7 +622,7 @@ export default function AdminTeams(): React.JSX.Element {
     }
     void loadComms();
     return () => { dead = true; };
-  }, [commsModalTeam, commsBotFilter, adminCode]);
+  }, [commsModalTeam, commsBotFilter, commsMemberFilter, adminCode]);
 
   // Settings API Handlers
   const fetchKeys = async (pinOverride?: string): Promise<void> => {
@@ -3556,6 +3559,13 @@ export default function AdminTeams(): React.JSX.Element {
                   );
                 })}
               </div>
+              <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#A1A1AA]">
+                Player
+                <select value={commsMemberFilter} onChange={(event) => setCommsMemberFilter(event.target.value)} className="min-h-[32px] border border-[#3F3F46] bg-[#18181B] px-2 text-[11px] font-mono font-bold text-[#F4F4F5]">
+                  <option value="all">All players</option>
+                  {commsModalTeam.members.map((member) => <option key={member.display_name} value={member.display_name}>{member.display_name}</option>)}
+                </select>
+              </label>
             </div>
 
             {/* Main Content Area */}

@@ -212,8 +212,67 @@ body {
 
 .r2-phase-reveal { animation: r2-phase-reveal 420ms var(--ease-out) both; }
 
+.r2-phase-itachi [data-death-glow] {
+  background: radial-gradient(ellipse at center, rgba(56, 80, 150, 0.24), transparent 65%);
+}
+
+.r2-phase-aizen [data-death-glow] {
+  background: radial-gradient(ellipse at center, rgba(195, 210, 225, 0.2), transparent 62%);
+}
+
+.r2-phase-itachi [data-death-band] {
+  box-shadow: inset 0 1px 0 rgba(87, 106, 190, 0.45), inset 0 -1px 0 rgba(30, 38, 80, 0.8);
+}
+
+.r2-phase-aizen [data-death-band] {
+  box-shadow: inset 0 1px 0 rgba(225, 235, 245, 0.35), inset 0 -1px 0 rgba(120, 135, 155, 0.55);
+}
+
+.r2-jumpscare-itachi {
+  background: rgba(20, 15, 55, 0.94);
+}
+
+.r2-jumpscare-aizen {
+  background: rgba(180, 190, 205, 0.18);
+  backdrop-filter: blur(2px);
+}
+
+.r2-jumpscare-itachi > div {
+  box-shadow: inset 0 0 0 10px rgba(85, 95, 210, 0.7), inset 0 0 80px rgba(20, 20, 90, 0.9);
+}
+
+.r2-jumpscare-aizen > div {
+  box-shadow: inset 0 0 0 10px rgba(225, 235, 245, 0.72), inset 0 0 90px rgba(160, 180, 205, 0.8);
+}
+
+.r2-reply-signal > div:nth-child(2) > div {
+  isolation: isolate;
+}
+
+.r2-reply-signal > div:nth-child(2) > div::after {
+  content: "01 10 // SIGNAL";
+  position: absolute;
+  top: 0.4rem;
+  right: 0.65rem;
+  pointer-events: none;
+  font-family: var(--font-code);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  color: rgba(255, 30, 45, 0.42);
+  opacity: 0;
+  transform: translateY(-3px);
+  animation: r2-reply-signal 900ms var(--ease-out) 120ms both;
+}
+
+@keyframes r2-reply-signal {
+  0% { opacity: 0; transform: translateY(-3px); }
+  35% { opacity: 0.85; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(1px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .r2-phase-reveal { animation: none; }
+  .r2-phase-reveal,
+  .r2-reply-signal > div:nth-child(2) > div::after { animation: none; }
 }
 
 .mark-card {

@@ -5,14 +5,15 @@ import { AVATAR_FOCUS, CHARACTERS } from "@/data/characterLore";
 
 export const CHAT_FEED = "redline-scroll flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 max-w-[860px] w-full mx-auto";
 
-export default function ChatMessageFrame({ botId, isUser = false, children, actions }: {
+export default function ChatMessageFrame({ botId, isUser = false, children, actions, className = "" }: {
   botId: BotId;
   isUser?: boolean;
   children: ReactNode;
   actions?: ReactNode;
+  className?: string;
 }): React.JSX.Element {
-  return (
-    <div className={`chat-msg group relative flex shrink-0 gap-3 max-w-[92%] sm:max-w-[85%] ${isUser ? "self-end flex-row-reverse" : "self-start"}`}>
+    return (
+    <div className={`chat-msg group relative flex shrink-0 gap-3 max-w-[92%] sm:max-w-[85%] ${isUser ? "self-end flex-row-reverse" : "self-start"} ${className}`}>
       <span className="block w-9 h-9 overflow-hidden shrink-0 border border-white/15 bg-black/60" aria-hidden="true">
         {isUser ? <span className="flex h-full w-full items-center justify-center bg-redline/20 text-redline border border-redline/40"><UserCheck className="w-4 h-4" /></span> :
           <img src={CHARACTERS[botId]?.avatar} alt="" className={`w-full h-full object-cover ${AVATAR_FOCUS[botId]}`} />}

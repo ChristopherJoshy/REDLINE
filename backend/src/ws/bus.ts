@@ -21,6 +21,7 @@ export class Bus {
   private members = new Map<WebSocket, { teamId: string; displayName: string; status: "online" | "away" }>();
   private ring: RingEntry[] = [];
   private listeners = new Map<string, Set<(event: ServerEvent) => void>>();
+  private memberListeners = new Map<string, Set<(event: ServerEvent) => void>>();
 
   subscribe(teamId: string, fn: (event: ServerEvent) => void): () => void {
     const set = this.listeners.get(teamId) ?? new Set<(event: ServerEvent) => void>();
@@ -133,6 +134,30 @@ export class Bus {
       socket.send(JSON.stringify(event));
     }
   }
+
+  /** Deliver a private frame only to one player's live sockets and fallback stream. */
+  sendMember(teamId: string, displayName: string, event: ServerEvent): void {
+    for (const [socket, member] of this.members.entries()) {
+      if (member.teamId === teamId && member.displayName === displayName) {
+        this.send(socket, event);
+      }
+    }
+    for (const fn of this.memberListeners.get(`${teamId}\n${displayName}`) ?? []) {
+      fn(event);
+    }
+  }
+
+  subscribeMember(teamId: string, displayName: string, fn: (event: ServerEvent) => void): () => void {
+    const key = `${teamId}\n${displayName}`;
+    const set = this.memberListeners.get(key) ?? new Set<(event: ServerEvent) => void>();
+    set.add(fn);
+    this.memberListeners.set(key, set);
+    return () => {
+      set.delete(fn);
+      if (set.size === 0) this.memberListeners.delete(key);
+    };
+  }
+
 
   broadcast(teamId: string, event: ServerEvent): void {
     this.pushRing(teamId, event);

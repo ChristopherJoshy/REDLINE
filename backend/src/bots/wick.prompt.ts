@@ -1,6 +1,6 @@
 export interface BotMeta {
   botId: string;
-  round: 'r1';
+  round: "r1" | "r2";
   itemKey: string;
   decoyKey: string;
   soundIds: string[];

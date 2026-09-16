@@ -60,7 +60,7 @@ test("Round 2 correct words and phase alone cannot create an unearned prize", as
     db.run("INSERT INTO teams (id, name, join_code_hash, hint) VALUES ('team', 'Test', 'hash', 'TEST')");
     db.run("INSERT INTO r2_assignments (team_id, boss) VALUES ('team', 'itachi')");
     startRound(db, 2, 3600, Date.now() - 31_000);
-    for (let i = 0; i < 6; i++) db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final) VALUES ('team', 'itachi', 'user', 'hello')");
+    for (let i = 0; i < 7; i++) db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES ('team', 'itachi', 'user', 'hello', 'Tester')");
     const text = bossKeys("itachi").itemKey;
     assert.equal((await r2Submit(db, bus, "team", "itachi", text, "Tester")).result, "troll");
     awardItem(db, "team", "itachi", text, true);

@@ -138,8 +138,10 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
           const started = startRound(db, round, duration, now);
           if (round === 2) {
             db.run("INSERT INTO elo_log (team_id, delta, before_rating, after_rating, reason) SELECT id, 600 - elo, elo, 600, 'round2_start_reset' FROM teams");
-            db.run("UPDATE teams SET elo = 600, round2_eligible = 0");
-            
+            db.run("UPDATE teams SET elo = 600, round2_eligible = 0, clue_credits = 0");
+            db.run("DELETE FROM merchant_clues");
+            db.run("DELETE FROM r2_memories");
+            db.run("DELETE FROM r2_assessments");
             // Set eligible teams
             if (Array.isArray(body.selectedTeamIds) && body.selectedTeamIds.length > 0) {
               const placeholders = body.selectedTeamIds.map(() => "?").join(",");

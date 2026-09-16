@@ -56,3 +56,18 @@ test("kickMember closes only that member's sockets and reports the count", () =>
   assert.deepEqual(rey.closed, []);
   assert.deepEqual(bus.liveMembers(), [{ teamId: "t1", displayName: "Rey" }]);
 });
+
+test("sendMember keeps private frames out of another teammate's socket", () => {
+  const bus = new Bus();
+  const kai = fakeSocket();
+  const rey = fakeSocket();
+  bus.add(kai, "t1");
+  bus.add(rey, "t1");
+  bus.setMember(kai, "Kai", "online", false);
+  bus.setMember(rey, "Rey", "online", false);
+  kai.sent.length = 0;
+  rey.sent.length = 0;
+  bus.sendMember("t1", "Kai", bus.frame("bot_token", { botId: "itachi", delta: "private" }));
+  assert.equal(kai.sent.length, 1);
+  assert.equal(rey.sent.length, 0);
+});

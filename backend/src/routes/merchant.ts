@@ -159,9 +159,12 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
+    const r2Boss = round2Status(db) === "active" ? bossOf(session.teamId, db) : undefined;
     const clues = db.all<{ botId: BotId; tier: number }>(
-      "SELECT bot_id AS botId, tier FROM merchant_clues WHERE team_id = ?",
-      session.teamId,
+      r2Boss === undefined
+        ? "SELECT bot_id AS botId, tier FROM merchant_clues WHERE team_id = ? AND bot_id NOT IN ('itachi', 'aizen')"
+        : "SELECT bot_id AS botId, tier FROM merchant_clues WHERE team_id = ? AND bot_id = ?",
+      ...(r2Boss === undefined ? [session.teamId] : [session.teamId, r2Boss]),
     );
     return { credits: creditBalance(session.teamId), clues };
   });
@@ -202,18 +205,20 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
     return { ok: true, already: false, claimed: true };
   });
 
-  // Buy one sealed clue tier for an unsolved Round-1 mark. Idempotent: owned
-  // tiers return free. Unpaid content never leaves this route unpurchased.
+  // Buy one sealed clue tier for an unsolved mark or the assigned Round-2 boss. Idempotent: owned
+  // tiers return free. Unpaid content never leaves this route.
   app.post("/api/merchant/clue", async (req, reply) => {
     const session = sessionOf(req, db);
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
-    if (!round1Open(db)) return reply.code(403).send({ error: "round sealed" });
+    const r2Boss = round2Status(db) === "active" ? bossOf(session.teamId, db) : undefined;
+    if (r2Boss === undefined && !round1Open(db)) return reply.code(403).send({ error: "round sealed" });
     const body = (req.body ?? {}) as { botId?: unknown; tier?: unknown };
     const botId = typeof body.botId === "string" ? (body.botId as BotId) : undefined;
     const tier = body.tier === 1 || body.tier === 2 ? body.tier : undefined;
-    if (botId === undefined || tier === undefined || !ROUND1_BOTS.includes(botId)) {
+    const allowed = botId !== undefined && tier !== undefined && (r2Boss === undefined ? ROUND1_BOTS.includes(botId) : botId === r2Boss);
+    if (!allowed) {
       return reply.code(400).send({ error: "bad clue" });
     }
     const filed = db.get<{ status: string }>(
@@ -239,18 +244,18 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
     }
     const cost = CLUE_COST[tier];
     const purchased = db.transaction(() => {
-    const paid = db.run(
-      "UPDATE teams SET clue_credits = clue_credits - ? WHERE id = ? AND clue_credits >= ?",
-      cost,
-      session.teamId,
-      cost,
-    );
-    if (paid.changes === 0) {
-      return reply.code(402).send({ error: "not enough credits â€” sell a genuine article first" });
-    }
-    db.run("INSERT INTO merchant_clues (team_id, bot_id, tier) VALUES (?, ?, ?)", session.teamId, botId, tier);
-    db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final) VALUES (?, ?, ?, ?)", session.teamId, "merchant", "assistant", `Sealed ${CLUE_LABEL[tier]} for ${botId}: ${clue}`);
-    return true;
+      const paid = db.run(
+        "UPDATE teams SET clue_credits = clue_credits - ? WHERE id = ? AND clue_credits >= ?",
+        cost,
+        session.teamId,
+        cost,
+      );
+      if (paid.changes === 0) {
+        return false;
+      }
+      db.run("INSERT INTO merchant_clues (team_id, bot_id, tier) VALUES (?, ?, ?)", session.teamId, botId, tier);
+      db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final) VALUES (?, ?, ?, ?)", session.teamId, "merchant", "assistant", `Sealed ${CLUE_LABEL[tier]} for ${botId}: ${clue}`);
+      return true;
     });
     if (!purchased) return reply.code(402).send({ error: "not enough credits — sell a genuine article first" });
     return { botId, tier, clue, credits: creditBalance(session.teamId), owned: false as const };

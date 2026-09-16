@@ -115,12 +115,13 @@ app.get("/api/chat/history", async (req, reply) => {
   if (session === undefined) {
     return reply.code(401).send({ error: "no session" });
   }
-  const logs = db.all<{ id: number; bot_id: BotId; role: "user" | "assistant"; text_final: string; created_at: string }>(
-    "SELECT id, bot_id, role, text_final, created_at FROM chat_logs WHERE team_id = ? ORDER BY id ASC",
+  const logs = db.all<{ id: number; bot_id: BotId; role: "user" | "assistant"; text_final: string; display_name: string; created_at: string }>(
+    "SELECT id, bot_id, role, text_final, display_name, created_at FROM chat_logs WHERE team_id = ? ORDER BY id ASC",
     session.teamId,
   );
   const history: Partial<Record<BotId, Array<{ id?: number; role: "user" | "bot"; text: string; createdAt?: string }>>> = {};
   for (const row of logs) {
+    if ((row.bot_id === "itachi" || row.bot_id === "aizen") && row.display_name !== session.displayName) continue;
     if (!history[row.bot_id]) {
       history[row.bot_id] = [];
     }
@@ -147,11 +148,15 @@ app.get("/api/stream", async (req, reply) => {
     Connection: "keep-alive",
   });
   raw.write(`data: ${JSON.stringify(bus.frame("hello_ack", {}))}\n\n`);
-  const off = bus.subscribe(session.teamId, (event) => {
+  const offTeam = bus.subscribe(session.teamId, (event) => {
+    raw.write(`data: ${JSON.stringify(event)}\n\n`);
+  });
+  const offMember = bus.subscribeMember(session.teamId, session.displayName, (event) => {
     raw.write(`data: ${JSON.stringify(event)}\n\n`);
   });
   raw.on("close", () => {
-    off();
+    offTeam();
+    offMember();
   });
 });
 
@@ -240,12 +245,13 @@ async function boot(): Promise<void> {
         if (teamRow !== undefined) {
           bus.send(socket, bus.frame("elo_update", { teamId: session.teamId, elo: teamRow.elo, delta: 0, reason: "sync" }));
         }
-        const logs = db.all<{ id: number; bot_id: BotId; role: "user" | "assistant"; text_final: string; created_at: string }>(
-          "SELECT id, bot_id, role, text_final, created_at FROM chat_logs WHERE team_id = ? ORDER BY id ASC",
+        const logs = db.all<{ id: number; bot_id: BotId; role: "user" | "assistant"; text_final: string; display_name: string; created_at: string }>(
+          "SELECT id, bot_id, role, text_final, display_name, created_at FROM chat_logs WHERE team_id = ? ORDER BY id ASC",
           session.teamId,
         );
         const history: Partial<Record<BotId, Array<{ id?: number; role: "user" | "bot"; text: string; createdAt?: string }>>> = {};
         for (const row of logs) {
+          if ((row.bot_id === "itachi" || row.bot_id === "aizen") && row.display_name !== session.displayName) continue;
           if (!history[row.bot_id]) {
             history[row.bot_id] = [];
           }

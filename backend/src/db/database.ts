@@ -102,6 +102,28 @@ export function openDatabase(path: string, schemaPath: string): DatabaseAdapter 
   try { driver.exec("ALTER TABLE team_inventory ADD COLUMN claimed_at TEXT;"); } catch { /* already exists */ }
   // Migrate: add display_name to chat_logs if missing
   try { driver.exec("ALTER TABLE chat_logs ADD COLUMN display_name TEXT NOT NULL DEFAULT '';"); } catch { /* already exists */ }
+  // Round-2 private/team memory and per-player assessment history.
+  driver.exec(`CREATE TABLE IF NOT EXISTS r2_memories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    team_id TEXT NOT NULL REFERENCES teams(id),
+    boss TEXT NOT NULL,
+    display_name TEXT NOT NULL DEFAULT '',
+    scope TEXT NOT NULL CHECK (scope IN ('private', 'team')),
+    memory TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  )`);
+  driver.exec(`CREATE TABLE IF NOT EXISTS r2_assessments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    team_id TEXT NOT NULL REFERENCES teams(id),
+    boss TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    turn_no INTEGER NOT NULL,
+    delta INTEGER NOT NULL,
+    fingerprint TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  )`);
+  try { driver.exec("ALTER TABLE sound_events ADD COLUMN display_name TEXT NOT NULL DEFAULT '';"); } catch { /* already exists */ }
   // Migrate: member session nonce + presence for force-logout and logout marking
   try { driver.exec("ALTER TABLE team_members ADD COLUMN session_nonce TEXT NOT NULL DEFAULT '';"); } catch { /* already exists */ }
   try { driver.exec("ALTER TABLE team_members ADD COLUMN presence TEXT NOT NULL DEFAULT 'offline';"); } catch { /* already exists */ }

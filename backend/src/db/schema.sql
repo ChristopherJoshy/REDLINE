@@ -176,3 +176,34 @@ CREATE TABLE IF NOT EXISTS security_logs (
   detail TEXT,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
+
+CREATE TABLE IF NOT EXISTS r2_memories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  team_id TEXT NOT NULL REFERENCES teams(id),
+  boss TEXT NOT NULL,
+  display_name TEXT NOT NULL DEFAULT '',
+  scope TEXT NOT NULL CHECK (scope IN ('private', 'team')),
+  memory TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_r2_memories_private
+  ON r2_memories(team_id, boss, scope, display_name, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_r2_memories_team
+  ON r2_memories(team_id, boss, scope, id DESC);
+
+CREATE TABLE IF NOT EXISTS r2_assessments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  team_id TEXT NOT NULL REFERENCES teams(id),
+  boss TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  turn_no INTEGER NOT NULL,
+  delta INTEGER NOT NULL,
+  fingerprint TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_r2_assessments_player
+  ON r2_assessments(team_id, boss, display_name, id DESC);

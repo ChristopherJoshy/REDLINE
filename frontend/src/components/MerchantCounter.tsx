@@ -23,12 +23,15 @@ export default function MerchantCounter({
   credits,
   say,
   displayName,
+  allowedBotIds,
 }: {
   inventory: InventoryDelta[];
   credits: number;
   say: (botId: BotId, text: string) => void;
   displayName: string;
+  allowedBotIds?: BotId[];
 }): React.JSX.Element {
+  const marks = allowedBotIds ?? R1_MARKS;
   const [action, setAction] = useState<Action>("start");
   const [selectedBot, setSelectedBot] = useState<BotId | null>(null);
   const [owned, setOwned] = useState<Record<string, Record<number, string>>>({});
@@ -60,8 +63,8 @@ export default function MerchantCounter({
   }, []);
 
   const held = useMemo(
-    () => inventory.filter((item) => item.status === "obtained" && item.obtainedBy === displayName),
-    [displayName, inventory],
+    () => inventory.filter((item) => item.status === "obtained" && item.obtainedBy === displayName && marks.includes(item.botId)),
+    [displayName, inventory, marks],
   );
   const selectedClues = selectedBot === null ? undefined : owned[selectedBot];
 
@@ -189,7 +192,7 @@ export default function MerchantCounter({
             </div>
             {selectedBot === null ? (
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {R1_MARKS.map((id) => <button key={id} type="button" onClick={() => setSelectedBot(id)} className="min-h-[48px] border border-white/10 bg-white/[0.03] px-2 text-left text-[12px] font-semibold text-white/80 transition hover:border-[#ff1e2d]/60 hover:bg-[#ff1e2d]/10">{CHARACTERS[id]?.name ?? id}</button>)}
+                {marks.map((id) => <button key={id} type="button" onClick={() => setSelectedBot(id)} className="min-h-[48px] border border-white/10 bg-white/[0.03] px-2 text-left text-[12px] font-semibold text-white/80 transition hover:border-[#ff1e2d]/60 hover:bg-[#ff1e2d]/10">{CHARACTERS[id]?.name ?? id}</button>)}
               </div>
             ) : (
               <div className="border border-white/10 bg-white/[0.03] p-3">

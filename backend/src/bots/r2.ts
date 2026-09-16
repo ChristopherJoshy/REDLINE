@@ -57,19 +57,27 @@ export const R2_TOOLS: ToolDef[] = [
   },
 ];
 
-export function userTurns(db: DatabaseAdapter, teamId: string, boss: BossId): number {
+export function userTurns(db: DatabaseAdapter, teamId: string, boss: BossId, displayName?: string): number {
+  if (displayName !== undefined) {
+    return db.get<{ n: number }>(
+      "SELECT COUNT(*) AS n FROM chat_logs WHERE team_id = ? AND bot_id = ? AND display_name = ? AND role = 'user'",
+      teamId,
+      boss,
+      displayName,
+    )?.n ?? 0;
+  }
   return db.get<{ n: number }>("SELECT COUNT(*) AS n FROM chat_logs WHERE team_id = ? AND bot_id = ? AND role = 'user'", teamId, boss)?.n ?? 0;
 }
 
-export function r2Phase(db: DatabaseAdapter, teamId: string, boss: BossId): R2Phase {
+export function r2Phase(db: DatabaseAdapter, teamId: string, boss: BossId, displayName?: string): R2Phase {
   const override = db.get<{ value: string }>("SELECT value FROM game_state WHERE key = ?", `r2_phase_override:${teamId}:${boss}`)?.value;
   if (override === "p1" || override === "p2") return override;
-  return userTurns(db, teamId, boss) >= PROMPTS[boss].releaseAt ? "p2" : "p1";
+  return userTurns(db, teamId, boss, displayName) >= PROMPTS[boss].releaseAt ? "p2" : "p1";
 }
 
-export function r2Prompt(db: DatabaseAdapter, teamId: string, boss: BossId): { prompt: string; phase: R2Phase; reveal: boolean } {
-  const turns = userTurns(db, teamId, boss);
-  const phase = r2Phase(db, teamId, boss);
+export function r2Prompt(db: DatabaseAdapter, teamId: string, boss: BossId, displayName?: string): { prompt: string; phase: R2Phase; reveal: boolean } {
+  const turns = userTurns(db, teamId, boss, displayName);
+  const phase = r2Phase(db, teamId, boss, displayName);
   return { prompt: directCharacter(boss, PROMPTS[boss][phase]), phase, reveal: turns === PROMPTS[boss].releaseAt };
 }
 
@@ -82,7 +90,16 @@ export function bossOf(teamId: string, db: DatabaseAdapter): BossId | undefined 
   return row?.boss === "itachi" || row?.boss === "aizen" ? row.boss : undefined;
 }
 
-export function escalationUsed(db: DatabaseAdapter, teamId: string, boss: BossId, kind: string): number {
+export function escalationUsed(db: DatabaseAdapter, teamId: string, boss: BossId, kind: string, displayName?: string): number {
+  if (displayName !== undefined) {
+    return db.get<{ n: number }>(
+      "SELECT COUNT(*) AS n FROM sound_events WHERE team_id = ? AND bot_id = ? AND sound_id = ? AND display_name = ?",
+      teamId,
+      boss,
+      `escalation:${kind}`,
+      displayName,
+    )?.n ?? 0;
+  }
   return db.get<{ n: number }>(
     "SELECT COUNT(*) AS n FROM sound_events WHERE team_id = ? AND bot_id = ? AND sound_id = ?",
     teamId,
@@ -91,8 +108,8 @@ export function escalationUsed(db: DatabaseAdapter, teamId: string, boss: BossId
   )?.n ?? 0;
 }
 
-export function markEscalation(db: DatabaseAdapter, teamId: string, boss: BossId, kind: string): void {
-  db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", teamId, boss, `escalation:${kind}`);
+export function markEscalation(db: DatabaseAdapter, teamId: string, boss: BossId, kind: string, displayName = ""): void {
+  db.run("INSERT INTO sound_events (team_id, bot_id, sound_id, display_name) VALUES (?, ?, ?, ?)", teamId, boss, `escalation:${kind}`, displayName);
 }
 
 export function isBoss(botId: BotId): botId is BossId {

@@ -35,8 +35,7 @@ export async function r2Submit(
   }
   const forms = variants(text);
   const keys = bossKeys(boss);
-  const phase = r2Phase(db, teamId, boss);
-
+  const phase = r2Phase(db, teamId, boss, displayName);
   if (matchesAny(forms, foldAnswer(keys.itemKey), env.joinCodePepper)) {
     if (phase !== "p2") {
       return { result: "dissolve", botId: boss, line: DISSOLVE[boss] };
@@ -57,15 +56,15 @@ export async function r2Submit(
       displayName,
     );
     const elo = applyElo(db, teamId, boss, displayName, `verified:${boss}`);
-    const turns = userTurns(db, teamId, boss);
-    const resets = escalationUsed(db, teamId, boss, "reset");
-    const score = Math.max(0, 100 - 2 * turns - 15 * resets);
+    const turns = userTurns(db, teamId, boss, displayName);
+    const resets = escalationUsed(db, teamId, boss, "reset", displayName);
+    const score = Math.max(0, 100 - 3 * turns - 20 * resets);
     db.run(
       "INSERT INTO r2_scores (team_id, boss, phase, score, detail) VALUES (?, ?, 'p2', ?, ?) ON CONFLICT(team_id, boss, phase) DO UPDATE SET score = excluded.score, detail = excluded.detail",
       teamId,
       boss,
       score,
-      JSON.stringify({ turns, resets }),
+      JSON.stringify({ turns, resets, player: displayName }),
     );
     const bounty = boss === "itachi" ? ITACHI_META.bounty : AIZEN_META.bounty;
     db.run("UPDATE teams SET clue_credits = clue_credits + ? WHERE id = ?", bounty, teamId);
@@ -110,7 +109,7 @@ export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, 
     if (boss === undefined) {
       return { boss: null, phase: null };
     }
-    return { boss, phase: r2Phase(db, session.teamId, boss) };
+    return { boss, phase: r2Phase(db, session.teamId, boss, session.displayName) };
   });
 
   // Boss opener on arena entry. Once only; never consumes a player turn.
@@ -129,18 +128,19 @@ export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, 
     if (round2Status(db) !== "active") return reply.code(403).send({ error: "round 2 not active" });
     const boss = body.boss as BossId;
     const spoken = db.get<{ n: number }>(
-      "SELECT COUNT(*) AS n FROM chat_logs WHERE team_id = ? AND bot_id = ? AND role = 'assistant'",
+      "SELECT COUNT(*) AS n FROM chat_logs WHERE team_id = ? AND bot_id = ? AND role = 'assistant' AND (display_name = ? OR display_name = '')",
       session.teamId,
       boss,
+      session.displayName,
     )?.n ?? 0;
     if (spoken > 0) {
       return { already: true as const };
     }
-    const openerKey = `${session.teamId}:${boss}`;
+    const openerKey = `${session.teamId}:${boss}:${session.displayName}`;
     if (openerInFlight.has(openerKey)) return { already: true as const };
     openerInFlight.add(openerKey);
     const prompt = boss === "itachi" ? ITACHI_P1_PROMPT : AIZEN_P1_PROMPT;
-    bus.broadcast(session.teamId, bus.frame("bot_typing", { teamId: session.teamId, botId: boss, typing: true }));
+    bus.sendMember(session.teamId, session.displayName, bus.frame("bot_typing", { teamId: session.teamId, botId: boss, typing: true }));
     const messages: ChatMessage[] = [
       { role: "system", content: directCharacter(boss, prompt) },
       { role: "user", content: "The challenger has arrived. Address them directly with one or two original sentences in your voice. Do not narrate their actions, reveal private stages, start a quiz immediately, or claim an item transfer." },
@@ -152,22 +152,22 @@ export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, 
       for await (const item of visibleDialogue(streamPrimaryR2(messages, openerTools, db, session.teamId, boss))) {
         if (item.kind === "delta") {
           fullText += item.text;
-          bus.broadcast(session.teamId, bus.frame("bot_token", { botId: boss, delta: item.text }));
+          bus.sendMember(session.teamId, session.displayName, bus.frame("bot_token", { botId: boss, delta: item.text }));
         } else if (item.kind === "tool" && item.call.name === "play_sound") {
           const id = parseSoundId(item.call.args, bossSoundIds(boss));
           if (!playedSound && id !== undefined && round2Status(db) === "active") {
             playedSound = true;
-            db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", session.teamId, boss, id);
-            bus.broadcast(session.teamId, bus.frame("sound_play", { botId: boss, soundId: id, src: `/sounds/${id}.mp3` }));
+            db.run("INSERT INTO sound_events (team_id, bot_id, sound_id, display_name) VALUES (?, ?, ?, ?)", session.teamId, boss, id, session.displayName);
+            bus.sendMember(session.teamId, session.displayName, bus.frame("sound_play", { botId: boss, soundId: id, src: `/sounds/${id}.mp3` }));
           }
         }
       }
-      db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final) VALUES (?, ?, ?, ?)", session.teamId, boss, "assistant", fullText);
-      bus.broadcast(session.teamId, bus.frame("bot_done", { botId: boss, fullText, typing: false }));
+      db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES (?, ?, ?, ?, ?)", session.teamId, boss, "assistant", fullText, session.displayName);
+      bus.sendMember(session.teamId, session.displayName, bus.frame("bot_done", { botId: boss, fullText, typing: false }));
       return { ok: true as const };
     } catch {
-      bus.broadcast(session.teamId, bus.frame("bot_error", { botId: boss, message: "inference failed, retry", retryable: true }));
-      bus.broadcast(session.teamId, bus.frame("bot_typing", { teamId: session.teamId, botId: boss, typing: false }));
+      bus.sendMember(session.teamId, session.displayName, bus.frame("bot_error", { botId: boss, message: "inference failed, retry", retryable: true }));
+      bus.sendMember(session.teamId, session.displayName, bus.frame("bot_typing", { teamId: session.teamId, botId: boss, typing: false }));
       return reply.code(502).send({ error: "inference failed" });
     } finally {
       openerInFlight.delete(openerKey);

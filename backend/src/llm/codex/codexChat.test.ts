@@ -122,14 +122,14 @@ async function collect(gen: AsyncGenerator<StreamYield>): Promise<StreamYield[]>
   return out;
 }
 
-test("R1 uses gpt-5.6-luna + medium; deltas/tools/done map to StreamYield", async () => {
+test("R1 uses gpt-5.6-luna + low; deltas/tools/done map to StreamYield", async () => {
   seedUsageCacheForTests({}, { connected: true }, [{ id: CODEX_MODEL }]);
   const { server, seen, writes } = makeScriptedServer({ deltaText: "Hello ", tool: { name: "handover_item", args: { authenticity: "real" } } });
   try {
     const out = await collect(streamCodexChat({ phase: "r1", messages: msgs(), tools: TOOLS, server, teamId: "t", botId: "b" }));
     assert.equal(seen.turnStartParams.length, 1);
     assert.equal(seen.turnStartParams[0]?.["model"], CODEX_MODEL);
-    assert.equal(seen.turnStartParams[0]?.["effort"], "medium");
+    assert.equal(seen.turnStartParams[0]?.["effort"], "low");
     assert.equal(seen.threadStartParams[0]?.["model"], CODEX_MODEL);
     const kinds = out.map((o) => o.kind);
     assert.deepEqual(kinds, ["delta", "tool", "done"]);
@@ -164,12 +164,12 @@ test("preserves repeated Codex chunks when item ids are absent", async () => {
   }
 });
 
-test("R2 uses gpt-5.6-luna + medium", async () => {
+test("R2 uses gpt-5.6-luna + high", async () => {
   seedUsageCacheForTests({}, { connected: true }, [{ id: CODEX_MODEL }]);
   const { server, seen } = makeScriptedServer({ deltaText: "Supreme. " });
   try {
     const out = await collect(streamCodexChat({ phase: "r2", messages: msgs(), tools: TOOLS, server }));
-    assert.equal(seen.turnStartParams[0]?.["effort"], "medium");
+    assert.equal(seen.turnStartParams[0]?.["effort"], "high");
     assert.equal(seen.turnStartParams[0]?.["model"], CODEX_MODEL);
     assert.ok(out.some((o) => o.kind === "delta"));
     assert.ok(out.some((o) => o.kind === "done"));

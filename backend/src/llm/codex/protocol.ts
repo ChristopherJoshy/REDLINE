@@ -5,7 +5,7 @@
 
 export const CODEX_MODEL = "gpt-5.6-luna";
 
-export type CodexEffort = "low" | "medium";
+export type CodexEffort = "low" | "medium" | "high";
 
 export type RpcId = number | string;
 

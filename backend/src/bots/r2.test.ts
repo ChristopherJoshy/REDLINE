@@ -8,7 +8,7 @@ test("Round 2 bosses keep Phase 1 distinct until their configured release turn",
   const db = openDatabase(":memory:", join(__dirname, "../db/schema.sql"));
   try {
     db.run("INSERT INTO teams (id, name, join_code_hash, hint) VALUES ('team', 'Team', 'hash', 'TEST')");
-    for (let turn = 0; turn < 4; turn += 1) {
+    for (let turn = 0; turn < 6; turn += 1) {
       db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final) VALUES ('team', 'aizen', 'user', ?)", `turn ${turn}`);
     }
     assert.equal(r2Phase(db, "team", "aizen"), "p1");
@@ -16,13 +16,28 @@ test("Round 2 bosses keep Phase 1 distinct until their configured release turn",
     assert.equal(r2Phase(db, "team", "aizen"), "p2");
     assert.equal(r2Prompt(db, "team", "aizen").reveal, true);
 
-    for (let turn = 0; turn < 5; turn += 1) {
+    for (let turn = 0; turn < 6; turn += 1) {
       db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final) VALUES ('team', 'itachi', 'user', ?)", `turn ${turn}`);
     }
     assert.equal(r2Phase(db, "team", "itachi"), "p1");
     db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final) VALUES ('team', 'itachi', 'user', 'release')");
     assert.equal(r2Phase(db, "team", "itachi"), "p2");
     assert.equal(r2Prompt(db, "team", "itachi").reveal, true);
+  } finally {
+    db.close();
+  }
+});
+
+test("Round 2 phase progress is private to each display name", () => {
+  const db = openDatabase(":memory:", join(__dirname, "../db/schema.sql"));
+  try {
+    db.run("INSERT INTO teams (id, name, join_code_hash, hint) VALUES ('team', 'Team', 'hash', 'TEST')");
+    for (let turn = 0; turn < 7; turn += 1) {
+      db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES ('team', 'aizen', 'user', ?, 'Kai')", `Kai turn ${turn}`);
+    }
+    db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES ('team', 'aizen', 'user', 'Rey turn', 'Rey')");
+    assert.equal(r2Phase(db, "team", "aizen", "Kai"), "p2");
+    assert.equal(r2Phase(db, "team", "aizen", "Rey"), "p1");
   } finally {
     db.close();
   }

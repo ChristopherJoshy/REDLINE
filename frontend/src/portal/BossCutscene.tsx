@@ -23,8 +23,10 @@ export default function BossCutscene({ boss, scene, onDone, motionOff = false }:
   const reduced = preference || motionOff;
   const lore = CHARACTERS[boss];
   const itachi = boss === "itachi";
-  const title = scene === "arrival" ? lore?.name : scene === "victory" ? "The vault yields" : itachi ? "The loop is broken" : "Perfect hypnosis fractures";
-  const caption = scene === "arrival" ? lore?.tagline : scene === "victory" ? `${lore?.targetItem.name} · verified and filed` : "The veil has lifted. Your conversation continues.";
+  const phaseTitle = itachi ? "The loop is broken" : "Perfect hypnosis fractures";
+  const phaseCaption = itachi ? "The crow was never the prize. The truth behind the mask is." : "The glass was never the truth. Desire has finally made a crack.";
+  const title = scene === "arrival" ? lore?.name : scene === "victory" ? "The vault yields" : phaseTitle;
+  const caption = scene === "arrival" ? lore?.tagline : scene === "victory" ? `${lore?.targetItem.name} · verified and filed` : phaseCaption;
   function finish(): void {
     if (finished.current) return;
     finished.current = true;
@@ -80,9 +82,9 @@ export default function BossCutscene({ boss, scene, onDone, motionOff = false }:
 
   if (scene === "phase") {
     return (
-      <section ref={root} role="dialog" aria-modal="true" aria-label="Illusion shattered" className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black">
+      <section ref={root} role="dialog" aria-modal="true" aria-label="Illusion shattered" className={`fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black ${itachi ? "r2-phase-itachi" : "r2-phase-aizen"}`}>
         <div data-death-veil className="absolute inset-0 bg-black/90" aria-hidden="true" />
-        <div data-death-glow className="absolute left-1/2 top-1/2 h-[60vmin] w-[110vmin] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,rgba(255,30,45,0.16),transparent_65%)]" aria-hidden="true" />
+        <div data-death-glow className="absolute left-1/2 top-1/2 h-[60vmin] w-[110vmin] -translate-x-1/2 -translate-y-1/2" aria-hidden="true" />
         <div data-death-band className="relative w-full border-y border-redline/40 bg-black/85 px-5 py-12 text-center sm:py-16" role="status">
           <p data-death-eyebrow className="font-mono text-[11px] uppercase tracking-[0.4em] text-text-3">Round 02 · Phase II</p>
           <h2
@@ -90,10 +92,10 @@ export default function BossCutscene({ boss, scene, onDone, motionOff = false }:
             className="mt-4 font-[family-name:var(--font-vault)] text-[clamp(30px,6vw,88px)] font-normal uppercase leading-tight tracking-[0.22em] text-redline"
             style={{ textShadow: "0 0 28px rgba(255, 30, 45, 0.55), 0 2px 14px rgba(0, 0, 0, 0.9)" }}
           >
-            Illusion shattered
+            {phaseTitle}
           </h2>
           <div data-death-rule className="mx-auto mt-6 h-px w-44 bg-gradient-to-r from-transparent via-redline to-transparent" aria-hidden="true" />
-          <p data-death-caption className="mt-5 text-xs tracking-[0.08em] text-text-3 sm:text-sm">{itachi ? "The loop loosens its grip." : "The glass was never the truth."}</p>
+          <p data-death-caption className="mt-5 text-xs tracking-[0.08em] text-text-3 sm:text-sm">{phaseCaption}</p>
         </div>
         <button data-death-continue ref={skip} type="button" onClick={finish} className="absolute bottom-[10vh] min-h-[44px] px-5 font-mono text-xs uppercase tracking-[0.2em] text-text-3 hover:text-white focus-visible:outline-2 focus-visible:outline-redline">Continue</button>
       </section>

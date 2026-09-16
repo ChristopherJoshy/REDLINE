@@ -552,33 +552,36 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     if (!guard(req)) {
       return reply.code(401).send({ error: "unauthorized" });
     }
-    const query = req.query as { teamId?: unknown; botId?: unknown };
+    const query = req.query as { teamId?: unknown; botId?: unknown; displayName?: unknown };
     if (typeof query.teamId !== "string") {
       return reply.code(400).send({ error: "teamId required" });
     }
-    let messages: Array<{ id: number; bot_id: string; role: string; text_final: string; display_name: string; created_at: string }>;
-    let traces: Array<{ id: number; bot_id: string; phase: string; trace_json: string; guard_json: string; created_at: string }>;
-    if (typeof query.botId === "string" && query.botId !== "all" && query.botId !== "") {
-      messages = db.all(
-        "SELECT id, bot_id, role, text_final, display_name, created_at FROM chat_logs WHERE team_id = ? AND bot_id = ? ORDER BY id ASC",
-        query.teamId,
-        query.botId
-      );
-      traces = db.all(
-        "SELECT id, bot_id, phase, trace_json, guard_json, created_at FROM reasoning_traces WHERE team_id = ? AND bot_id = ? ORDER BY id ASC",
-        query.teamId,
-        query.botId
-      );
-    } else {
-      messages = db.all(
-        "SELECT id, bot_id, role, text_final, display_name, created_at FROM chat_logs WHERE team_id = ? ORDER BY id ASC",
-        query.teamId
-      );
-      traces = db.all(
-        "SELECT id, bot_id, phase, trace_json, guard_json, created_at FROM reasoning_traces WHERE team_id = ? ORDER BY id ASC",
-        query.teamId
-      );
+    const botId = typeof query.botId === "string" && query.botId !== "all" && query.botId !== "" ? query.botId : undefined;
+    const displayName = typeof query.displayName === "string" && query.displayName !== "all" && query.displayName !== "" ? query.displayName : undefined;
+    const messageFilters = ["team_id = ?"];
+    const messageParams: unknown[] = [query.teamId];
+    const traceFilters = ["team_id = ?"];
+    const traceParams: unknown[] = [query.teamId];
+    if (botId !== undefined) {
+      messageFilters.push("bot_id = ?");
+      messageParams.push(botId);
+      traceFilters.push("bot_id = ?");
+      traceParams.push(botId);
     }
+    if (displayName !== undefined) {
+      messageFilters.push("display_name = ?");
+      messageParams.push(displayName);
+      traceFilters.push("trace_json LIKE ?");
+      traceParams.push(`%"player":"${displayName.replace(/[%_]/g, "")}"%`);
+    }
+    const messages = db.all(
+      `SELECT id, bot_id, role, text_final, display_name, created_at FROM chat_logs WHERE ${messageFilters.join(" AND ")} ORDER BY id ASC`,
+      ...messageParams,
+    );
+    const traces = db.all(
+      `SELECT id, bot_id, phase, trace_json, guard_json, created_at FROM reasoning_traces WHERE ${traceFilters.join(" AND ")} ORDER BY id ASC`,
+      ...traceParams,
+    );
     return { messages, traces };
   });
 

@@ -691,7 +691,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     const modelUsageRows = db.all<{ key: string; value: string }>("SELECT key, value FROM game_state WHERE key LIKE 'model_usage:%'");
     const modelsMap: Record<string, { provider: string; model: string; promptTokens: number; completionTokens: number }> = {
       "codex:gpt-5.6-luna": { provider: "codex", model: "gpt-5.6-luna", promptTokens: 0, completionTokens: 0 },
-      "groq:qwen/qwen3.8-27b": { provider: "groq", model: "qwen/qwen3.8-27b", promptTokens: 0, completionTokens: 0 },
+      "groq:llama-3.3-70b-versatile": { provider: "groq", model: "llama-3.3-70b-versatile", promptTokens: 0, completionTokens: 0 },
       "opencode:muse-spark-1.2-contributor-free": { provider: "opencode", model: "muse-spark-1.2-contributor-free", promptTokens: 0, completionTokens: 0 }
     };
     for (const row of modelUsageRows) {

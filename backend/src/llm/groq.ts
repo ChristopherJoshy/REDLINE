@@ -29,7 +29,7 @@ export type StreamYield =
   | { kind: "tool"; call: ToolCall }
   | { kind: "done"; finish: string };
 
-const MODEL = "qwen/qwen3.8-27b";
+const MODEL = "llama-3.3-70b-versatile";
 
 async function* streamChatWithKey(
   apiKey: string,

@@ -168,7 +168,10 @@ async function* runCodexTurn(opts: CodexTurnOptions): AsyncGenerator<StreamYield
       })) as unknown;
       const retryRec = (typeof retry === "object" && retry !== null ? (retry as Record<string, unknown>) : {}) as Record<string, unknown>;
       const retryId = (retryRec["thread"] && typeof retryRec["thread"] === "object" && retryRec["thread"] !== null ? (retryRec["thread"] as Record<string, unknown>)["id"] : null) ?? retryRec["threadId"] ?? retryRec["id"];
-      if (typeof retryId !== "string" || retryId === "") throw fail("protocol_error", "thread/start missing id");
+      if (typeof retryId !== "string" || retryId === "") {
+        console.error("[codexChat] thread/start missing id, response was:", JSON.stringify(retryRec));
+        throw fail("protocol_error", "thread/start missing id");
+      }
       threadId = retryId;
     } else {
       threadId = tid;

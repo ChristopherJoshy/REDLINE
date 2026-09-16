@@ -100,9 +100,12 @@ export async function* withCodexPrimary(
     primaryCounters.codexSuccess += 1;
     primaryCounters.codexLastSuccessAt = Date.now();
   } catch (err) {
-    const kind = err instanceof CodexError ? err.kind : "unknown";
+    const isCodexError = err && typeof err === "object" && "kind" in err;
+    const kind = isCodexError ? (err as any).kind : "unknown";
     primaryCounters.codexLastError = `${kind}: ${err instanceof Error ? err.message.slice(0, 160) : String(err).slice(0, 160)}`;
-    if (!started && err instanceof CodexError && canFallbackBeforeStart(kind)) {
+    
+    // Fallback if we haven't started streaming and it's a known transient/protocol error
+    if (!started && isCodexError && canFallbackBeforeStart(kind)) {
       primaryCounters.codexPrestartFailure += 1;
       if (phase === "r1") primaryCounters.codexFallbackR1 += 1;
       else primaryCounters.codexFallbackR2 += 1;

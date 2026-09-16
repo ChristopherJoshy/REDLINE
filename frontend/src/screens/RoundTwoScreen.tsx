@@ -38,7 +38,7 @@ type Reveal = "arrival" | "open";
 export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBack }: RoundTwoScreenProps): React.JSX.Element {
   const { bots, send, flash, inventory, hasSyncedInventory, credits, rewind } = useBotStream(teamId);
   const [reveal, setReveal] = useState<Reveal>(() => {
-    try { return sessionStorage.getItem(`redline:r2-intro:${teamId}:${boss}`) === "1" ? "open" : "arrival"; } catch { return "arrival"; }
+    try { return localStorage.getItem(`redline:r2-intro:${teamId}:${boss}`) === "1" ? "open" : "arrival"; } catch { return "arrival"; }
   });
   const [draft, setDraft] = useState("");
   const [coverMissing, setCoverMissing] = useState(false);
@@ -76,17 +76,8 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
   }, [credits]);
 
   useEffect(() => {
-    const audio = new Audio(boss === "itachi" ? "/sounds/round2/long-note-one.mp3" : "/sounds/round2/long-note-three.mp3");
-    audio.loop = true;
-    musicRef.current = audio;
-    audio.volume = 0.18;
-    if (reveal === "open" && locked) void audio.play().catch(() => {});
-    return () => { audio.pause(); audio.src = ""; musicRef.current = null; };
-  }, [boss, reveal, locked]);
-
-  useEffect(() => {
     if (reveal === "open") {
-      try { sessionStorage.setItem(`redline:r2-intro:${teamId}:${boss}`, "1"); } catch { /* optional */ }
+      try { localStorage.setItem(`redline:r2-intro:${teamId}:${boss}`, "1"); } catch { /* optional */ }
     }
   }, [reveal, teamId, boss]);
 

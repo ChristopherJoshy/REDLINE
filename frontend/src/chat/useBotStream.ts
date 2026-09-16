@@ -117,7 +117,9 @@ export function useBotStream(teamId: string): {
       const key = `${event.data.botId}:${event.data.soundId ?? event.data.src}`;
       if (lastSoundRef.current !== key) {
         lastSoundRef.current = key;
-        playSound(event.data.src);
+        if (Date.now() - new Date(event.at).getTime() < 30000) {
+          playSound(event.data.src);
+        }
       }
     } else if (event.event === "inventory_sync") {
       setInventory(event.data.items);
@@ -131,7 +133,9 @@ export function useBotStream(teamId: string): {
       }));
     } else if (event.event === "effect_play") {
       if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        setFlash((f) => f + 1);
+        if (Date.now() - new Date(event.at).getTime() < 30000) {
+          setFlash((f) => f + 1);
+        }
       }
     } else if (event.event === "announcement") {
       window.dispatchEvent(new CustomEvent("arena:announcement", { detail: event.data }));

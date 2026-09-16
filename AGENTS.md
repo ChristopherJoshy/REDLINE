@@ -62,6 +62,7 @@ npm run build          # both workspaces; backend copies db/schema.sql into dist
 - No bot secrets / purple-box content in player bundles. No asset generation (licensed generics only). No public leaderboard route. No `DATABASE_URL`/Supabase/Postgres.
 - Shared WS contracts single-sourced in `backend/src/contracts/events.ts`, imported by frontend. No duplicated schemas.
 - **Push to git and redeploy VPS only after everything is tested well and fully implemented.** Do not push half-done work. `tsc --noEmit` + `npm run build` must pass clean before commit.
+- **VPS hosts the backend only — never the frontend.** A VPS redeploy is required only when `backend/` changes. Frontend-only changes ship via Vercel (auto-deploys from `main`); do not scp frontend builds to the VPS or restart `redline.service` for them.
 
 | Command | Port / target |
 |---|---|
@@ -107,5 +108,5 @@ npm run build          # both workspaces; backend copies db/schema.sql into dist
 - Coverage: none configured, no thresholds. Lint gate is `tsc --noEmit` only.
 - Definition of done: `typecheck` + `test` + `build` all pass AND live walkthrough: enter-to-play, inventory + merchant, gates → portal → Round-2. Confirm Round 1 and Round 2 countdown/play clocks against server time, each boss background and phase transition, direct bot conversation, and the Elo receipt's rank/bonus fields. Grep guard `generated|placeholder.png|fake-fallback` must be empty (current hits are substring false positives only). Push and deploy only after this gate is clean.
 
-- VPS contains only the backend, no need to move the frontend there. Vercel handles frontend.
+- VPS contains only the backend, no need to move the frontend there. Vercel handles frontend. Never run a VPS deploy for frontend-only changes.
 

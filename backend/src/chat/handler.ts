@@ -156,8 +156,10 @@ Available sound ids: ${entry.meta.soundIds.join(", ")}. Sound is optional, at mo
       bus.frame("bot_done", { botId, fullText, typing: false, ...(inventoryDelta === undefined ? {} : { inventoryDelta }) }),
     );
   } catch (err) {
-    console.error(`[ChatHandler] Inference error for bot ${botId}:`, err);
-    bus.broadcast(teamId, bus.frame("bot_error", { botId, message: "inference failed, retry", retryable: true }));
+    const kind = err instanceof Error ? (err as any).kind ?? "inference" : "inference";
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[ChatHandler] Inference error for bot ${botId} kind=${kind}:`, msg);
+    bus.broadcast(teamId, bus.frame("bot_error", { botId, message: "inference failed, retry", retryable: true, kind: String(kind) }));
     bus.broadcast(teamId, bus.frame("bot_typing", { teamId, botId, typing: false }));
   }
 }

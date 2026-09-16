@@ -1,5 +1,5 @@
 export type Inline = { kind: "text"; text: string } | { kind: "code"; text: string } | { kind: "bold" | "italic" | "strike"; children: Inline[] };
-export type Block = { kind: "paragraph" | "quote" | "heading" | "code"; text: string } | { kind: "ul"; items: string[] } | { kind: "ol"; items: string[] };
+export type Block = { kind: "paragraph" | "quote" | "heading" | "code" | "think"; text: string } | { kind: "ul"; items: string[] } | { kind: "ol"; items: string[] };
 
 // Chat Markdown stays text-only: no HTML execution, remote images, or link navigation.
 export function inlineMarkdown(text: string, depth = 0): Inline[] {
@@ -23,11 +23,38 @@ export function inlineMarkdown(text: string, depth = 0): Inline[] {
 }
 
 export function blockMarkdown(text: string): Block[] {
+  // Normalize think tags to be on their own lines
+  text = text.replace(/<think>/g, "\n<think>\n").replace(/<\/think>/g, "\n</think>\n");
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const blocks: Block[] = [];
   let index = 0;
+  
+  let inThink = false;
+  let thinkText: string[] = [];
+
   while (index < lines.length) {
     const line = lines[index] ?? "";
+    
+    if (line.trim() === "<think>") {
+      inThink = true;
+      index++;
+      continue;
+    }
+    if (line.trim() === "</think>") {
+      inThink = false;
+      if (thinkText.length > 0) {
+        blocks.push({ kind: "think", text: thinkText.join("\n").trim() });
+        thinkText = [];
+      }
+      index++;
+      continue;
+    }
+    if (inThink) {
+      thinkText.push(line);
+      index++;
+      continue;
+    }
+
     if (line.trim() === "") { index++; continue; }
     if (/^\s*```/.test(line)) {
       const code: string[] = [];
@@ -55,8 +82,13 @@ export function blockMarkdown(text: string): Block[] {
     }
     if (/^#{1,6}\s/.test(line)) { blocks.push({ kind: "heading", text: line.replace(/^#{1,6}\s+/, "") }); index++; continue; }
     const paragraph = [line]; index++;
-    while (index < lines.length && (lines[index] ?? "").trim() !== "" && !/^\s*(```|>\s?|#{1,6}\s|[-+*]\s|\d+[.)]\s)/.test(lines[index] ?? "")) paragraph.push(lines[index++] ?? "");
+    while (index < lines.length && (lines[index] ?? "").trim() !== "" && !/^\s*(```|>\s?|#{1,6}\s|[-+*]\s|\d+[.)]\s|<think>|<\/think>)/.test(lines[index] ?? "")) paragraph.push(lines[index++] ?? "");
     blocks.push({ kind: "paragraph", text: paragraph.join("\n") });
   }
+  
+  if (inThink && thinkText.length > 0) {
+    blocks.push({ kind: "think", text: thinkText.join("\n").trim() });
+  }
+  
   return blocks;
 }

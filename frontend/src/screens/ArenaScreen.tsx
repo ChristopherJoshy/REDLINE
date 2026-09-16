@@ -58,10 +58,7 @@ const CHAT_PULSES = [
   "border-[#E10600]/10 shadow-[0_0_10px_rgba(225,6,0,0.05)]",
 ];
 
-function stripThinking(text: string | undefined): string {
-  if (!text) return "";
-  return text.replace(/<think>[\s\S]*?(<\/think>|$)/g, "").trim();
-}
+
 
 export default function ArenaScreen({ teamId, displayName, locked }: { teamId: string; displayName: string; locked: boolean }): React.JSX.Element {
   useDocumentTitle("Arena | Redline");
@@ -872,13 +869,13 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                               </div>
                             )}
                         </>}>
-                          <ChatMarkdown text={stripThinking(m.text)} />
+                          <ChatMarkdown text={m.text} />
                         </ChatMessageFrame>
                       );
                     })}
 
                     {/* Bot Typing Decrypting Signal */}
-                    {activeBot?.typing && stripThinking(activeBot?.streaming) === "" && (
+                    {activeBot?.typing && activeBot?.streaming === "" && (
                       <div className="self-start flex gap-3">
                         <span className="block w-9 h-9 overflow-hidden shrink-0 border border-white/15 bg-black/60 shadow-[0_0_10px_rgba(0,0,0,0.5)]" aria-hidden="true">
                           <img src={CHARACTERS[chattingBotId]?.avatar} alt="" className={`w-full h-full object-cover ${CHARACTERS[chattingBotId] ? AVATAR_FOCUS[chattingBotId] : "object-center"}`} />
@@ -888,7 +885,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                     )}
 
                     {/* Bot Streaming Tokens with Matrix Decode */}
-                    {stripThinking(activeBot?.streaming) !== "" && (
+                    {activeBot?.streaming !== "" && activeBot?.streaming !== undefined && (
                       <div className="self-start flex gap-3 max-w-[85%]">
                         <span className="block w-9 h-9 overflow-hidden shrink-0 border border-white/15 bg-black/60 shadow-[0_0_10px_rgba(0,0,0,0.5)]" aria-hidden="true">
                           <img src={CHARACTERS[chattingBotId]?.avatar} alt="" className={`w-full h-full object-cover ${CHARACTERS[chattingBotId] ? AVATAR_FOCUS[chattingBotId] : "object-center"}`} />
@@ -896,7 +893,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                         <div className="px-4 py-3 border border-white/12 bg-[#080b0f]/85 backdrop-blur-md text-white text-[14.5px] leading-relaxed shadow-[0_8px_32px_rgba(0,0,0,0.7)]">
                           <div className="whitespace-pre-wrap">
                             <ChatMarkdown
-                              text={stripThinking(activeBot?.streaming)}
+                              text={activeBot?.streaming}
                               isStreaming={true}
                             />
                           </div>

@@ -69,6 +69,7 @@ export interface BotErrorData {
   botId: BotId;
   message: string;
   retryable: boolean;
+  kind?: string | undefined;
 }
 
 export interface InventorySyncData {

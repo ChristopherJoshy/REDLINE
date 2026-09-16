@@ -116,8 +116,15 @@ export async function* withCodexPrimary(
       yield* fallback();
       return;
     }
-    if (started) primaryCounters.codexMidstreamFailure += 1;
-    else primaryCounters.codexPrestartFailure += 1;
+    if (started) {
+      // Midstream failure: we already emitted partial deltas to the client.
+      // Yield a terminal done so the handler sees a complete stream (truncated response).
+      primaryCounters.codexMidstreamFailure += 1;
+      console.warn(`[Primary] Codex midstream failure (${kind}): partial output delivered`);
+      yield { kind: "done", finish: "stop" } as StreamYield;
+      return;
+    }
+    primaryCounters.codexPrestartFailure += 1;
     throw err;
   }
 }

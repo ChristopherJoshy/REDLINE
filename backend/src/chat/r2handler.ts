@@ -186,8 +186,10 @@ Call evaluate_challenger exactly once per player turn, even when other tools are
     }
     bus.broadcast(teamId, bus.frame("bot_done", { botId: boss, fullText, typing: false, ...(inventoryDelta === undefined ? {} : { inventoryDelta }) }));
   } catch (err) {
-    console.error(`[R2ChatHandler] Inference error for boss ${boss}:`, err);
-    bus.broadcast(teamId, bus.frame("bot_error", { botId: boss, message: "inference failed, retry", retryable: true }));
+    const kind = err instanceof Error ? (err as any).kind ?? "inference" : "inference";
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[R2ChatHandler] Inference error for boss ${boss} kind=${kind}:`, msg);
+    bus.broadcast(teamId, bus.frame("bot_error", { botId: boss, message: "inference failed, retry", retryable: true, kind: String(kind) }));
     bus.broadcast(teamId, bus.frame("bot_typing", { teamId, botId: boss, typing: false }));
   }
 }

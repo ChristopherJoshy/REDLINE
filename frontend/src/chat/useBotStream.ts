@@ -12,6 +12,8 @@ export interface ChatMessage {
   name?: string | undefined;
   confirmed?: boolean | undefined;
   createdAt?: string | undefined;
+  errorKind?: string | undefined;
+  retryable?: boolean | undefined;
 }
 
 interface BotState {
@@ -22,11 +24,25 @@ interface BotState {
 
 const ROSTER: BotId[] = ["wick", "spidey", "escanor", "stark", "joker", "light", "levi", "deadpool", "itachi", "aizen", "merchant"];
 
+function normalizeWsUrl(raw: string): string {
+  try {
+    const u = new URL(raw);
+    // Convert http/https to ws/wss for WebSocket
+    if (u.protocol === "http:") u.protocol = "ws:";
+    else if (u.protocol === "https:") u.protocol = "wss:";
+    // Ensure /ws path if bare origin
+    if (u.pathname === "/" || u.pathname === "") u.pathname = "/ws";
+    return u.toString();
+  } catch {
+    return raw;
+  }
+}
+
 function wsUrl(): string {
   let url = "";
   const envWs = import.meta.env.VITE_WS_URL;
   if (typeof envWs === "string" && envWs.trim() !== "") {
-    url = envWs.trim();
+    url = normalizeWsUrl(envWs.trim());
   } else {
     const envApi = import.meta.env.VITE_API_URL;
     if (typeof envApi === "string" && envApi.trim() !== "") {
@@ -108,10 +124,10 @@ export function useBotStream(teamId: string): {
         // Storage blocked: resume replays from hello instead.
       }
     } else if (event.event === "bot_error") {
-      const { botId, message } = event.data;
+      const { botId, message, kind, retryable } = event.data;
       setBots((prev) => ({
         ...prev,
-        [botId]: { messages: [...prev[botId].messages, { role: "bot", text: message }], typing: false, streaming: "" },
+        [botId]: { messages: [...prev[botId].messages, { role: "bot", text: message, errorKind: kind, retryable }], typing: false, streaming: "" },
       }));
     } else if (event.event === "sound_play") {
       const key = `${event.data.botId}:${event.data.soundId ?? event.data.src}`;

@@ -9,10 +9,7 @@ import { useBotStream } from "@/chat/useBotStream";
 import { unlockAudio } from "@/chat/sound";
 import { AVATAR_FOCUS, CHARACTERS, CHAT_BACKGROUND } from "@/data/characterLore";
 
-function stripThinking(text: string | undefined): string {
-  if (!text) return "";
-  return text.replace(/<think>[\s\S]*?(<\/think>|$)/g, "").trim();
-}
+
 
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import RewindButton from "@/chat/RewindButton";
@@ -286,7 +283,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
         {state.messages.map((message, index) => (
           <ChatMessageFrame key={message.id ?? index} botId={boss} isUser={message.role === "user"}>
             {message.role === "ally" && <p className="mb-1 text-xs text-text-3">{message.name ?? "Relay"}{message.confirmed ? " · Confirmed" : ""}</p>}
-            <ChatMarkdown text={stripThinking(message.text)} />
+            <ChatMarkdown text={message.text} />
           </ChatMessageFrame>
         ))}
 
@@ -321,10 +318,10 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
           </div>
         )}
 
-        {state.typing && stripThinking(state.streaming) === "" && <div className="self-start flex gap-3"><img src={lore?.avatar} alt="" className={`h-9 w-9 shrink-0 border border-white/15 object-cover ${AVATAR_FOCUS[boss]}`} /><TypingBubble accentColor={lore?.accent} motionOff={motionOff} /></div>}
-        {stripThinking(state.streaming) !== "" && (
+        {state.typing && state.streaming === "" && <div className="self-start flex gap-3"><img src={lore?.avatar} alt="" className={`h-9 w-9 shrink-0 border border-white/15 object-cover ${AVATAR_FOCUS[boss]}`} /><TypingBubble accentColor={lore?.accent} motionOff={motionOff} /></div>}
+        {state.streaming !== "" && (
           <ChatMessageFrame botId={boss}>
-            <ChatMarkdown text={stripThinking(state.streaming)} isStreaming />
+            <ChatMarkdown text={state.streaming} isStreaming />
           </ChatMessageFrame>
         )}
 

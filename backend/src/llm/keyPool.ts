@@ -143,10 +143,14 @@ export function getCandidatesForProvider(provider: LlmProvider, db?: DatabaseAda
     }
   }
 
-  // Fallback to env key
-  const envKey = provider === "groq" ? env.groqApiKey : env.zenApiKey;
-  if (envKey && !candidates.some((c) => c.key === envKey)) {
-    candidates.push({ key: envKey, source: "env" });
+  // Fallback to env key (may throw if required() env is unset — catch so DB keys still work)
+  try {
+    const envKey = provider === "groq" ? env.groqApiKey : env.zenApiKey;
+    if (envKey && !candidates.some((c) => c.key === envKey)) {
+      candidates.push({ key: envKey, source: "env" });
+    }
+  } catch {
+    // env key not configured; DB-pooled keys are sufficient
   }
 
   return candidates;

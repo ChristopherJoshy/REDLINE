@@ -53,11 +53,18 @@ export default function BossCutscene({ boss, scene, onDone, motionOff = false }:
       if (reduced) return;
       const tl = gsap.timeline({ defaults: { ease: "power2.out" } });
       if (scene === "phase") {
-        tl.from(root.current, { opacity: 0, duration: 0.45 })
-          .from("[data-death-band]", { opacity: 0, scaleX: 0.96, duration: 0.65 }, 0.2)
-          .from("[data-death-title]", { opacity: 0, scale: 0.97, duration: 1.1, ease: "sine.out" }, 0.4)
-          .from("[data-death-caption]", { opacity: 0, duration: 0.5 }, 1.15)
-          .to(root.current, { opacity: 0, duration: 0.6 }, 3.2);
+        // Elden-Ring-style death card: near-black band across the screen,
+        // ember-red serif title fading in slowly and lingering long enough
+        // to read. Transform + opacity only.
+        tl.from("[data-death-veil]", { opacity: 0, duration: 1.0 }, 0)
+          .from("[data-death-band]", { opacity: 0, scaleX: 0.92, duration: 1.2 }, 0.3)
+          .from("[data-death-glow]", { opacity: 0, duration: 2.0 }, 1.2)
+          .from("[data-death-eyebrow]", { opacity: 0, duration: 0.8 }, 1.4)
+          .from("[data-death-title]", { opacity: 0, scale: 1.04, duration: 2.6, ease: "sine.out" }, 1.2)
+          .from("[data-death-rule]", { opacity: 0, scaleX: 0, duration: 0.8 }, 3.2)
+          .from("[data-death-caption]", { opacity: 0, duration: 0.8 }, 3.6)
+          .from("[data-death-continue]", { opacity: 0, duration: 0.6 }, 4.2)
+          .to(root.current, { opacity: 0, duration: 0.9, ease: "sine.in" }, 6.1);
         return;
       }
       tl.from(root.current, { opacity: 0, duration: 0.2 })
@@ -67,18 +74,28 @@ export default function BossCutscene({ boss, scene, onDone, motionOff = false }:
       tl.from("[data-scene-copy]", { opacity: 0, y: 12, duration: 0.55, stagger: 0.12 }, 0.35);
       if (scene !== "victory") tl.to(root.current, { opacity: 0, duration: 0.3 }, 2.9);
     }, root);
-    const timer = scene === "victory" ? undefined : window.setTimeout(finish, reduced ? 1400 : scene === "phase" ? 3900 : 3300);
+    const timer = scene === "victory" ? undefined : window.setTimeout(finish, reduced ? 1400 : scene === "phase" ? 7200 : 3300);
     return () => { window.clearTimeout(timer); context.revert(); sound?.stop(); };
   }, [boss, scene, reduced, itachi]);
 
   if (scene === "phase") {
     return (
-      <section ref={root} role="dialog" aria-modal="true" aria-label="Illusion shattered" className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/85">
-        <div data-death-band className="relative w-full border-y border-redline/10 bg-gradient-to-r from-transparent via-black/90 to-transparent px-5 py-10 text-center sm:py-14" role="status">
-          <h2 data-death-title className="font-[family-name:var(--font-vault)] text-[clamp(26px,5.5vw,80px)] font-normal uppercase tracking-[0.12em] leading-tight text-redline/80">Illusion shattered</h2>
+      <section ref={root} role="dialog" aria-modal="true" aria-label="Illusion shattered" className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black">
+        <div data-death-veil className="absolute inset-0 bg-black/90" aria-hidden="true" />
+        <div data-death-glow className="absolute left-1/2 top-1/2 h-[60vmin] w-[110vmin] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,rgba(255,30,45,0.16),transparent_65%)]" aria-hidden="true" />
+        <div data-death-band className="relative w-full border-y border-redline/40 bg-black/85 px-5 py-12 text-center sm:py-16" role="status">
+          <p data-death-eyebrow className="font-mono text-[11px] uppercase tracking-[0.4em] text-text-3">Round 02 · Phase II</p>
+          <h2
+            data-death-title
+            className="mt-4 font-[family-name:var(--font-vault)] text-[clamp(30px,6vw,88px)] font-normal uppercase leading-tight tracking-[0.22em] text-redline"
+            style={{ textShadow: "0 0 28px rgba(255, 30, 45, 0.55), 0 2px 14px rgba(0, 0, 0, 0.9)" }}
+          >
+            Illusion shattered
+          </h2>
+          <div data-death-rule className="mx-auto mt-6 h-px w-44 bg-gradient-to-r from-transparent via-redline to-transparent" aria-hidden="true" />
           <p data-death-caption className="mt-5 text-xs tracking-[0.08em] text-text-3 sm:text-sm">{itachi ? "The loop loosens its grip." : "The glass was never the truth."}</p>
         </div>
-        <button ref={skip} type="button" onClick={finish} className="absolute bottom-[10vh] min-h-[44px] px-5 font-mono text-xs text-text-3 hover:text-white focus-visible:outline-2 focus-visible:outline-redline">Continue</button>
+        <button data-death-continue ref={skip} type="button" onClick={finish} className="absolute bottom-[10vh] min-h-[44px] px-5 font-mono text-xs uppercase tracking-[0.2em] text-text-3 hover:text-white focus-visible:outline-2 focus-visible:outline-redline">Continue</button>
       </section>
     );
   }

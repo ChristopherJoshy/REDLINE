@@ -15,6 +15,7 @@ import { registerCodexRoutes } from "./routes/codex.js";
 import { sharedAppServer } from "./llm/codex/appServer.js";
 import { readAssessmentSettings } from "./assessment/settings.js";
 import { registerMerchantRoutes } from "./routes/merchant.js";
+import { registerStandingsRoutes } from "./routes/standings.js";
 import { Bus } from "./ws/bus.js";
 import { BotLocks, lockable } from "./chat/locks.js";
 import { registerLockRoutes } from "./routes/locks.js";
@@ -87,6 +88,7 @@ registerProfileRoutes(app, db);
 registerLockRoutes(app, locks, bus);
 registerMerchantRoutes(app, db, bus);
 registerGateRoutes(app, db, bus);
+registerStandingsRoutes(app, db);
 registerRound2Routes(app, db, bus);
 registerCodexRoutes(app);
 registerAdminRoutes(app, db, root, bus, locks);
@@ -228,7 +230,7 @@ async function boot(): Promise<void> {
         bus.send(socket, bus.frame("hello_ack", {}));
         // Fresh mounts (or a dropped room) start from current truth, not empty.
         const items = db.all<InventoryDelta>(
-          "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy FROM team_inventory WHERE team_id = ?",
+          "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy, claimed_at IS NOT NULL AS claimed FROM team_inventory WHERE team_id = ?",
           session.teamId,
         );
         bus.send(socket, bus.frame("assessment_settings_sync", assessmentSettings));

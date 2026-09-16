@@ -9,11 +9,22 @@ import AntiTamper from "@/shell/AntiTamper";
 import { useArenaSocket } from "@/ws/useArenaSocket";
 import { me, logout, type IdentifyResult } from "@/api/teams";
 import { apiFetch } from "@/api/client";
+import { getStandings, type Standings } from "@/api/standings";
 import { Users, User, Trophy, LogOut, Shield, Coins, Sun, Bell, ChevronDown } from "lucide-react";
 import { DUR, EASE, reducedMotion } from "@/lib/motionTokens";
 import type { AssessmentSettingsData } from "@contracts/events";
 
 const DEFAULT_ASSESSMENT_SETTINGS: AssessmentSettingsData = { requireFullscreen: false, detectTabSwitches: false, singleTabMode: false, disableRightClick: false, disableCopyPaste: false };
+const BOT_LABELS: Record<string, string> = {
+  wick: "John Wick",
+  spidey: "Spider-Man",
+  escanor: "Escanor",
+  stark: "Tony Stark",
+  joker: "The Joker",
+  light: "Light Yagami",
+  levi: "Levi Ackerman",
+  deadpool: "Deadpool",
+};
 
 export default function App(): React.JSX.Element {
   const [path] = useState(() => window.location.pathname);
@@ -25,6 +36,8 @@ export default function App(): React.JSX.Element {
   const [shellAccentInk, setShellAccentInk] = useState("#ffffff");
   const [activeTab, setActiveTab] = useState<"arena" | "leaderboard" | "intel" | "about">("arena");
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [standings, setStandings] = useState<Standings | null>(null);
+  const [standingsError, setStandingsError] = useState("");
   const [showAbout, setShowAbout] = useState(false);
   const [hideNav, setHideNav] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
@@ -131,6 +144,15 @@ export default function App(): React.JSX.Element {
       })
       .catch(() => {});
   }, []);
+  useEffect(() => {
+    if (!showLeaderboard || identity === null) return;
+    let dead = false;
+    setStandingsError("");
+    getStandings()
+      .then((data) => { if (!dead) setStandings(data); })
+      .catch(() => { if (!dead) setStandingsError("Leaderboard unavailable."); });
+    return () => { dead = true; };
+  }, [showLeaderboard, identity]);
 
   useEffect(() => {
     if (path.startsWith("/admin")) { setChecked(true); return; }
@@ -337,12 +359,39 @@ export default function App(): React.JSX.Element {
                 ✕
               </button>
             </div>
-            <p className="text-[13px] text-[var(--color-text-2)] leading-relaxed">
-              Active CTF Standing: Team <strong className="text-white">{identity.teamName || "VANGUARD"}</strong> currently holds <span className="text-[var(--color-gold-bright)] font-bold">{identity.elo ?? 928} ELO</span>.
-            </p>
-            <p className="text-[12px] text-[var(--color-text-3)]">
-              Per competitive CTF rules, live team ranking is calculated dynamically and revealed by the Arena Marshals at stage completion.
-            </p>
+            {standingsError !== "" && <p role="alert" className="text-[13px] text-redline">{standingsError}</p>}
+            {standings === null && standingsError === "" && <p className="text-[13px] text-[var(--color-text-3)]">Loading live standings…</p>}
+            {standings !== null && (
+              <>
+                <p className="text-[13px] text-[var(--color-text-2)] leading-relaxed">
+                  {standings.current === null
+                    ? "Your team is not in the active leaderboard."
+                    : <>Team <strong className="text-white">{standings.current.teamName}</strong> is <strong className="text-[var(--color-gold-bright)]">#{standings.current.rank}</strong> with <strong className="text-[var(--color-gold-bright)]">{standings.current.elo} ELO</strong>.</>}
+                </p>
+                <div className="max-h-48 overflow-y-auto border border-white/10">
+                  {standings.leaderboard.map((row) => (
+                    <div key={row.teamName} className="grid grid-cols-[2rem_1fr_auto] items-center gap-2 border-b border-white/5 px-3 py-2 text-[12px] last:border-b-0">
+                      <span className="font-mono text-[var(--color-text-3)]">#{row.rank}</span>
+                      <span className="truncate text-white">{row.teamName}</span>
+                      <span className="font-mono text-[var(--color-gold-bright)]">{row.elo}</span>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <p className="mb-2 font-mono text-[10px] font-bold tracking-[0.16em] text-[var(--color-text-3)]">FIRST DEFEAT — ROUND 1</p>
+                  <div className="grid grid-cols-1 gap-1.5 text-[11px]">
+                    {standings.firstDefeats.map((entry) => (
+                      <div key={entry.botId} className="flex items-center justify-between gap-3 border-b border-white/5 pb-1.5">
+                        <span className="truncate text-white">{BOT_LABELS[entry.botId] ?? entry.botId}</span>
+                        <span className="shrink-0 text-right text-[var(--color-text-3)]">
+                          {entry.playerName === null ? "Awaiting first defeat" : `${entry.playerName} · ${entry.teamName}`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
             <button
               type="button"
               onClick={() => setShowLeaderboard(false)}

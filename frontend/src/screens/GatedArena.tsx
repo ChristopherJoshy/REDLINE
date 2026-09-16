@@ -6,6 +6,7 @@ import ArenaScreen from "@/screens/ArenaScreen";
 import RoundTwoScreen from "@/screens/RoundTwoScreen";
 import PortalTransition from "@/portal/PortalTransition";
 import GachaReveal from "@/portal/GachaReveal";
+import { getStandings, type Standings } from "@/api/standings";
 import { computeTop5, endRound1, enterRound2, getGates, openVault, type Gates } from "@/api/gates";
 
 function SealedScreen({ message = "Round 1 is done for your team. Wait for the organizers to open round 2." }: { message?: string }): React.JSX.Element {
@@ -59,18 +60,68 @@ function CountdownBanner({ endsAt, round, serverNow }: { endsAt: string; round: 
 }
 
 function RoundEndedScreen(): React.JSX.Element {
-  useDocumentTitle("Round 2 Ended — REDLINE Arena");
+  const [standings, setStandings] = useState<Standings | null>(null);
+  const [error, setError] = useState("");
+  useDocumentTitle("Round 2 Complete — REDLINE Arena");
+
+  useEffect(() => {
+    let dead = false;
+    getStandings()
+      .then((data) => { if (!dead) setStandings(data); })
+      .catch(() => { if (!dead) setError("Standings are temporarily unavailable."); });
+    return () => { dead = true; };
+  }, []);
+
+  const round2 = standings?.round2;
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-hidden bg-cover bg-center p-[var(--space)] text-center" style={{ backgroundImage: "url('/backgrounds/login-uiwork.png')" }}>
-      <div aria-hidden="true" className="absolute inset-0 bg-[rgba(5,7,10,0.78)]" />
-      <div className="relative flex flex-col items-center gap-3">
-        <span aria-hidden="true" className="block h-[3px] w-12 bg-[var(--color-seal)]" />
-        <h2 className="font-[family-name:var(--font-display)] text-[24px] font-bold text-[var(--color-text-1)]">
-          Time Expired
-        </h2>
-        <p className="max-w-[52ch] text-center text-[14px] text-[var(--color-text-3)]">
-          Round 2 has ended. The vault is now sealed.
-        </p>
+    <div className="relative flex min-h-0 flex-1 flex-col items-center justify-start gap-5 overflow-y-auto bg-cover bg-center p-[var(--space)] text-center" style={{ backgroundImage: "url('/backgrounds/login-uiwork.png')" }}>
+      <div className="relative mt-8 w-full max-w-2xl border border-white/15 bg-[rgba(5,7,10,0.88)] p-6 text-left sm:p-8">
+        <p className="font-mono text-[11px] font-bold tracking-[0.2em] text-redline">ROUND 2 / VAULT STATUS</p>
+        <h2 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-bold uppercase tracking-[0.08em] text-white">Round complete</h2>
+        <p className="mt-2 text-sm leading-relaxed text-text-2">The merchant has received the relic. Your team’s result and contribution record are now fixed.</p>
+        {error !== "" && <p role="alert" className="mt-4 text-sm text-redline">{error}</p>}
+        {standings === null && error === "" && <p className="mt-5 text-sm text-text-3">Loading final standings…</p>}
+        {standings !== null && (
+          <div className="mt-6 space-y-6">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="border border-white/10 bg-bg-0/70 p-4">
+                <p className="font-mono text-[10px] tracking-[0.16em] text-text-3">ELO STANDING</p>
+                <p className="mt-1 font-mono text-2xl font-bold text-white">{standings.current ? `#${standings.current.rank}` : "—"}</p>
+                <p className="mt-1 text-xs text-text-2">{standings.current ? `${standings.current.elo} ELO` : "Not ranked"}</p>
+              </div>
+              <div className="border border-white/10 bg-bg-0/70 p-4">
+                <p className="font-mono text-[10px] tracking-[0.16em] text-text-3">LEADERBOARD STANDING</p>
+                <p className="mt-1 font-mono text-2xl font-bold text-white">{standings.current ? `#${standings.current.rank}` : "—"}</p>
+                <p className="mt-1 text-xs text-text-2">{standings.current ? `${standings.current.solved}/1 boss filed` : "Not ranked"}</p>
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 font-mono text-[10px] font-bold tracking-[0.16em] text-text-3">ROUND 2 CONTRIBUTIONS{round2?.boss ? ` · ${round2.boss.toUpperCase()}` : ""}</p>
+              <div className="border border-white/10">
+                {(round2?.players ?? []).map((player) => (
+                  <div key={player.displayName} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-b border-white/5 px-3 py-2.5 text-xs last:border-b-0">
+                    <span className="truncate text-white">{player.displayName}</span>
+                    <span className="font-mono text-text-2">{player.turns} turns · {player.sharePercent}%</span>
+                    <span className={player.filedItem ? "font-mono text-moss" : "font-mono text-text-3"}>{player.filedItem ? "FILED" : "SUPPORT"}</span>
+                  </div>
+                ))}
+                {round2 !== null && round2 !== undefined && round2.players.length === 0 && <p className="px-3 py-3 text-xs text-text-3">No Round 2 turns were recorded.</p>}
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 font-mono text-[10px] font-bold tracking-[0.16em] text-text-3">FINAL LEADERBOARD</p>
+              <div className="border border-white/10">
+                {standings.leaderboard.map((row) => (
+                  <div key={row.teamName} className="grid grid-cols-[2.5rem_1fr_auto] items-center gap-2 border-b border-white/5 px-3 py-2 text-xs last:border-b-0">
+                    <span className="font-mono text-text-3">#{row.rank}</span>
+                    <span className="truncate text-white">{row.teamName}</span>
+                    <span className="font-mono text-[var(--color-gold-bright)]">{row.elo}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -28,6 +28,7 @@ export async function r2Submit(
   teamId: string,
   boss: BossId,
   text: string,
+  displayName: string,
 ): Promise<{ result: "verified"; botId: BossId; eloDelta: number; score: number } | { result: "dissolve"; botId: BossId; line: string } | { result: "troll"; line: string }> {
   if (round2Status(db) !== "active" || bossOf(teamId, db) !== boss) {
     return { result: "troll", line: "The vault is sealed." };
@@ -49,12 +50,13 @@ export async function r2Submit(
     }
     const { elo, score, credits } = db.transaction(() => {
     db.run(
-      "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, verified_at, attempt_count) VALUES (?, ?, ?, 1, 'verified', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1) ON CONFLICT(team_id, bot_id) DO UPDATE SET status = 'verified', verified_at = excluded.verified_at, attempt_count = team_inventory.attempt_count + 1",
+      "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, verified_at, attempt_count, obtained_by) VALUES (?, ?, ?, 1, 'verified', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1, ?) ON CONFLICT(team_id, bot_id) DO UPDATE SET status = 'verified', verified_at = excluded.verified_at, attempt_count = team_inventory.attempt_count + 1",
       teamId,
       boss,
       keys.itemKey,
+      displayName,
     );
-    const elo = applyElo(db, teamId, boss, `verified:${boss}`);
+    const elo = applyElo(db, teamId, boss, displayName, `verified:${boss}`);
     const turns = userTurns(db, teamId, boss);
     const resets = escalationUsed(db, teamId, boss, "reset");
     const score = Math.max(0, 100 - 2 * turns - 15 * resets);

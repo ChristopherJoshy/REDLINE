@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS team_inventory (
   obtained_at TEXT,
   verified_at TEXT,
   obtained_by TEXT,
+  claimed_at TEXT,
   attempt_count INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (team_id, bot_id)
 );
@@ -54,6 +55,22 @@ CREATE TABLE IF NOT EXISTS elo_log (
   after_rating INTEGER NOT NULL,
   reason TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+ 
+CREATE TABLE IF NOT EXISTS bot_completions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  bot_id TEXT NOT NULL,
+  round INTEGER NOT NULL,
+  team_id TEXT NOT NULL REFERENCES teams(id),
+  completed_by TEXT NOT NULL,
+  verified_at TEXT NOT NULL,
+  completion_rank INTEGER NOT NULL,
+  elapsed_secs INTEGER NOT NULL DEFAULT 0,
+  base_delta INTEGER NOT NULL DEFAULT 0,
+  speed_bonus INTEGER NOT NULL DEFAULT 0,
+  elo_delta INTEGER NOT NULL DEFAULT 0,
+  UNIQUE (bot_id, team_id),
+  UNIQUE (bot_id, completion_rank)
 );
 
 CREATE TABLE IF NOT EXISTS chat_logs (

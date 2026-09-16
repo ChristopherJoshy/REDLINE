@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { Package, X, ShieldCheck, AlertCircle, Search, Filter, ArrowRight, Box, Link } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, Check, CheckCircle2, Coins, Package, Search, ShieldCheck, X } from "lucide-react";
 import { useAnimeIn } from "../lib/useAnimeIn";
 import { CHARACTERS } from "../data/characterLore";
 import type { InventoryDelta } from "@contracts/events";
@@ -9,239 +9,58 @@ interface InventoryModalProps {
   onClose: () => void;
   inventory: InventoryDelta[];
   credits?: number;
-  onOpenMerchant?: () => void;
 }
 
-export default function InventoryModal({ isOpen, onClose, inventory, credits = 0, onOpenMerchant }: InventoryModalProps): React.JSX.Element | null {
+export default function InventoryModal({ isOpen, onClose, inventory, credits = 0 }: InventoryModalProps): React.JSX.Element | null {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useAnimeIn(containerRef, {
-    y: 20,
-    duration: 300,
-  });
+  useAnimeIn(containerRef, { y: 20, duration: 300 });
 
-  // Handle escape key
   useEffect(() => {
     if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, onClose]);
+
+  const items = useMemo(() => inventory.filter((item) => item.status !== "locked").map((item) => {
+    const character = CHARACTERS[item.botId];
+    const meta = character?.targetItem;
+    return {
+      ...item,
+      botName: character?.name ?? item.botId,
+      name: meta?.name ?? item.itemKey,
+      category: meta?.category ?? "Relic",
+      rarity: meta?.rarity ?? "Rare",
+      asset: meta?.asset ?? "/items/wick_medallion.svg",
+      description: meta?.description ?? "An item recovered from a mark.",
+    };
+  }), [inventory]);
+  const filteredItems = items.filter((item) => `${item.name} ${item.botName}`.toLowerCase().includes(searchQuery.toLowerCase()));
+  const selectedItem = items.find((item) => item.itemKey === selectedKey) ?? items[0];
+  const verifiedCount = items.filter((item) => item.status === "verified").length;
 
   if (!isOpen) return null;
 
-  const enrichedItems = inventory.filter((inv) => inv.status !== "locked").map((inv) => {
-    const char = CHARACTERS[inv.botId];
-    const itemMeta = char?.targetItem;
-    return {
-      botName: char?.name ?? inv.botId,
-      itemKey: inv.itemKey,
-      status: inv.status,
-      obtainedBy: inv.obtainedBy,
-      name: itemMeta?.name ?? inv.itemKey,
-      category: itemMeta?.category ?? "Relic",
-      rarity: itemMeta?.rarity ?? "Rare",
-      asset: itemMeta?.asset ?? "/items/wick_medallion.svg",
-      description: itemMeta?.description ?? "An item brought back from a mark.",
-      authenticityTell: itemMeta?.authenticityTell ?? "Check against the merchant ledger.",
-      decoyWarning: itemMeta?.decoyWarning ?? "The merchant rejects decoys.",
-      bounty: itemMeta?.merchantBounty ?? 100,
-    };
-  });
-
-  const filteredItems = enrichedItems.filter(i =>
-    i.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    i.botName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const selectedItem = enrichedItems.find((i) => i.itemKey === selectedKey) ?? enrichedItems[0] ?? null;
-  const verifiedCount = enrichedItems.filter((i) => i.status === "verified").length;
-
-  const getRarityColor = (rarity: string) => {
-    switch(rarity.toLowerCase()) {
-      case 'mythic': return 'bg-purple-500';
-      case 'legendary': return 'bg-yellow-400';
-      case 'epic': return 'bg-pink-500';
-      case 'rare': return 'bg-blue-400';
-      case 'uncommon': return 'bg-red-500';
-      case 'common': return 'bg-gray-300';
-      default: return 'bg-gray-400';
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="inv-title">
-      <div ref={containerRef} className="relative flex w-full max-w-[1200px] h-[90vh] max-h-[850px] flex-col rounded-[12px] bg-[#090b0e] border border-white/5 overflow-hidden shadow-2xl">
-
-        {/* Header */}
-        <header className="flex items-center justify-between border-b border-white/5 bg-black/20 px-6 py-4 shrink-0">
-          <div className="flex items-center gap-4">
-            <span className="flex h-12 w-12 items-center justify-center rounded-[8px] border border-[#ff2a2a]/40 bg-[#ff2a2a]/10 text-[#ff2a2a]">
-              <Box className="w-6 h-6" />
-            </span>
-            <div className="flex flex-col">
-              <h2 id="inv-title" className="font-serif text-[22px] tracking-wide text-white/90 uppercase">
-                Inventory
-              </h2>
-              <span className="text-[13px] text-white/50 tracking-wide">
-                Filed {verifiedCount} of 8 · Holding {enrichedItems.length} of 8
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 rounded-[6px] border border-[#d4af37]/30 bg-[#d4af37]/5 px-4 py-2 text-[14px] font-medium text-[#d4af37] transition hover:bg-[#d4af37]/10">
-              <Link className="w-4 h-4" />
-              <span>240 credits</span>
-            </button>
-            <button onClick={onClose} className="text-white/40 hover:text-white/80 transition p-2">
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="inventory-title">
+      <div ref={containerRef} className="flex h-[min(90dvh,760px)] w-full max-w-[1060px] flex-col overflow-hidden border border-[#ff1e2d]/35 bg-[#090d12] shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
+        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
+          <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center border border-[#ff1e2d]/40 bg-[#ff1e2d]/10 text-[#ff5b64]"><Package className="h-5 w-5" aria-hidden="true" /></span><div><h2 id="inventory-title" className="font-[family-name:var(--font-display)] text-[20px] font-bold uppercase tracking-wide text-white">Team satchel</h2><p className="text-[12px] text-white/50">{verifiedCount} filed · {items.length} held or filed</p></div></div>
+          <div className="flex items-center gap-3"><span className="inline-flex min-h-[36px] items-center gap-2 border border-[#ff1e2d]/30 bg-[#ff1e2d]/10 px-3 font-mono text-[12px] font-bold text-[#ff8087]"><Coins className="h-4 w-4" aria-hidden="true" />{credits} credits</span><button type="button" onClick={onClose} className="flex h-11 w-11 items-center justify-center border border-white/10 text-white/55 transition hover:border-[#ff1e2d]/50 hover:text-white" aria-label="Close satchel"><X className="h-5 w-5" /></button></div>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
-          {/* Left Pane: Items List */}
-          <main className="flex w-full lg:w-[60%] flex-col border-b lg:border-b-0 lg:border-r border-white/5 p-6 lg:overflow-y-auto shrink-0 lg:shrink">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-serif text-[20px] text-white/90">Items</h3>
-              <span className="text-[14px] text-white/50">{enrichedItems.length} held</span>
-            </div>
-
-            <div className="flex gap-3 mb-6">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                <input
-                  type="text"
-                  placeholder="Search items..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-[6px] py-2 pl-9 pr-4 text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-white/20 transition"
-                />
-              </div>
-              <button className="flex items-center justify-between gap-2 bg-white/5 border border-white/10 rounded-[6px] px-4 py-2 text-[13px] text-white/70 hover:bg-white/10 transition min-w-[140px]">
-                <span>Sort: Default</span>
-                <span className="text-[10px]">▼</span>
-              </button>
-              <button className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-[6px] px-4 py-2 text-[13px] text-white/70 hover:bg-white/10 transition">
-                <Filter className="w-4 h-4" />
-                <span>All Items</span>
-                <span className="text-[10px] ml-1">▼</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredItems.map((item) => {
-                const isSelected = selectedItem?.itemKey === item.itemKey;
-                return (
-                  <button
-                    key={item.itemKey}
-                    onClick={() => setSelectedKey(item.itemKey)}
-                    className={`group relative flex aspect-[4/5] flex-col rounded-[8px] border p-4 transition text-left overflow-hidden ${
-                      isSelected
-                        ? "border-[#ff2a2a] bg-gradient-to-b from-[#ff2a2a]/5 to-[#ff2a2a]/10"
-                        : "border-white/5 bg-white/[0.02] hover:bg-white/[0.04]"
-                    }`}
-                  >
-                    <div className="flex-1 flex items-center justify-center p-2 mb-2">
-                      <img src={item.asset} alt={item.name} className="max-h-[100px] w-auto object-contain drop-shadow-lg transition-transform group-hover:scale-105" />
-                    </div>
-                    <div className="flex flex-col gap-1.5 mt-auto">
-                      <span className={`text-[13px] font-semibold leading-tight line-clamp-2 ${isSelected ? "text-white" : "text-white/80"}`}>
-                        {item.name}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rotate-45 ${getRarityColor(item.rarity)} shadow-[0_0_8px_rgba(0,0,0,0.5)]`} />
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-
-              {/* Fill empty slots to make it look full if needed */}
-              {Array.from({ length: Math.max(0, 8 - filteredItems.length) }).map((_, i) => (
-                <div key={`empty-${i}`} className="aspect-[4/5] rounded-[8px] border border-white/5 bg-white/[0.01]" />
-              ))}
-            </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+          <main className="min-h-0 w-full shrink-0 border-b border-white/10 p-5 sm:p-6 lg:w-[58%] lg:overflow-y-auto lg:border-b-0 lg:border-r">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row"><label className="relative flex min-h-[44px] flex-1 items-center border border-white/12 bg-white/[0.03]"><Search className="ml-3 h-4 w-4 text-white/40" aria-hidden="true" /><span className="sr-only">Search satchel</span><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search relics" className="h-full w-full bg-transparent px-3 text-[13px] text-white outline-none placeholder:text-white/35 focus:border-[#ff1e2d]" /></label></div>
+            {filteredItems.length === 0 ? <div className="border border-dashed border-white/15 px-4 py-10 text-center text-[13px] text-white/45">No relics match this search.</div> : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{filteredItems.map((item) => { const selected = selectedItem?.itemKey === item.itemKey; const filed = item.status === "verified"; return <button key={item.itemKey} type="button" onClick={() => setSelectedKey(item.itemKey)} className={`group flex min-h-[150px] flex-col justify-between border p-3 text-left transition active:scale-[0.98] ${selected ? "border-[#ff1e2d] bg-[#ff1e2d]/10" : "border-white/10 bg-white/[0.025] hover:border-white/25 hover:bg-white/[0.05]"}`}><span className="flex h-20 items-center justify-center border border-white/10 bg-black/30 p-2"><img src={item.asset} alt={item.name} className="h-full w-full object-contain transition-transform group-hover:scale-105" /></span><span className="mt-3 flex items-center justify-between gap-2"><span className="min-w-0 truncate text-[12px] font-semibold text-white/85">{item.name}</span>{filed ? <CheckCircle2 className="h-4 w-4 shrink-0 text-[#9db87a]" aria-label="Filed" /> : <Package className="h-4 w-4 shrink-0 text-[#ff5b64]" aria-label="Held" />}</span></button>; })}</div>}
           </main>
 
-          {/* Right Pane: Item Details */}
-          <aside className="flex w-full lg:w-[40%] flex-col p-6 bg-[#05070a]/50 relative shrink-0 lg:shrink lg:overflow-y-auto border-t lg:border-t-0 border-white/5">
-            {selectedItem ? (
-              <div className="flex flex-col h-full min-h-min">
-                <div className="relative flex lg:flex-1 min-h-[160px] lg:min-h-[120px] w-full items-center justify-center rounded-[8px] border border-white/5 bg-gradient-to-b from-white/[0.03] to-transparent mb-6 p-6">
-                  <img src={selectedItem.asset} alt={selectedItem.name} className="max-h-full max-w-[80%] object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]" />
-                </div>
-
-                <div className="flex flex-col gap-1 mb-6 shrink-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className={`w-2 h-2 rotate-45 ${getRarityColor(selectedItem.rarity)} shadow-[0_0_8px_currentColor]`} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">
-                      {selectedItem.rarity} {selectedItem.category}
-                    </span>
-                  </div>
-                  <h3 className="font-serif text-[24px] sm:text-[28px] tracking-wide text-white uppercase leading-tight mb-1">
-                    {selectedItem.name}
-                  </h3>
-                  <p className="text-[12px] sm:text-[13px] text-white/40">
-                    Acquired from <span className="font-medium text-white/70">{selectedItem.botName}</span>
-                  </p>
-                  <p className="text-[12px] sm:text-[13px] text-white/40">
-                    Obtained by <span className="font-medium text-white/70">{selectedItem.obtainedBy ?? "team"}</span>
-                  </p>
-                </div>
-
-                {selectedItem.status === "verified" ? (
-                  <div className="flex shrink-0 items-center gap-3 rounded-[6px] border border-[#10b981]/30 bg-[#10b981]/10 px-4 py-3 mb-6">
-                    <ShieldCheck className="w-5 h-5 text-[#10b981]" />
-                    <span className="text-[11px] font-bold tracking-widest text-[#10b981] uppercase">Verified & Filed</span>
-                  </div>
-                ) : (
-                  <div className="flex shrink-0 items-center gap-3 rounded-[6px] border border-[#ff2a2a]/30 bg-[#ff2a2a]/10 px-4 py-3 mb-6">
-                    <AlertCircle className="w-5 h-5 text-[#ff2a2a]" />
-                    <span className="text-[11px] font-bold tracking-widest text-[#ff2a2a] uppercase">Held · Needs Appraisal</span>
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-6 shrink-0 text-[13.5px] leading-relaxed pb-6">
-                  <p className="italic text-white/60 border-l-2 border-white/10 pl-4 py-0.5">
-                    "{selectedItem.description}"
-                  </p>
-
-                  <div className="flex flex-col gap-2 rounded-[6px] border border-white/5 bg-white/[0.02] p-4">
-                    <span className="text-[10px] font-bold tracking-widest text-[#d4af37] uppercase flex items-center gap-2">
-                      <Search className="w-3 h-3" /> Authentication
-                    </span>
-                    <p className="text-white/80">{selectedItem.authenticityTell}</p>
-                  </div>
-                </div>
-
-                {selectedItem.status !== "verified" && onOpenMerchant && (
-                  <button
-                    onClick={() => {
-                      onOpenMerchant();
-                      onClose();
-                    }}
-                    className="mt-auto shrink-0 flex w-full items-center justify-center gap-3 rounded-[6px] bg-gradient-to-r from-[#cc0000] to-[#aa0000] px-6 py-4 text-[14px] font-medium text-white shadow-[0_0_20px_rgba(255,42,42,0.2)] transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    <Box className="w-5 h-5" />
-                    <span>Take to merchant</span>
-                    <ArrowRight className="w-4 h-4 ml-auto" />
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-1 flex-col items-center justify-center text-center text-white/30">
-                <Package className="w-16 h-16 mb-4 opacity-50" />
-                <p>Select an item to view details</p>
-              </div>
-            )}
-          </aside>
+          <aside className="min-h-0 w-full bg-[#070a0e]/70 p-5 sm:p-6 lg:w-[42%] lg:overflow-y-auto">{selectedItem ? <div className="flex h-full flex-col"><div className="flex min-h-[170px] items-center justify-center border border-white/10 bg-black/25 p-8"><img src={selectedItem.asset} alt={selectedItem.name} className="max-h-40 max-w-full object-contain" /></div><div className="mt-5"><p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#ff5b64]">{selectedItem.rarity} · {selectedItem.category}</p><h3 className="mt-2 font-[family-name:var(--font-display)] text-[24px] font-bold uppercase leading-tight text-white">{selectedItem.name}</h3><p className="mt-2 text-[12px] text-white/50">Recovered from {selectedItem.botName}</p></div><div className={`mt-5 flex items-center gap-2 border px-3 py-2.5 text-[12px] font-semibold ${selectedItem.status === "verified" ? "border-[#9db87a]/40 bg-[#9db87a]/10 text-[#c9dfa9]" : "border-[#ff1e2d]/35 bg-[#ff1e2d]/10 text-[#ff9ba0]"}`}>{selectedItem.status === "verified" ? <ShieldCheck className="h-4 w-4" aria-hidden="true" /> : <AlertCircle className="h-4 w-4" aria-hidden="true" />}<span>{selectedItem.status === "verified" ? "Filed and locked" : Boolean(selectedItem.claimed) ? "Claimed · awaiting appraisal" : "Held · claim acknowledgement pending"}</span></div><p className="mt-5 text-[13px] leading-relaxed text-white/70">{selectedItem.description}</p><div className="mt-auto border-t border-white/10 pt-5 text-[12px] text-white/45"><p className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#ff5b64]" aria-hidden="true" />Claim and appraisal are separate steps.</p><p className="mt-2">The merchant desk is available from the arena roster.</p></div></div> : <div className="flex h-full items-center justify-center text-center text-[13px] text-white/40">Select a relic to inspect it.</div>}</aside>
         </div>
       </div>
     </div>

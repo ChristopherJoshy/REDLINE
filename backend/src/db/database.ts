@@ -62,6 +62,16 @@ export function openDatabase(path: string, schemaPath: string): DatabaseAdapter 
     // column already exists
   }
   try {
+    driver.exec("ALTER TABLE teams ADD COLUMN is_qualified INTEGER NOT NULL DEFAULT 0;");
+  } catch {
+    // column already exists
+  }
+  try {
+    driver.exec("ALTER TABLE teams ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0;");
+  } catch {
+    // column already exists
+  }
+  try {
     driver.exec("ALTER TABLE cover_profiles ADD COLUMN bot_id TEXT NOT NULL DEFAULT '*';");
   } catch {
     // column already exists
@@ -88,12 +98,41 @@ export function openDatabase(path: string, schemaPath: string): DatabaseAdapter 
   driver.exec("DELETE FROM cover_profiles WHERE bot_id = '*';");
   // Migrate: add obtained_by to team_inventory if missing
   try { driver.exec("ALTER TABLE team_inventory ADD COLUMN obtained_by TEXT;"); } catch { /* already exists */ }
+  // Migrate: add claim acknowledgement to team_inventory if missing
+  try { driver.exec("ALTER TABLE team_inventory ADD COLUMN claimed_at TEXT;"); } catch { /* already exists */ }
   // Migrate: add display_name to chat_logs if missing
   try { driver.exec("ALTER TABLE chat_logs ADD COLUMN display_name TEXT NOT NULL DEFAULT '';"); } catch { /* already exists */ }
   // Migrate: member session nonce + presence for force-logout and logout marking
   try { driver.exec("ALTER TABLE team_members ADD COLUMN session_nonce TEXT NOT NULL DEFAULT '';"); } catch { /* already exists */ }
   try { driver.exec("ALTER TABLE team_members ADD COLUMN presence TEXT NOT NULL DEFAULT 'offline';"); } catch { /* already exists */ }
   try { driver.exec("ALTER TABLE team_members ADD COLUMN last_seen_at TEXT;"); } catch { /* already exists */ }
+  // Track the globally ordered first defeats even when opening an existing
+  // venue database created before the ranking redesign.
+  driver.exec(`CREATE TABLE IF NOT EXISTS bot_completions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bot_id TEXT NOT NULL,
+    round INTEGER NOT NULL,
+    team_id TEXT NOT NULL REFERENCES teams(id),
+    completed_by TEXT NOT NULL,
+    verified_at TEXT NOT NULL,
+    completion_rank INTEGER NOT NULL,
+    elapsed_secs INTEGER NOT NULL DEFAULT 0,
+    base_delta INTEGER NOT NULL DEFAULT 0,
+    speed_bonus INTEGER NOT NULL DEFAULT 0,
+    elo_delta INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (bot_id, team_id),
+    UNIQUE (bot_id, completion_rank)
+  )`);
+  driver.exec(`INSERT OR IGNORE INTO bot_completions
+    (bot_id, round, team_id, completed_by, verified_at, completion_rank)
+    SELECT bot_id,
+      CASE WHEN bot_id IN ('itachi', 'aizen') THEN 2 ELSE 1 END,
+      team_id,
+      COALESCE(NULLIF(obtained_by, ''), (SELECT name FROM teams WHERE teams.id = team_inventory.team_id)),
+      COALESCE(verified_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      ROW_NUMBER() OVER (PARTITION BY bot_id ORDER BY verified_at ASC, rowid ASC)
+    FROM team_inventory
+    WHERE status = 'verified' AND verified_at IS NOT NULL`);
   return {
     exec: (sql) => driver.exec(sql),
     run: (sql, ...params) => {

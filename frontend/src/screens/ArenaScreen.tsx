@@ -24,13 +24,11 @@ import {
   CheckCircle2,
   ArrowLeft,
   Send,
-  Scale,
   Package,
   ChevronRight,
   ChevronLeft,
   Coins,
   UserCheck,
-  MessageSquare,
   VenetianMask,
   Gift,
   Sparkles,
@@ -38,9 +36,8 @@ import {
   RotateCcw,
   Radio,
   ShieldAlert,
-  Check
+  Check,
 } from "lucide-react";
-
 const ROSTER: Array<{ id: BotId; label: string; num: string }> = [
   { id: "wick", label: "John Wick", num: "01" },
   { id: "spidey", label: "Spider-Man", num: "02" },
@@ -81,7 +78,6 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
   const { bots, inventory, hasSyncedInventory, credits, locks, setLocks, send, say, rewind } = useBotStream(teamId, displayName);
   const [selectedBotId, setSelectedBotId] = useState<BotId>("wick");
   const [chattingBotId, setChattingBotId] = useState<BotId | null>(null);
-  const [merchantTab, setMerchantTab] = useState<"counter" | "talk">("counter");
   const [draft, setDraft] = useState("");
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [covers, setCovers] = useState<Record<string, CoverProfile | null>>({});
@@ -92,6 +88,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
   const [coverChecking, setCoverChecking] = useState<BotId | null>(null);
   const [celebration, setCelebration] = useState<BotId | null>(null);
   const [claimRelic, setClaimRelic] = useState<{ botId: BotId; itemKey: string } | null>(null);
+  const [claimedItemKeys, setClaimedItemKeys] = useState<Set<string>>(new Set());
   const [rewindingId, setRewindingId] = useState<number | null>(null);
   // Single-operator locks (round 1): which mark I hold, and transient conflict notices.
   const [heldBot, setHeldBot] = useState<BotId | null>(null);
@@ -217,11 +214,9 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
       const prevItem = prev.find((i) => i.botId === item.botId);
 
       // Check 1: Brand new obtained item (or transitioned to obtained) -> Trigger Claim Popup!
-      if (item.status === "obtained" && (prevItem === undefined || prevItem.status === "locked") && item.obtainedBy === displayName) {
+      if (item.status === "obtained" && !itemIsClaimed(item) && (prevItem === undefined || prevItem.status === "locked") && item.obtainedBy === displayName) {
         setClaimRelic({ botId: item.botId, itemKey: item.itemKey });
       }
-
-      // Check 2: Transitioned to verified -> Trigger Celebration Overlay!
       if (item.status === "verified" && prevItem?.status !== "verified" && item.obtainedBy === displayName) {
         if (chattingBotId !== null && chattingBotId !== "merchant" && item.botId === chattingBotId) {
           if (heldRef.current === item.botId) {
@@ -312,6 +307,10 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
     setCoverOpen(true);
   }
 
+  function itemIsClaimed(item: InventoryDelta | undefined): boolean {
+    return item !== undefined && (Boolean(item.claimed) || claimedItemKeys.has(item.itemKey));
+  }
+
   function holderOf(botId: BotId): string | null {
     const h = (locks as BotLockMap)[botId];
     if (!h || h.displayName === displayName) return null;
@@ -382,10 +381,9 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
       if (item?.obtainedBy === displayName) setCelebration(botId);
       return;
     }
-    if (botId === "merchant") { setMerchantTab("counter"); setChattingBotId(botId); return; }
+    if (botId === "merchant") { setChattingBotId(botId); return; }
     // Single-operator rule: a mark held by a teammate stays selectable but not enterable.
     const holder = holderOf(botId);
-    if (holder !== null) { flashLockNotice(`${holder} is already talking to this mark`); return; }
     if (coverChecking === botId) return;
     void (async () => {
       // Lock before checking or creating a cover so the whole attempt is visible
@@ -560,11 +558,11 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                     Extraction Target
                   </p>
                   <div className="flex items-start gap-4">
-                    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(216,155,36,0.4)] bg-black/40 p-2 shadow-[inset_0_0_12px_rgba(216,155,36,0.15)]">
+                    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[8px] border border-[#ff1e2d]/40 bg-black/40 p-2 shadow-[inset_0_0_12px_rgba(255,30,45,0.15)]">
                       <img
                         src={selectedLore.targetItem.asset || "/items/wick_medallion.svg"}
                         alt={selectedLore.targetItem.name}
-                        className="h-full w-full object-contain drop-shadow-[0_0_8px_rgba(216,155,36,0.3)]"
+                        className="h-full w-full object-contain drop-shadow-[0_0_8px_rgba(255,30,45,0.3)]"
                       />
                     </span>
                     <div className="min-w-0 flex-1 flex flex-col gap-1.5">
@@ -588,7 +586,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                     const item = inventory.find((i) => i.botId === selectedLore.id);
                     if (item && (item.status === "verified" || item.status === "obtained") && item.obtainedBy && item.obtainedBy !== displayName) {
                       return (
-                        <div className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[8px] border border-[rgba(216,155,36,0.45)] bg-[rgba(216,155,36,0.18)] px-6 py-2.5 font-bold text-[13px] tracking-wide text-[var(--color-gold-bright)] backdrop-blur-sm">
+                        <div className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[8px] border border-[#ff1e2d]/45 bg-[#ff1e2d]/15 px-6 py-2.5 font-bold text-[13px] tracking-wide text-[#ff9ba0] backdrop-blur-sm">
                           <Lock className="h-4 w-4" />
                           <span>DEFEATED BY {item.obtainedBy.toUpperCase()}</span>
                         </div>
@@ -616,25 +614,15 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                     }
                     if (item?.status === "obtained") {
                       return (
-                        <div className="flex gap-2 w-full">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (item) setClaimRelic({ botId: item.botId, itemKey: item.itemKey });
-                            }}
-                            className="flex min-h-[48px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-[8px] border border-[rgba(216,155,36,0.45)] bg-[rgba(216,155,36,0.18)] px-4 py-2.5 text-[13.5px] font-bold tracking-wide text-[var(--color-gold-bright)] hover:bg-[rgba(216,155,36,0.28)] backdrop-blur-md transition"
-                          >
-                            <Gift className="h-4 w-4" />
-                            <span>Inspect Relic</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => engage(selectedLore.id)}
-                            className="min-h-[48px] rounded-[8px] border border-white/20 bg-white/10 px-6 py-2.5 font-bold text-[13.5px] tracking-wide text-white hover:bg-white/20 backdrop-blur-md transition cursor-pointer"
-                          >
-                            <span>Talk</span>
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          disabled={itemIsClaimed(item)}
+                          onClick={() => { if (item && !itemIsClaimed(item)) setClaimRelic({ botId: item.botId, itemKey: item.itemKey }); }}
+                          className={`flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[8px] border px-6 py-2.5 font-bold text-[13.5px] tracking-wide transition ${itemIsClaimed(item) ? "cursor-default border-[#9db87a]/40 bg-[#9db87a]/10 text-[#c9dfa9]" : "cursor-pointer border-[#ff1e2d]/50 bg-[#ff1e2d]/15 text-[#ff9ba0] hover:bg-[#ff1e2d]/25 active:scale-[0.98]"}`}
+                        >
+                          {itemIsClaimed(item) ? <Check className="h-4 w-4" aria-hidden="true" /> : <Gift className="h-4 w-4" aria-hidden="true" />}
+                          <span>{itemIsClaimed(item) ? "Already claimed" : "Claim item"}</span>
+                        </button>
                       );
                     }
                     if (selectedHolder !== null) {
@@ -691,7 +679,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                 const itemStatus = getBotItemStatus(item.id);
                 const filed = itemStatus === "verified";
                 const attempt = !isMerchantCard && !filed ? locks[item.id] : undefined;
-                const activeBorder = isMerchantCard ? "border-[#f2b632] shadow-[0_0_15px_rgba(242,182,50,0.6)]" : "border-[#ff1e2d] shadow-[0_0_15px_rgba(255,30,45,0.6)]";
+                const activeBorder = isMerchantCard ? "border-[#ff1e2d] shadow-[0_0_15px_rgba(255,30,45,0.6)]" : "border-[#ff1e2d] shadow-[0_0_15px_rgba(255,30,45,0.6)]";
 
                 return (
                   <div
@@ -743,7 +731,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                         {/* Content (Text & Tags) */}
                         <div className="relative z-20 flex flex-col items-center justify-end pb-2 sm:pb-3 px-1 h-full gap-1 sm:gap-1.5">
                           {/* Index */}
-                          <span className={`absolute top-2 left-3 sm:left-4 font-[family-name:var(--font-code)] text-[9px] font-bold tracking-[0.1em] ${isSelected ? (isMerchantCard ? "text-[#f2b632]" : "text-[#ff1e2d]") : "text-white/40"}`}>
+                          <span className={`absolute top-2 left-3 sm:left-4 font-[family-name:var(--font-code)] text-[9px] font-bold tracking-[0.1em] ${isSelected ? "text-[#ff1e2d]" : "text-white/40"}`}>
                             {item.num}
                           </span>
 
@@ -823,46 +811,22 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                 )}
 
                 {isMerchant ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setMerchantTab("counter")}
-                      aria-pressed={merchantTab === "counter"}
-                      className={`flex min-h-[40px] items-center gap-1.5 border px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.1em] uppercase transition ${
-                        merchantTab === "counter"
-                          ? "border-[#f5b301] bg-[#f5b301]/15 text-[#f5b301] shadow-[0_0_12px_rgba(245,179,1,0.3)]"
-                          : "border-white/15 bg-black/50 text-white/60 hover:text-white hover:border-white/30"
-                      }`}
-                    >
-                      <Scale className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Counter</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMerchantTab("talk")}
-                      aria-pressed={merchantTab === "talk"}
-                      className={`flex min-h-[40px] items-center gap-1.5 border px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.1em] uppercase transition ${
-                        merchantTab === "talk"
-                          ? "border-[#f5b301] bg-[#f5b301]/15 text-[#f5b301] shadow-[0_0_12px_rgba(245,179,1,0.3)]"
-                          : "border-white/15 bg-black/50 text-white/60 hover:text-white hover:border-white/30"
-                      }`}
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Talk</span>
-                    </button>
-                  </>
+                  <span className="flex min-h-[40px] items-center gap-2 border border-[#ff1e2d]/35 bg-[#ff1e2d]/10 px-3 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#ff8087]">
+                    <Coins className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Live desk</span>
+                  </span>
                 ) : (
                   <button
                     type="button"
                     onClick={() => setInventoryOpen(true)}
-                    className="flex min-h-[40px] items-center gap-2 border border-white/15 bg-black/60 backdrop-blur-md px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.1em] text-white/80 hover:text-white hover:border-[#ff1e2d] hover:bg-[#ff1e2d]/10 transition"
+                    className="flex min-h-[40px] items-center gap-2 border border-white/15 bg-black/60 px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.1em] text-white/80 transition hover:border-[#ff1e2d] hover:bg-[#ff1e2d]/10 hover:text-white"
                   >
                     <Package className="h-3.5 w-3.5 text-[#ff1e2d]" />
                     <span>SATCHEL ({inventory.length}/8)</span>
                   </button>
                 )}
 
-                <RewindButton botId={chattingBotId} onRewind={rewind} />
+                {!isMerchant && <RewindButton botId={chattingBotId} onRewind={rewind} />}
 
                 {!isMerchant && chattingBotId !== null && (
                   <button
@@ -881,12 +845,8 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
               </div>
             </header>
 
-            {isMerchant && merchantTab === "counter" ? (
-              <div className="flex-1 overflow-y-auto min-h-0">
-                <MerchantCounter inventory={inventory} credits={credits} say={say} displayName={displayName} />
-              </div>
-            ) : (
-              <>
+            {isMerchant && <MerchantCounter inventory={inventory} credits={credits} say={say} displayName={displayName} />}
+            <>
                 {/* Tactical Chat Container */}
                 <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
                   {/* Floating Objective HUD Card (Top Left) */}
@@ -918,11 +878,10 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                   <div className={CHAT_FEED} aria-live="polite" ref={chatFeedRef}>
                     {activeBot?.messages.map((m, idx) => {
                       const isUser = m.role === "user";
-                      const canRewind = m.id !== undefined && chattingBotId !== null;
+                      const canRewind = !isMerchant && m.id !== undefined && chattingBotId !== null;
                       const isRewindingThis = m.id !== undefined && rewindingId === m.id;
                       const isLatestBotMsg = !isUser && idx === (activeBot?.messages.length ?? 0) - 1;
                       const isError = m.retryable === true;
-
                       return (
                         <ChatMessageFrame key={m.id ?? idx} botId={chattingBotId} isUser={isUser} actions={<>
                             {/* Retry button for inference errors */}
@@ -1019,54 +978,24 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                   const item = inventory.find((i) => i.botId === chattingBotId && i.status === "obtained" && i.obtainedBy === displayName);
                   const lore = CHARACTERS[chattingBotId];
                   return (
-                    <div className="border-y border-[rgba(216,155,36,0.55)] bg-[rgba(9,13,18,0.95)] p-3 shadow-[0_0_24px_rgba(216,155,36,0.15)] sm:px-6 z-20">
-                      <div className="mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 max-w-[860px]">
-                        <div className="flex items-center gap-3 w-full sm:w-auto">
-                          <div className="relative w-11 h-11 border border-[rgba(216,155,36,0.65)] bg-[rgba(216,155,36,0.15)] p-1 flex items-center justify-center shrink-0">
-                            <img
-                              src={lore?.targetItem.asset ?? "/items/wick_medallion.svg"}
-                              alt=""
-                              className="w-full h-full object-contain drop-shadow"
-                            />
-                            <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--color-gold)]">
-                              <Sparkles className="w-2 h-2 text-black" />
-                            </span>
-                          </div>
+                    <div className="border-y border-[#ff1e2d]/35 bg-[#070a0e]/95 p-3 sm:px-6 z-20">
+                      <div className="mx-auto flex flex-col items-center justify-between gap-3 sm:flex-row max-w-[860px]">
+                        <div className="flex min-w-0 w-full items-center gap-3 sm:w-auto">
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center border border-[#ff1e2d]/45 bg-[#ff1e2d]/10 p-1"><img src={lore?.targetItem.asset ?? "/items/wick_medallion.svg"} alt="" className="h-full w-full object-contain" /></span>
                           <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-gold-bright)] bg-[rgba(216,155,36,0.15)] px-2 py-0.5 border border-[rgba(216,155,36,0.45)]">
-                                Relic Secured · Held
-                              </span>
-                              <span className="text-[12px] text-[var(--color-text-3)] font-mono">
-                                ~{lore?.targetItem.merchantBounty ?? 100} credits
-                              </span>
-                            </div>
-                            <p className="text-[14px] font-bold text-white truncate">
-                              {lore?.targetItem.name ?? item?.itemKey}
-                            </p>
+                            <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#ff8087]">Relic secured</p>
+                            <p className="truncate text-[14px] font-bold text-white">{lore?.targetItem.name ?? item?.itemKey}</p>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (item) setClaimRelic({ botId: item.botId, itemKey: item.itemKey });
-                            }}
-                            className="flex min-h-[40px] items-center gap-1.5 border border-[rgba(216,155,36,0.65)] bg-[rgba(216,155,36,0.2)] px-4 py-2 text-[13px] font-bold text-[var(--color-gold-bright)] transition hover:bg-[rgba(216,155,36,0.3)] active:scale-95 cursor-pointer font-mono"
-                          >
-                            <Gift className="w-4 h-4" />
-                            <span>INSPECT / CLAIM</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => engage("merchant")}
-                            className="flex min-h-[40px] cursor-pointer items-center gap-1.5 border border-white/20 bg-black/60 px-3 py-2 text-[13px] font-semibold text-white transition hover:border-[#ff1e2d] hover:bg-[#ff1e2d]/10 font-mono"
-                          >
-                            <span>MERCHANT</span>
-                            <ArrowRight className="w-3.5 h-3.5 text-[#ff1e2d]" />
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          disabled={itemIsClaimed(item)}
+                          onClick={() => { if (item && !itemIsClaimed(item)) setClaimRelic({ botId: item.botId, itemKey: item.itemKey }); }}
+                          className={`flex min-h-[44px] w-full items-center justify-center gap-2 border px-4 py-2 font-mono text-[12px] font-bold uppercase tracking-wide transition sm:w-auto ${itemIsClaimed(item) ? "cursor-default border-[#9db87a]/40 bg-[#9db87a]/10 text-[#c9dfa9]" : "border-[#ff1e2d] bg-[#ff1e2d]/15 text-[#ff9ba0] hover:bg-[#ff1e2d]/25 active:scale-[0.98]"}`}
+                        >
+                          {itemIsClaimed(item) ? <Check className="h-4 w-4" aria-hidden="true" /> : <Gift className="h-4 w-4" aria-hidden="true" />}
+                          <span>{itemIsClaimed(item) ? "Already claimed" : "Claim item"}</span>
+                        </button>
                       </div>
                     </div>
                   );
@@ -1080,7 +1009,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                     <button
                       type="button"
                       onClick={() => setCelebration(chattingBotId)}
-                      className="underline text-[var(--color-gold-bright)] font-semibold hover:opacity-80 ml-1 cursor-pointer font-mono"
+                      className="underline text-[#ff8087] font-semibold hover:opacity-80 ml-1 cursor-pointer font-mono"
                     >
                       Celebrate again
                     </button>
@@ -1089,7 +1018,6 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
 
                 <ChatComposer draft={draft} onDraft={setDraft} onSubmit={submitChat} disabled={!locked} name={CHARACTERS[chattingBotId]?.name ?? "contact"} />
               </>
-            )}
           </div>
         </div>
       )}
@@ -1099,7 +1027,6 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
         onClose={() => setInventoryOpen(false)}
         inventory={inventory}
         credits={credits}
-        onOpenMerchant={() => engage("merchant")}
       />
 
       {celebration !== null && (
@@ -1110,11 +1037,9 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
         <ClaimItemModal
           botId={claimRelic.botId}
           itemKey={claimRelic.itemKey}
+          claimed={itemIsClaimed(inventory.find((item) => item.itemKey === claimRelic.itemKey))}
           onClaim={() => setClaimRelic(null)}
-          onVisitMerchant={() => {
-            setClaimRelic(null);
-            engage("merchant");
-          }}
+          onClaimed={() => setClaimedItemKeys((current) => new Set(current).add(claimRelic.itemKey))}
         />
       )}
 

@@ -51,6 +51,7 @@ export interface InventoryDelta {
   itemKey: string;
   status: "locked" | "obtained" | "submitted" | "verified";
   obtainedBy?: string;
+  claimed?: boolean;
 }
 
 export interface BotDoneData {
@@ -133,6 +134,13 @@ export interface BotLocksData {
   locks: Partial<Record<BotId, BotLockInfo>>;
 }
 
+export interface LeaderboardShowcaseData {
+  botId: Exclude<BotId, "itachi" | "aizen" | "merchant">;
+  playerName: string;
+  teamName: string;
+  completionRank: 1;
+}
+
 export interface Round2CountdownData {
   endsAt: string;
 }
@@ -209,6 +217,7 @@ export type ServerEvent =
   | Frame<"elo_update", EloUpdateData>
   | Frame<"chat_sync", ChatSyncData>
   | Frame<"bot_locks", BotLocksData>
+  | Frame<"leaderboard_showcase", LeaderboardShowcaseData>
   | Frame<"round2_countdown", Round2CountdownData>
   | Frame<"round2_start", Round2StartData>
   | Frame<"round2_end", Round2EndData>

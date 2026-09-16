@@ -112,7 +112,12 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
     setOfferError("");
     try {
       const result = await submitItem(item.itemKey);
-      if (result.result !== "verified") setOfferError(result.line);
+      if (result.result !== "verified") {
+        setOfferError(result.line);
+      } else {
+        setCelebration(false);
+        onRoundEnd?.();
+      }
     } catch (err) {
       setOfferError(err instanceof Error ? err.message : "Offering failed");
     } finally {

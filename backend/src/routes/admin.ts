@@ -139,7 +139,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       bus.broadcast(session.teamId, bus.frame("chat_sync", { history: { [botId]: remainingMsgs } }));
       bus.broadcast(session.teamId, bus.frame("elo_update", { teamId: session.teamId, elo: after, delta: -1, reason: `rewind:${botId}` }));
       const items = db.all<InventoryDelta>(
-        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy FROM team_inventory WHERE team_id = ?",
+        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy, claimed_at IS NOT NULL AS claimed FROM team_inventory WHERE team_id = ?",
         session.teamId,
       );
       bus.broadcast(session.teamId, bus.frame("inventory_sync", { items }));
@@ -173,15 +173,15 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
         (SELECT MAX(i.verified_at) FROM team_inventory i WHERE i.team_id = t.id AND i.status = 'verified') AS lastSolve
        FROM teams t ${teamFilter} ORDER BY t.elo DESC, lastSolve ASC`,
     );
-    return { rows, round2: r2 };
+    return { rows: rows.slice(0, 8), round2: r2 };
   });
 
   app.get("/api/admin/overview", async (req, reply) => {
     if (!guard(req)) {
       return reply.code(401).send({ error: "unauthorized" });
     }
-    const teams = db.all<{ id: string; name: string; hint: string; join_code: string | null; elo: number; is_qualified: number; is_archived: number; created_at: string }>(
-      "SELECT id, name, hint, join_code, elo, is_qualified, is_archived, created_at FROM teams ORDER BY elo DESC"
+    const teams = db.all<{ id: string; name: string; hint: string; join_code: string | null; elo: number; clue_credits: number; is_qualified: number; is_archived: number; created_at: string }>(
+      "SELECT id, name, hint, join_code, elo, clue_credits, is_qualified, is_archived, created_at FROM teams ORDER BY elo DESC"
     );
     const result = teams.map((team) => {
       const members = db.all<{ display_name: string; role: string; joined_at: string; presence: string; last_seen_at: string | null }>(
@@ -400,6 +400,39 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     if (bus) bus.tick("board");
     return { ok: true, teamId, before, after, delta, reason };
   });
+  // Admin credit ledger: add, remove, or set a team's spendable clue credits.
+  app.post("/api/admin/credits-adjust", async (req, reply) => {
+    if (!guard(req)) {
+      return reply.code(401).send({ error: "unauthorized" });
+    }
+    const body = (req.body ?? {}) as { teamId?: unknown; mode?: unknown; amount?: unknown; reason?: unknown };
+    const teamId = typeof body.teamId === "string" ? body.teamId.trim() : "";
+    const mode = body.mode === "add" || body.mode === "remove" || body.mode === "set" ? body.mode : undefined;
+    const amount = typeof body.amount === "number" ? body.amount : undefined;
+    if (teamId === "" || mode === undefined || amount === undefined || !Number.isInteger(amount) || amount < 0) {
+      return reply.code(400).send({ error: "teamId, mode, and a non-negative integer amount are required" });
+    }
+    const team = db.get<{ clue_credits: number }>("SELECT clue_credits FROM teams WHERE id = ?", teamId);
+    if (team === undefined) {
+      return reply.code(404).send({ error: "team not found" });
+    }
+    const before = team.clue_credits;
+    const after = mode === "set" ? amount : Math.max(0, before + (mode === "add" ? amount : -amount));
+    const delta = after - before;
+    const reason = typeof body.reason === "string" && body.reason.trim() !== "" ? body.reason.trim().slice(0, 240) : "admin_credit_adjustment";
+    db.transaction(() => {
+      db.run("UPDATE teams SET clue_credits = ? WHERE id = ?", after, teamId);
+    });
+    if (bus) {
+      const items = db.all<InventoryDelta>(
+        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy, claimed_at IS NOT NULL AS claimed FROM team_inventory WHERE team_id = ?",
+        teamId,
+      );
+      bus.broadcast(teamId, bus.frame("inventory_sync", { items, credits: after }));
+      bus.tick("board");
+    }
+    return { ok: true, teamId, before, after, delta, mode, amount, reason };
+  });
 
   // Powerful Admin Tools: Inventory & Relic Overrider
   app.post("/api/admin/inventory-override", async (req, reply) => {
@@ -423,28 +456,30 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     db.transaction(() => {
       if (existing) {
         db.run(
-          "UPDATE team_inventory SET item_key = ?, status = ?, verified_at = ? WHERE team_id = ? AND bot_id = ?",
+          "UPDATE team_inventory SET item_key = ?, status = ?, verified_at = ?, claimed_at = ? WHERE team_id = ? AND bot_id = ?",
           itemKey,
           status,
+          status === "verified" ? now : null,
           status === "verified" ? now : null,
           teamId,
           botId
         );
       } else {
         db.run(
-          "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, obtained_at, verified_at, attempt_count) VALUES (?, ?, ?, 1, ?, ?, ?, 1)",
+          "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, obtained_at, verified_at, claimed_at, attempt_count) VALUES (?, ?, ?, 1, ?, ?, ?, ?, 1)",
           teamId,
           botId,
           itemKey,
           status,
           now,
+          status === "verified" ? now : null,
           status === "verified" ? now : null
         );
       }
     });
     if (bus) {
       const items = db.all<InventoryDelta>(
-        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy FROM team_inventory WHERE team_id = ?",
+        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy, claimed_at IS NOT NULL AS claimed FROM team_inventory WHERE team_id = ?",
         teamId,
       );
       bus.broadcast(teamId, bus.frame("inventory_sync", { items }));
@@ -503,7 +538,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       bus.broadcast(teamId, bus.frame("chat_sync", { history }));
       bus.broadcast(teamId, bus.frame("elo_update", { teamId, elo: after, delta: -penalty, reason: `admin_rewind:${botId ?? "all"}` }));
       const items = db.all<InventoryDelta>(
-        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy FROM team_inventory WHERE team_id = ?",
+        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy, claimed_at IS NOT NULL AS claimed FROM team_inventory WHERE team_id = ?",
         teamId,
       );
       bus.broadcast(teamId, bus.frame("inventory_sync", { items }));

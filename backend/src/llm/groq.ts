@@ -51,6 +51,7 @@ async function* streamChatWithKey(
       model: MODEL,
       messages,
       tools: tools.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } })),
+      parallel_tool_calls: false,
       stream: true,
       stream_options: { include_usage: true },
     }),

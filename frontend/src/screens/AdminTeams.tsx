@@ -13,7 +13,8 @@ import {
   ShieldCheck, 
   Sparkles, 
   Trophy, 
-  Package, 
+  Package,
+  Coins,
   Copy, 
   Check, 
   Lock, 
@@ -71,6 +72,7 @@ interface AdminTeamOverview {
   hint: string;
   join_code?: string;
   elo: number;
+  clue_credits: number;
   is_qualified: number;
   created_at: string;
   members: AdminMember[];
@@ -464,6 +466,10 @@ export default function AdminTeams(): React.JSX.Element {
   const [eloModalTeam, setEloModalTeam] = useState<AdminTeamOverview | null>(null);
   const [eloDelta, setEloDelta] = useState<number>(50);
   const [eloReason, setEloReason] = useState<string>("Creative Social Engineering Exploit");
+  const [creditsModalTeam, setCreditsModalTeam] = useState<AdminTeamOverview | null>(null);
+  const [creditMode, setCreditMode] = useState<"add" | "remove" | "set">("add");
+  const [creditAmount, setCreditAmount] = useState<number>(30);
+  const [creditReason, setCreditReason] = useState<string>("Organizer credit adjustment");
 
   const [invModalTeam, setInvModalTeam] = useState<AdminTeamOverview | null>(null);
 
@@ -855,6 +861,29 @@ export default function AdminTeams(): React.JSX.Element {
       }
     } catch {
       alert("Network error adjusting ELO");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function handleApplyCredits(): Promise<void> {
+    if (!creditsModalTeam || adminCode === "") return;
+    setBusy(true);
+    try {
+      const res = await apiFetch("/api/admin/credits-adjust", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-code": adminCode },
+        body: JSON.stringify({ teamId: creditsModalTeam.id, mode: creditMode, amount: creditAmount, reason: creditReason }),
+      });
+      const data = (await res.json()) as { after?: number; error?: string };
+      if (!res.ok || typeof data.after !== "number") {
+        alert(data.error ?? "Failed to adjust credits");
+        return;
+      }
+      setTeams((prev) => prev.map((team) => team.id === creditsModalTeam.id ? { ...team, clue_credits: data.after! } : team));
+      notify(`${creditsModalTeam.name} credits are now ${data.after}`);
+      setCreditsModalTeam(null);
+    } catch {
+      alert("Network error adjusting credits");
     } finally {
       setBusy(false);
     }
@@ -1529,6 +1558,20 @@ export default function AdminTeams(): React.JSX.Element {
                         >
                           <Sliders className="w-3.5 h-3.5 text-[#EF4444]" />
                           <span>Adjust ELO</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCreditsModalTeam(t);
+                            setCreditMode("add");
+                            setCreditAmount(30);
+                            setCreditReason("Organizer credit adjustment");
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider text-[#F4F4F5] hover:bg-[#3F3F46] transition cursor-pointer"
+                          title="Give, remove, or set team credits"
+                        >
+                          <Coins className="w-3.5 h-3.5 text-[#EF4444]" />
+                          <span>Adjust credits</span>
                         </button>
 
                         <button
@@ -3147,6 +3190,117 @@ export default function AdminTeams(): React.JSX.Element {
                 className="flex-1 py-3 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 font-bold text-[13px] uppercase tracking-wider text-[#F4F4F5] cursor-pointer transition disabled:opacity-50"
               >
                 {busy ? "Applying…" : "Confirm ELO"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {creditsModalTeam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+          <div className="w-full max-w-[520px] rounded-[2px] border-t-[1px] border-t-[#EF4444] border-x border-b border-[#3F3F46] bg-[#27272A] p-6 sm:p-8 flex flex-col gap-5 text-[#F4F4F5] shadow-[0_25px_60px_rgba(0,0,0,0.95)] font-mono">
+            <div className="flex items-center justify-between border-b border-[#3F3F46] pb-4">
+              <div>
+                <h3 className="text-[17px] font-bold uppercase tracking-wider flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-[#EF4444]" />
+                  <span>Team credits</span>
+                </h3>
+                <p className="text-[12px] text-[#A1A1AA] mt-1">
+                  Squad: <span className="font-bold text-[#F4F4F5]">{creditsModalTeam.name}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCreditsModalTeam(null)}
+                className="w-8 h-8 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] flex items-center justify-center text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
+                aria-label="Close credits adjustment"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {(["add", "remove", "set"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setCreditMode(mode)}
+                  className={`min-h-11 rounded-[2px] border text-[11px] font-bold uppercase tracking-wider transition cursor-pointer ${
+                    creditMode === mode
+                      ? "border-[#EF4444] bg-[#EF4444] text-[#F4F4F5]"
+                      : "border-[#3F3F46] bg-[#18181B] text-[#A1A1AA] hover:text-[#F4F4F5]"
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+
+            <div>
+              <label htmlFor="credit-amount" className="text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
+                {creditMode === "set" ? "New balance" : "Credit amount"}
+              </label>
+              <input
+                id="credit-amount"
+                type="number"
+                min={0}
+                step={1}
+                value={creditAmount}
+                onChange={(event) => setCreditAmount(Math.max(0, Math.floor(Number(event.target.value) || 0)))}
+                className="w-full h-11 px-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] font-bold text-[15px] text-[#F4F4F5] focus:border-[#EF4444] focus:outline-none transition"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {[30, 60, 120].map((amount) => (
+                <button
+                  key={amount}
+                  type="button"
+                  onClick={() => setCreditAmount(amount)}
+                  className="min-h-11 px-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] text-[11px] font-bold text-[#A1A1AA] hover:text-[#F4F4F5] hover:border-[#EF4444] transition cursor-pointer"
+                >
+                  {amount} credits
+                </button>
+              ))}
+            </div>
+
+            <div>
+              <label htmlFor="credit-reason" className="text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA] block mb-2">
+                Audit reason
+              </label>
+              <input
+                id="credit-reason"
+                value={creditReason}
+                onChange={(event) => setCreditReason(event.target.value)}
+                className="w-full h-11 px-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B] text-[13px] text-[#F4F4F5] focus:border-[#EF4444] focus:outline-none transition"
+              />
+            </div>
+
+            <div className="p-3.5 rounded-[2px] bg-[#18181B] border border-[#3F3F46] text-[12px] flex items-center justify-between">
+              <span className="text-[#A1A1AA] uppercase font-bold">Resulting balance</span>
+              <span className="font-bold text-[16px] text-[#10B981]">
+                {creditMode === "add"
+                  ? creditsModalTeam.clue_credits + creditAmount
+                  : creditMode === "remove"
+                  ? Math.max(0, creditsModalTeam.clue_credits - creditAmount)
+                  : creditAmount}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setCreditsModalTeam(null)}
+                className="flex-1 min-h-11 rounded-[2px] border border-[#3F3F46] bg-transparent hover:bg-[#3F3F46]/50 font-bold text-[13px] uppercase tracking-wider text-[#A1A1AA] hover:text-[#F4F4F5] cursor-pointer transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleApplyCredits()}
+                disabled={busy}
+                className="flex-1 min-h-11 rounded-[2px] bg-[#EF4444] hover:bg-[#EF4444]/90 font-bold text-[13px] uppercase tracking-wider text-[#F4F4F5] cursor-pointer transition disabled:opacity-50"
+              >
+                {busy ? "Applying…" : "Apply credits"}
               </button>
             </div>
           </div>

@@ -17,7 +17,6 @@ export interface ClueResult {
   credits: number;
   owned: boolean;
 }
-
 export async function submitItem(text: string): Promise<SubmitResult> {
   const res = await apiFetch("/api/submit", {
     method: "POST",
@@ -29,6 +28,19 @@ export async function submitItem(text: string): Promise<SubmitResult> {
     throw new Error(data.error ?? "submit failed");
   }
   return data;
+}
+
+export async function claimItem(itemKey: string): Promise<{ claimed: boolean; already: boolean }> {
+  const res = await apiFetch("/api/merchant/claim", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ itemKey }),
+  });
+  const data = (await res.json()) as { claimed?: boolean; already?: boolean; error?: string };
+  if (!res.ok || data.claimed !== true) {
+    throw new Error(data.error ?? "claim failed");
+  }
+  return { claimed: true, already: data.already === true };
 }
 
 export async function merchantState(): Promise<MerchantState> {

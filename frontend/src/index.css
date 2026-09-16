@@ -301,22 +301,22 @@ body {
 
 .redline-carousel-merchant {
   position: relative;
-  background: rgba(20, 16, 10, 0.8);
-  border: 1px solid rgba(216, 155, 36, 0.4);
+  background: rgba(9, 13, 18, 0.8);
+  border: 1px solid rgba(255, 30, 45, 0.4);
   backdrop-filter: blur(8px);
 }
 
 .redline-carousel-merchant:hover {
-  border-color: rgba(216, 155, 36, 0.7);
-  background: rgba(28, 22, 12, 0.9);
+  border-color: rgba(255, 30, 45, 0.7);
+  background: rgba(20, 10, 14, 0.9);
   transform: translateY(-2px);
 }
 
 .redline-carousel-merchant-selected {
   position: relative;
-  background: linear-gradient(180deg, rgba(216, 155, 36, 0.25) 0%, rgba(18, 14, 8, 0.94) 100%) !important;
-  border: 1.5px solid #f2b632 !important;
-  box-shadow: 0 0 24px rgba(216, 155, 36, 0.45), inset 0 0 15px rgba(216, 155, 36, 0.2) !important;
+  background: linear-gradient(180deg, rgba(255, 30, 45, 0.25) 0%, rgba(9, 13, 18, 0.94) 100%) !important;
+  border: 1.5px solid #ff1e2d !important;
+  box-shadow: 0 0 24px rgba(255, 30, 45, 0.45), inset 0 0 15px rgba(255, 30, 45, 0.2) !important;
   transform: translateY(-4px) scale(1.02);
 }
 
@@ -327,8 +327,8 @@ body {
   left: 15%;
   right: 15%;
   height: 2px;
-  background: #f2b632;
-  box-shadow: 0 0 12px #f2b632, 0 0 20px #f2b632;
+  background: #ff1e2d;
+  box-shadow: 0 0 12px #ff1e2d, 0 0 20px #ff1e2d;
   border-radius: 9999px;
 }
 
@@ -384,8 +384,34 @@ body {
   animation: champion-pulse 3.2s ease-in-out infinite;
 }
 
+@keyframes showcase-reveal {
+  from { opacity: 0; transform: translateY(22px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.showcase-takeover {
+  animation: showcase-reveal 420ms var(--ease-out) both;
+}
+
+.showcase-takeover::after {
+  content: "";
+  position: absolute;
+  inset: -20% 0 auto;
+  height: 18%;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(225, 6, 0, 0.1), transparent);
+  animation: scanline 5s linear infinite;
+}
+
+.showcase-reveal {
+  animation: showcase-reveal 700ms 80ms var(--ease-out) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .board-champion {
+  .board-champion,
+  .showcase-takeover,
+  .showcase-reveal,
+  .showcase-takeover::after {
     animation: none;
   }
   .board-row:hover {

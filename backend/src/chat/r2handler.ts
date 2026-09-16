@@ -216,7 +216,7 @@ Call evaluate_challenger exactly once per player turn, even when other tools are
     );
     if (inventoryDelta !== undefined) {
       const items = db.all<InventoryDelta>(
-        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy FROM team_inventory WHERE team_id = ?",
+        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy, claimed_at IS NOT NULL AS claimed FROM team_inventory WHERE team_id = ?",
         teamId,
       );
       bus.broadcast(teamId, bus.frame("inventory_sync", { items }));

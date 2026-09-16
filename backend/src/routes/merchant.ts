@@ -42,7 +42,7 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
       if (round2Status(db) !== "active") {
         return reply.code(403).send({ error: "round 2 not active" });
       }
-      return r2Submit(db, bus, session.teamId, boss, text);
+      return r2Submit(db, bus, session.teamId, boss, text, session.displayName);
     }
 
     if (!round1Open(db)) {
@@ -78,20 +78,21 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
         return { result: "troll", line: roast(), soundId: "merchant/troll-not-enough-cash" };
       }
       const { elo, credits } = db.transaction(() => {
-      db.run(
-        "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, verified_at, attempt_count) VALUES (?, ?, ?, 1, 'verified', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1) ON CONFLICT(team_id, bot_id) DO UPDATE SET status = 'verified', verified_at = excluded.verified_at, attempt_count = team_inventory.attempt_count + 1",
-        session.teamId,
-        hit,
-        BOTS[hit]?.meta.itemKey ?? "",
-      );
-      const elo = applyElo(db, session.teamId, hit, `verified:${hit}`);
+        db.run(
+          "INSERT INTO team_inventory (team_id, bot_id, item_key, is_real, status, verified_at, claimed_at, obtained_by, attempt_count) VALUES (?, ?, ?, 1, 'verified', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), NULL, ?, 1) ON CONFLICT(team_id, bot_id) DO UPDATE SET status = 'verified', verified_at = excluded.verified_at, claimed_at = team_inventory.claimed_at, attempt_count = team_inventory.attempt_count + 1",
+          session.teamId,
+          hit,
+          BOTS[hit]?.meta.itemKey ?? "",
+          session.displayName,
+        );
+      const elo = applyElo(db, session.teamId, hit, session.displayName, `verified:${hit}`);
       const bounty = BOTS[hit]?.meta.bounty ?? 0;
       db.run("UPDATE teams SET clue_credits = clue_credits + ? WHERE id = ?", bounty, session.teamId);
       const credits = db.get<{ clue_credits: number }>("SELECT clue_credits FROM teams WHERE id = ?", session.teamId)?.clue_credits ?? 0;
         return { elo, credits };
       });
       const items = db.all<InventoryDelta>(
-        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy FROM team_inventory WHERE team_id = ?",
+        "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy, claimed_at IS NOT NULL AS claimed FROM team_inventory WHERE team_id = ?",
         session.teamId,
       );
       bus.broadcast(session.teamId, bus.frame("inventory_sync", { items, credits }));
@@ -105,6 +106,15 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
         completionRank: elo.completionRank,
         elapsedSecs: elo.elapsedSecs,
       }));
+      if (elo.completionRank === 1) {
+        const teamName = db.get<{ name: string }>("SELECT name FROM teams WHERE id = ?", session.teamId)?.name ?? "Unknown squad";
+        bus.broadcastAll(bus.frame("leaderboard_showcase", {
+          botId: hit as Exclude<BotId, "itachi" | "aizen" | "merchant">,
+          playerName: session.displayName,
+          teamName,
+          completionRank: 1,
+        }));
+      }
       db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", session.teamId, hit, "merchant/success-thank-you");
       bus.broadcast(session.teamId, bus.frame("sound_play", { botId: "merchant", soundId: "merchant/success-thank-you", src: "/sounds/merchant/success-thank-you.mp3" }));
       bus.tick("board");
@@ -154,6 +164,42 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
       session.teamId,
     );
     return { credits: creditBalance(session.teamId), clues };
+  });
+  app.post("/api/merchant/claim", async (req, reply) => {
+    const session = sessionOf(req, db);
+    if (session === undefined) {
+      return reply.code(401).send({ error: "no session" });
+    }
+    const body = (req.body ?? {}) as { itemKey?: unknown };
+    const itemKey = typeof body.itemKey === "string" ? body.itemKey.trim() : "";
+    if (itemKey === "") {
+      return reply.code(400).send({ error: "itemKey is required" });
+    }
+    const item = db.get<{ bot_id: BotId; status: string; claimed: number }>(
+      "SELECT bot_id, status, claimed_at IS NOT NULL AS claimed FROM team_inventory WHERE team_id = ? AND item_key = ?",
+      session.teamId,
+      itemKey,
+    );
+    if (item === undefined) {
+      return reply.code(404).send({ error: "item not found" });
+    }
+    if (item.status !== "obtained" && item.status !== "verified") {
+      return reply.code(409).send({ error: "item is not claimable" });
+    }
+    if (item.claimed === 1) {
+      return { ok: true, already: true, claimed: true };
+    }
+    db.run(
+      "UPDATE team_inventory SET claimed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE team_id = ? AND item_key = ? AND claimed_at IS NULL",
+      session.teamId,
+      itemKey,
+    );
+    const items = db.all<InventoryDelta>(
+      "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy, claimed_at IS NOT NULL AS claimed FROM team_inventory WHERE team_id = ?",
+      session.teamId,
+    );
+    bus.broadcast(session.teamId, bus.frame("inventory_sync", { items, credits: creditBalance(session.teamId) }));
+    return { ok: true, already: false, claimed: true };
   });
 
   // Buy one sealed clue tier for an unsolved Round-1 mark. Idempotent: owned

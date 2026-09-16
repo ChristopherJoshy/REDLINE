@@ -204,6 +204,21 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     };
   });
 
+  app.delete("/api/admin/teams/:teamId", async (req, reply) => {
+    if (!guard(req)) return reply.code(401).send({ error: "unauthorized" });
+    const { teamId } = req.params as { teamId: string };
+    db.transaction(() => {
+      db.run("DELETE FROM team_members WHERE team_id = ?", teamId);
+      db.run("DELETE FROM team_inventory WHERE team_id = ?", teamId);
+      db.run("DELETE FROM chat_logs WHERE team_id = ?", teamId);
+      db.run("DELETE FROM elo_log WHERE team_id = ?", teamId);
+      db.run("DELETE FROM security_events WHERE team_id = ?", teamId);
+      db.run("DELETE FROM round1_history WHERE team_id = ?", teamId);
+      db.run("DELETE FROM teams WHERE id = ?", teamId);
+    });
+    return { ok: true };
+  });
+
   app.get("/api/admin/export.json", async (req, reply) => {
     if (!guard(req)) {
       return reply.code(401).send({ error: "unauthorized" });

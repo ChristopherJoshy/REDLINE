@@ -1400,18 +1400,16 @@ export default function AdminTeams(): React.JSX.Element {
                           <span>Rewind</span>
                         </button>
 
-                        {(t.id === "GW3Z-ABTF" || t.join_code === "GW3Z-ABTF" || t.hint === "GW3Z-ABTF") && (
-                          <button
-                            type="button"
-                            onClick={() => void handleResetTeam(t)}
-                            disabled={busy}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider bg-[#EF4444] text-[#F4F4F5] hover:bg-[#EF4444]/90 transition cursor-pointer disabled:opacity-50"
-                            title="Permanently reset this squad"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Reset</span>
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => void handleResetTeam(t)}
+                          disabled={busy}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider bg-[#EF4444]/10 text-[#EF4444] hover:bg-[#EF4444] hover:text-[#F4F4F5] border border-[#EF4444]/20 transition cursor-pointer disabled:opacity-50"
+                          title="Permanently reset this squad"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Reset</span>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -2145,6 +2143,18 @@ export default function AdminTeams(): React.JSX.Element {
                     <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Throughput</span>
                     <p className="text-[16px] font-bold text-[#F4F4F5] mt-1 font-mono">
                       {systemHealth.currentTps ?? 0} TPS
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
+                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Codex 5-Hour</span>
+                    <p className="text-[16px] font-bold text-[#F4F4F5] mt-1 font-mono">
+                      {systemHealth.codexFiveHourRemaining != null ? `${systemHealth.codexFiveHourRemaining.toFixed(1)}%` : "N/A"}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
+                    <span className="text-[11px] font-bold text-[#A1A1AA] uppercase">Codex Weekly</span>
+                    <p className="text-[16px] font-bold text-[#F4F4F5] mt-1 font-mono">
+                      {systemHealth.codexWeeklyRemaining != null ? `${systemHealth.codexWeeklyRemaining.toFixed(1)}%` : "N/A"}
                     </p>
                   </div>
               </div>

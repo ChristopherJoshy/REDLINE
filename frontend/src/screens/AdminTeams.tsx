@@ -38,7 +38,11 @@ import {
   Plus,
   ShieldAlert,
   EyeOff,
-  Zap
+  Zap,
+  TrendingUp,
+  TrendingDown,
+  ChevronDown,
+  History
 } from "lucide-react";
 
 
@@ -156,6 +160,126 @@ interface AnnouncementItem {
 
 const R1_BOTS = ["wick", "spidey", "escanor", "stark", "joker", "light", "levi", "deadpool"] as const;
 const ALL_BOTS = [...R1_BOTS, "itachi", "aizen"] as const;
+
+function botDisplayName(botId: string): string {
+  const lore = (CHARACTERS as Record<string, { name?: string }>)[botId];
+  const name = lore?.name;
+  return typeof name === "string" && name !== "" ? name : botId;
+}
+
+function timeAgo(iso: string): string {
+  const ms = Date.now() - Date.parse(iso);
+  if (Number.isNaN(ms)) return "—";
+  if (ms < 10000) return "just now";
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function clockTime(iso: string): string {
+  const t = new Date(iso).toLocaleTimeString();
+  return t !== "Invalid Date" ? t : "—";
+}
+
+interface ParsedElo {
+  delta: number | null;
+  headline: string;
+  extras: string[];
+}
+
+function humanizeEloReason(reason: string): { headline: string; extras: string[] } {
+  const extras: string[] = [];
+  const [head, ...tail] = reason.split(";");
+  for (const part of tail) {
+    const eq = part.indexOf("=");
+    if (eq > 0) {
+      const k = part.slice(0, eq).trim();
+      const v = part.slice(eq + 1).trim();
+      if (k === "rank") extras.push(`Speed rank #${v}`);
+      else if (k === "elapsed") extras.push(`${v}s in`);
+      else if (k === "base") extras.push(`base ${Number(v) >= 0 ? "+" : ""}${v}`);
+      else if (k === "speed") extras.push(`speed bonus ${Number(v) >= 0 ? "+" : ""}${v}`);
+      else if (v !== "") extras.push(`${k}: ${v}`);
+    }
+  }
+  const h = (head ?? "").trim();
+  if (h.startsWith("verify:")) return { headline: `Relic verified — ${botDisplayName(h.slice("verify:".length))}`, extras };
+  if (h.startsWith("r2-assessment:")) {
+    const rest = h.slice("r2-assessment:".length).split(":");
+    const boss = rest[0] ?? "";
+    const phase = rest[1];
+    return { headline: `Round 2 judgement — ${botDisplayName(boss)}${phase ? ` · ${phase.toUpperCase()}` : ""}`, extras };
+  }
+  if (h.startsWith("assessment:")) return { headline: `Round 2 judgement — ${botDisplayName(h.slice("assessment:".length))}`, extras };
+  if (h.startsWith("admin_rewind:")) return { headline: `Admin rewind — ${h.slice("admin_rewind:".length) === "all" ? "all chats" : botDisplayName(h.slice("admin_rewind:".length))}`, extras };
+  if (h.startsWith("rewind:")) {
+    const rest = h.slice("rewind:".length).split(":");
+    return { headline: `Rewind penalty — ${botDisplayName(rest[0] ?? "")}`, extras };
+  }
+  if (h === "round2_start_reset") return { headline: "Round 2 rating reset", extras };
+  return { headline: h === "" ? "Elo adjustment" : h, extras };
+}
+
+function parseEloDetail(detail: string): ParsedElo {
+  const m = detail.match(/^([+-]?\d+)\s*ELO\s*\((.*)\)\s*$/i);
+  if (!m) return { delta: null, headline: detail, extras: [] };
+  const { headline, extras } = humanizeEloReason(m[2] ?? "");
+  return { delta: Number(m[1]), headline, extras };
+}
+
+function parseSolveDetail(detail: string): { item: string; boss: string } {
+  const m = detail.match(/Item appraised & verified:\s*(.+?)\s*\(([^)]+)\)\s*$/);
+  if (!m) return { item: detail, boss: "" };
+  return { item: m[1]?.trim() ?? detail, boss: m[2]?.trim() ?? "" };
+}
+
+interface AuditMeta {
+  label: string;
+  category: string;
+}
+
+function auditMeta(action: string): AuditMeta {
+  const lower = action.toLowerCase();
+  const has = (...parts: string[]): boolean => parts.every((p) => lower.includes(p));
+  if (has("elo-adjust")) return { label: "Elo adjustment", category: "Elo" };
+  if (has("inventory-override")) return { label: "Inventory override", category: "Inventory" };
+  if (has("team-rewind")) return { label: "Team rewind", category: "Moderation" };
+  if (has("qualify-team")) return { label: "Qualification change", category: "Teams" };
+  if (has("announcement")) return { label: "Broadcast sent", category: "Comms" };
+  if (has("assessment")) return { label: "Assessment settings", category: "Config" };
+  if (has("reset-game")) return { label: "Full game reset", category: "Danger" };
+  if (has("backup")) return { label: "Backup created", category: "System" };
+  if (has("keys")) return { label: "API key change", category: "System" };
+  if (has("round2_assignment") || has("round2/assignment")) return { label: "Boss assignment", category: "Round 2" };
+  if (has("round2_phase") || has("round2/phase")) return { label: "Phase override", category: "Round 2" };
+  if (has("round") || has("vault")) return { label: "Round control", category: "Rounds" };
+  if (has("rewind") && has("/api/rewind")) return { label: "Player rewind", category: "Moderation" };
+  const path = action.replace(/^http\s+\w+\s+/i, "");
+  return { label: path === action ? action : `${action.split(" ")[1] ?? "Request"} ${path}`, category: "Other" };
+}
+
+function parseDetailChips(detail: string): Array<{ k: string; v: string }> {
+  let obj: unknown;
+  try {
+    obj = JSON.parse(detail) as unknown;
+  } catch {
+    return [];
+  }
+  if (obj === null || typeof obj !== "object" || Array.isArray(obj)) return [];
+  const chips: Array<{ k: string; v: string }> = [];
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    if (v === null || v === undefined || v === "") continue;
+    const s = typeof v === "string" ? v : JSON.stringify(v);
+    chips.push({ k, v: s.length > 48 ? `${s.slice(0, 48)}…` : s });
+  }
+  return chips.slice(0, 6);
+}
 
 export default function AdminTeams(): React.JSX.Element {
   const [adminCode, setAdminCode] = useState<string>(() => localStorage.getItem("redline_admin_code") ?? "");
@@ -284,6 +408,18 @@ export default function AdminTeams(): React.JSX.Element {
   const [error, setError] = useState("");
   const [successToast, setSuccessToast] = useState("");
   const [auditEntries, setAuditEntries] = useState<Array<{ id: number; action: string; target_id: string | null; reason: string; detail: string; created_at: string }>>([]);
+  const [streamFilter, setStreamFilter] = useState<"all" | "solve" | "elo" | "security">("all");
+  const [auditFilter, setAuditFilter] = useState<string>("All");
+  const [expandedAuditId, setExpandedAuditId] = useState<number | null>(null);
+  const teamNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of teams) map.set(t.id, t.name);
+    return map;
+  }, [teams]);
+  const filteredStream = useMemo(
+    () => (streamFilter === "all" ? activityStream : activityStream.filter((e) => e.type === streamFilter)),
+    [activityStream, streamFilter],
+  );
   const [r2Control, setR2Control] = useState<Array<{ id: string; name: string; boss: string | null; phaseOverride: string | null }>>([]);
   const [r2Reason, setR2Reason] = useState("Live event operator adjustment");
 
@@ -1515,62 +1651,149 @@ export default function AdminTeams(): React.JSX.Element {
         {/* TAB 2: LIVE MISSION STREAM */}
         {tab === "stream" && (
           <div className="flex flex-col gap-6 max-w-[960px] mx-auto w-full">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="font-mono text-[22px] font-bold text-[#F4F4F5] uppercase">
-                  Live Stream Audit Trail
+                  Live Mission Stream
                 </h2>
                 <p className="text-[13px] text-[#A1A1AA] mt-1">
-                  Real-time chronological audit trail of all Relic Solves, ELO adjustments, and security flags.
+                  Every relic solve, Elo swing, and security flag — newest first.
                 </p>
               </div>
-              <span className="px-3.5 py-1.5 rounded-[2px] bg-[#27272A] border border-[#3F3F46] font-mono text-[12px] font-bold text-[#10B981] uppercase">
-                Auto-sync 3s
+              <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-[2px] bg-[#27272A] border border-[#3F3F46] font-mono text-[12px] font-bold text-[#10B981] uppercase">
+                <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" aria-hidden="true" />
+                Live · auto-sync 3s
               </span>
             </div>
 
-            <div className="flex flex-col gap-3 mt-2">
-              {activityStream.length === 0 ? (
-                <div className="p-10 text-center rounded-[2px] border border-[#3F3F46] bg-[#27272A] font-mono text-[#A1A1AA]">
-                  No stream audit events recorded.
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Filter stream events">
+              {(["all", "solve", "elo", "security"] as const).map((f) => {
+                const count = f === "all" ? activityStream.length : activityStream.filter((e) => e.type === f).length;
+                const label = f === "all" ? "All" : f === "solve" ? "Relic solves" : f === "elo" ? "Elo changes" : "Security";
+                const active = streamFilter === f;
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setStreamFilter(f)}
+                    aria-pressed={active}
+                    className={`min-h-[44px] px-4 rounded-[2px] border font-mono text-[12px] font-bold uppercase flex items-center gap-2 ${
+                      active
+                        ? "bg-[#EF4444]/15 border-[#EF4444] text-[#F4F4F5]"
+                        : "bg-[#27272A] border-[#3F3F46] text-[#A1A1AA] hover:text-[#F4F4F5]"
+                    }`}
+                  >
+                    {label}
+                    <span className={`px-1.5 py-0.5 rounded-[2px] text-[11px] ${active ? "bg-[#EF4444]/25 text-white" : "bg-[#18181B] text-[#A1A1AA]"}`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-2">
+              {filteredStream.length === 0 ? (
+                <div className="p-10 text-center rounded-[2px] border border-[#3F3F46] bg-[#27272A]">
+                  <p className="font-mono text-[14px] font-bold text-[#F4F4F5] uppercase">
+                    {activityStream.length === 0 ? "No events yet" : `No ${streamFilter === "solve" ? "relic solves" : streamFilter === "elo" ? "Elo changes" : "security flags"} yet`}
+                  </p>
+                  <p className="mt-1 text-[13px] text-[#A1A1AA]">
+                    {activityStream.length === 0
+                      ? "Events appear here the moment teams play."
+                      : "Try a different filter to see more of the mission."}
+                  </p>
+                  {activityStream.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setStreamFilter("all")}
+                      className="mt-4 min-h-[44px] px-5 rounded-[2px] border border-[#3F3F46] bg-[#18181B] font-mono text-[12px] font-bold uppercase text-[#F4F4F5] hover:border-[#EF4444]"
+                    >
+                      Show everything
+                    </button>
+                  )}
                 </div>
               ) : (
-                activityStream.map((evt) => (
-                  <div
-                    key={evt.id}
-                    className="p-4 px-6 rounded-[2px] border border-[#3F3F46] bg-[#27272A] flex items-center justify-between gap-4 transition"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`flex items-center justify-center w-9 h-9 rounded-[2px] shrink-0 border ${
-                        evt.type === "solve"
-                          ? "bg-[#10B981]/10 border-[#10B981] text-[#10B981]"
-                          : evt.type === "security"
-                          ? "bg-[#EF4444]/10 border-[#EF4444] text-[#EF4444]"
-                          : "bg-[#18181B] border-[#3F3F46] text-[#F4F4F5]"
-                      }`}>
-                        {evt.type === "solve" ? (
-                          <ShieldCheck className="w-4 h-4" />
-                        ) : evt.type === "security" ? (
-                          <AlertTriangle className="w-4 h-4" />
-                        ) : (
-                          <Trophy className="w-4 h-4" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-[15px] text-[#F4F4F5]">{evt.teamName}</span>
-                          <span className="text-[11px] font-mono font-bold uppercase px-2 py-0.5 rounded-[2px] bg-[#18181B] border border-[#3F3F46] text-[#A1A1AA]">
-                            {evt.type === "solve" ? "RELIC SOLVED" : evt.type}
-                          </span>
+                <ol className="relative ml-2 border-l-2 border-[#3F3F46] pl-0 flex flex-col gap-3">
+                  {filteredStream.map((evt) => {
+                    const good = evt.type === "solve";
+                    const bad = evt.type === "security";
+                    const parsed = evt.type === "elo" ? parseEloDetail(evt.detail) : null;
+                    const gain = parsed !== null && (parsed.delta ?? 0) > 0;
+                    const loss = parsed !== null && (parsed.delta ?? 0) < 0;
+                    const solve = evt.type === "solve" ? parseSolveDetail(evt.detail) : null;
+                    const kind = bad ? evt.detail.replace(/^Anti-tamper violation flagged:\s*/i, "") : "";
+                    return (
+                      <li key={evt.id} className="relative pl-8">
+                        <span
+                          aria-hidden="true"
+                          className={`absolute left-[-17px] top-4 flex items-center justify-center w-8 h-8 rounded-full border-2 border-[#18181B] ${
+                            good ? "bg-[#10B981]" : bad ? "bg-[#EF4444]" : gain ? "bg-[#10B981]" : loss ? "bg-[#EF4444]" : "bg-[#52525B]"
+                          }`}
+                        >
+                          {good ? (
+                            <ShieldCheck className="w-4 h-4 text-black" />
+                          ) : bad ? (
+                            <AlertTriangle className="w-4 h-4 text-black" />
+                          ) : gain ? (
+                            <TrendingUp className="w-4 h-4 text-black" />
+                          ) : loss ? (
+                            <TrendingDown className="w-4 h-4 text-black" />
+                          ) : (
+                            <Zap className="w-4 h-4 text-black" />
+                          )}
+                        </span>
+                        <div
+                          className={`p-4 rounded-[2px] border bg-[#27272A] border-l-4 ${
+                            good || gain ? "border-l-[#10B981]" : bad || loss ? "border-l-[#EF4444]" : "border-l-[#52525B]"
+                          } border-[#3F3F46]`}
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-bold text-[15px] text-[#F4F4F5]">{evt.teamName}</span>
+                            {parsed !== null && parsed.delta !== null && (
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] font-mono text-[12px] font-bold border ${
+                                  gain
+                                    ? "bg-[#10B981]/15 border-[#10B981] text-[#10B981]"
+                                    : loss
+                                      ? "bg-[#EF4444]/15 border-[#EF4444] text-[#EF4444]"
+                                      : "bg-[#18181B] border-[#3F3F46] text-[#A1A1AA]"
+                                }`}
+                              >
+                                {gain ? <TrendingUp className="w-3.5 h-3.5" /> : loss ? <TrendingDown className="w-3.5 h-3.5" /> : null}
+                                {parsed.delta > 0 ? `+${parsed.delta}` : parsed.delta} Elo
+                              </span>
+                            )}
+                            <span className="text-[11px] font-mono font-bold uppercase px-2 py-0.5 rounded-[2px] bg-[#18181B] border border-[#3F3F46] text-[#A1A1AA]">
+                              {good ? "Relic solved" : bad ? "Security flag" : "Elo change"}
+                            </span>
+                          </div>
+                          <p className="mt-1.5 text-[14px] font-medium text-[#F4F4F5]">
+                            {good && solve !== null ? (
+                              <>Verified <span className="text-[#10B981]">“{solve.item}”</span>{solve.boss !== "" && <> — {botDisplayName(solve.boss)}</>}</>
+                            ) : bad ? (
+                              <>Security flag{solve !== null && kind !== "" ? <> — <span className="text-[#EF4444]">{kind}</span></> : null}</>
+                            ) : (
+                              parsed?.headline ?? evt.detail
+                            )}
+                          </p>
+                          {(parsed !== null && parsed.extras.length > 0) || (good && solve !== null && solve.boss !== "") ? (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {parsed?.extras.map((x) => (
+                                <span key={x} className="px-2 py-0.5 rounded-[2px] bg-[#18181B] border border-[#3F3F46] font-mono text-[11px] text-[#A1A1AA]">
+                                  {x}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                          <p className="mt-2 font-mono text-[11px] text-[#A1A1AA]" title={new Date(evt.timestamp).toLocaleString()}>
+                            {timeAgo(evt.timestamp)} · {clockTime(evt.timestamp)}
+                          </p>
                         </div>
-                        <p className="text-[13px] text-[#A1A1AA] mt-1">{evt.detail}</p>
-                      </div>
-                    </div>
-                    <span className="text-[11px] text-[#A1A1AA] font-mono shrink-0">
-                      {evt.timestamp.slice(11, 19)}
-                    </span>
-                  </div>
-                ))
+                      </li>
+                    );
+                  })}
+                </ol>
               )}
             </div>
           </div>
@@ -2276,11 +2499,153 @@ export default function AdminTeams(): React.JSX.Element {
 
         {tab === "audit" && (
           <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] p-6">
-            <div><h2 className="font-mono text-[22px] font-bold uppercase text-[#F4F4F5]">Admin action log</h2><p className="mt-1 text-[13px] text-[#A1A1AA]">Every mutating admin request is recorded on the server with its target, reason, and timestamp.</p></div>
-            <div className="overflow-x-auto rounded-[2px] border border-[#3F3F46]">
-              <table className="w-full min-w-[760px] text-left font-mono text-xs"><thead className="bg-[#18181B] text-[10px] uppercase tracking-wider text-[#A1A1AA]"><tr><th className="px-3 py-3">Time</th><th className="px-3 py-3">Action</th><th className="px-3 py-3">Target</th><th className="px-3 py-3">Reason</th><th className="px-3 py-3">Details</th></tr></thead><tbody>{auditEntries.map((entry) => <tr key={entry.id} className="border-t border-[#3F3F46] text-[#F4F4F5]"><td className="whitespace-nowrap px-3 py-3 text-[#A1A1AA]">{new Date(entry.created_at).toLocaleString()}</td><td className="px-3 py-3">{entry.action}</td><td className="px-3 py-3">{entry.target_id ?? "—"}</td><td className="max-w-[240px] px-3 py-3">{entry.reason}</td><td className="max-w-[300px] truncate px-3 py-3 text-[#A1A1AA]">{entry.detail}</td></tr>)}</tbody></table>
-              {auditEntries.length === 0 && <p className="p-6 text-center text-sm text-[#A1A1AA]">No admin actions recorded yet.</p>}
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="font-mono text-[22px] font-bold uppercase text-[#F4F4F5] flex items-center gap-3">
+                  <History className="w-6 h-6 text-[#EF4444]" />
+                  <span>Admin action log</span>
+                </h2>
+                <p className="mt-1 text-[13px] text-[#A1A1AA]">
+                  Who did what, to which squad, and why — recorded on the server. Select a row for the full evidence.
+                </p>
+              </div>
+              <span className="px-3 py-1.5 rounded-[2px] bg-[#18181B] border border-[#3F3F46] font-mono text-[12px] font-bold text-[#A1A1AA] uppercase">
+                {auditEntries.length} {auditEntries.length === 1 ? "entry" : "entries"}
+              </span>
             </div>
+
+            {(() => {
+              const cats = ["All", ...Array.from(new Set(auditEntries.map((e) => auditMeta(e.action).category)))];
+              const visible = auditFilter === "All" ? auditEntries : auditEntries.filter((e) => auditMeta(e.action).category === auditFilter);
+              const countFor = (c: string): number => (c === "All" ? auditEntries.length : auditEntries.filter((e) => auditMeta(e.action).category === c).length);
+              return (
+                <>
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Filter audit log">
+                    {cats.map((c) => {
+                      const active = auditFilter === c;
+                      return (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setAuditFilter(c)}
+                          aria-pressed={active}
+                          className={`min-h-[44px] px-4 rounded-[2px] border font-mono text-[12px] font-bold uppercase flex items-center gap-2 ${
+                            active
+                              ? "bg-[#EF4444]/15 border-[#EF4444] text-[#F4F4F5]"
+                              : "bg-[#18181B] border-[#3F3F46] text-[#A1A1AA] hover:text-[#F4F4F5]"
+                          }`}
+                        >
+                          {c}
+                          <span className={`px-1.5 py-0.5 rounded-[2px] text-[11px] ${active ? "bg-[#EF4444]/25 text-white" : "bg-[#27272A] text-[#A1A1AA]"}`}>
+                            {countFor(c)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {visible.length === 0 ? (
+                    <div className="p-10 text-center rounded-[2px] border border-[#3F3F46] bg-[#18181B]">
+                      <p className="font-mono text-[14px] font-bold text-[#F4F4F5] uppercase">
+                        {auditEntries.length === 0 ? "No admin actions yet" : `No “${auditFilter}” actions`}
+                      </p>
+                      <p className="mt-1 text-[13px] text-[#A1A1AA]">
+                        {auditEntries.length === 0
+                          ? "Every admin change will appear here with its squad, reason, and time."
+                          : "Try a different category."}
+                      </p>
+                      {auditEntries.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setAuditFilter("All")}
+                          className="mt-4 min-h-[44px] px-5 rounded-[2px] border border-[#3F3F46] bg-[#27272A] font-mono text-[12px] font-bold uppercase text-[#F4F4F5] hover:border-[#EF4444]"
+                        >
+                          Show everything
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <ol className="flex flex-col rounded-[2px] border border-[#3F3F46] overflow-hidden">
+                      {visible.map((entry) => {
+                        const meta = auditMeta(entry.action);
+                        const team = entry.target_id !== null ? teamNameById.get(entry.target_id) : undefined;
+                        const chips = parseDetailChips(entry.detail);
+                        const open = expandedAuditId === entry.id;
+                        const danger = meta.category === "Danger";
+                        return (
+                          <li key={entry.id} className="border-b border-[#3F3F46] last:border-b-0 bg-[#18181B]">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedAuditId(open ? null : entry.id)}
+                              aria-expanded={open}
+                              className="w-full min-h-[44px] px-4 py-3 flex items-center gap-3 text-left hover:bg-[#27272A]"
+                            >
+                              <span
+                                aria-hidden="true"
+                                className={`flex items-center justify-center w-8 h-8 rounded-[2px] border shrink-0 ${
+                                  danger ? "bg-[#EF4444]/15 border-[#EF4444] text-[#EF4444]" : "bg-[#27272A] border-[#3F3F46] text-[#A1A1AA]"
+                                }`}
+                              >
+                                {danger ? <AlertTriangle className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                  <span className="font-bold text-[14px] text-[#F4F4F5]">{meta.label}</span>
+                                  <span className="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA]">
+                                    {meta.category}
+                                  </span>
+                                  {team !== undefined ? (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[#EF4444]/10 border border-[#EF4444]/40 text-[#F4F4F5]">
+                                      <Users className="w-3 h-3" />
+                                      {team}
+                                    </span>
+                                  ) : entry.target_id !== null ? (
+                                    <span className="font-mono text-[11px] text-[#A1A1AA]" title={entry.target_id}>
+                                      {entry.target_id.slice(0, 8)}…
+                                    </span>
+                                  ) : null}
+                                </span>
+                                <span className="mt-0.5 block truncate text-[12px] text-[#A1A1AA]">
+                                  {entry.reason}
+                                </span>
+                              </span>
+                              <span className="shrink-0 text-right">
+                                <span className="block font-mono text-[11px] font-bold text-[#F4F4F5]">{timeAgo(entry.created_at)}</span>
+                                <span className="block font-mono text-[10px] text-[#A1A1AA]">{clockTime(entry.created_at)}</span>
+                              </span>
+                              <ChevronDown className={`w-4 h-4 shrink-0 text-[#A1A1AA] transition-transform ${open ? "rotate-180" : ""}`} />
+                            </button>
+                            {open && (
+                              <div className="px-4 pb-4 pl-[60px] flex flex-col gap-2">
+                                <p className="text-[13px] text-[#F4F4F5]">
+                                  <span className="font-mono text-[11px] font-bold uppercase text-[#A1A1AA]">Reason — </span>
+                                  {entry.reason}
+                                </p>
+                                {chips.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {chips.map((c) => (
+                                      <span key={c.k} className="px-2 py-1 rounded-[2px] bg-[#27272A] border border-[#3F3F46] font-mono text-[11px]">
+                                        <span className="font-bold text-[#A1A1AA]">{c.k}: </span>
+                                        <span className="text-[#F4F4F5]">{c.v}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="font-mono text-[11px] text-[#A1A1AA] break-all">{entry.detail}</p>
+                                )}
+                                <p className="font-mono text-[10px] text-[#52525B]">
+                                  #{entry.id} · {entry.action}{entry.target_id !== null ? ` · target ${entry.target_id}` : ""} · {new Date(entry.created_at).toLocaleString()}
+                                </p>
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
 

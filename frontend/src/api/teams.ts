@@ -53,12 +53,18 @@ export async function me(): Promise<IdentifyResult> {
 }
 
 export async function logout(): Promise<void> {
+  // Server first (it needs the token to revoke the session + mark offline),
+  // then drop the local copy no matter what.
+  try {
+    await apiFetch("/api/logout", { method: "POST" });
+  } catch {
+    // Server unreachable: still log out locally.
+  }
   try {
     localStorage.removeItem("redline_session_token");
   } catch {
     // LocalStorage might be restricted
   }
-  await apiFetch("/api/logout", { method: "POST" });
 }
 
 

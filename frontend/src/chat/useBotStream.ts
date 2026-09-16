@@ -73,7 +73,7 @@ function wsUrl(): string {
   return url;
 }
 
-export function useBotStream(teamId: string): {
+export function useBotStream(teamId: string, displayName: string): {
   bots: Record<BotId, BotState>;
   inventory: InventoryDelta[];
   hasSyncedInventory: boolean;
@@ -84,6 +84,7 @@ export function useBotStream(teamId: string): {
   send: (botId: BotId, text: string) => void;
   say: (botId: BotId, text: string) => void;
   rewind: (botId: BotId, options?: { messageId?: number; turns?: number }) => Promise<{ ok: boolean; error?: string }>;
+  kicked: null | "duplicate" | "admin";
 } {
   const [bots, setBots] = useState<Record<BotId, BotState>>(() => {
     const out = {} as Record<BotId, BotState>;
@@ -97,10 +98,12 @@ export function useBotStream(teamId: string): {
   const [credits, setCredits] = useState(0);
   const [flash, setFlash] = useState(0);
   const [locks, setLocks] = useState<BotLockMap>({});
+  const [kicked, setKicked] = useState<null | "duplicate" | "admin">(null);
   const socketRef = useRef<WebSocket | null>(null);
   const queueRef = useRef<ClientEvent[]>([]);
   const retryRef = useRef(1000);
   const lastSoundRef = useRef<string | null>(null);
+  const inventoryRef = useRef<InventoryDelta[]>([]);
 
   const apply = useCallback((event: AnyEvent) => {
     if (event.event === "bot_typing") {
@@ -115,8 +118,12 @@ export function useBotStream(teamId: string): {
         ...prev,
         [botId]: { messages: [...prev[botId].messages, { role: "bot", text: fullText }], typing: false, streaming: "" },
       }));
-      if (inventoryDelta !== undefined) {
-        setInventory((prev) => [...prev.filter((i) => i.botId !== botId), inventoryDelta]);
+      // The team-wide bot_done frame is not an ownership signal. Only accept
+      // a delta when the server explicitly identifies this player as owner.
+      if (inventoryDelta?.obtainedBy === displayName) {
+        const next = [...inventoryRef.current.filter((i) => i.botId !== botId), inventoryDelta];
+        inventoryRef.current = next;
+        setInventory(next);
       }
       try {
         window.localStorage.setItem("redline_last_event", event.id);
@@ -130,6 +137,9 @@ export function useBotStream(teamId: string): {
         [botId]: { messages: [...prev[botId].messages, { role: "bot", text: message, errorKind: kind, retryable }], typing: false, streaming: "" },
       }));
     } else if (event.event === "sound_play") {
+      const isPrivateMerchantSuccess = event.data.soundId === "merchant/success-thank-you";
+      const ownsMerchantSuccess = inventoryRef.current.some((item) => item.status === "verified" && item.obtainedBy === displayName);
+      if (isPrivateMerchantSuccess && !ownsMerchantSuccess) return;
       const key = `${event.data.botId}:${event.data.soundId ?? event.data.src}`;
       if (lastSoundRef.current !== key) {
         lastSoundRef.current = key;
@@ -138,6 +148,7 @@ export function useBotStream(teamId: string): {
         }
       }
     } else if (event.event === "inventory_sync") {
+      inventoryRef.current = event.data.items;
       setInventory(event.data.items);
       setHasSyncedInventory(true);
       if (typeof event.data.credits === "number") setCredits(event.data.credits);
@@ -161,6 +172,11 @@ export function useBotStream(teamId: string): {
         // sound optional
       }
     } else if (event.event === "elo_update") {
+      const isCompletion = event.data.reason.startsWith("verified:");
+      const completionBot = event.data.reason.slice("verified:".length) as BotId;
+      if (isCompletion && !inventoryRef.current.some((item) => item.botId === completionBot && item.status === "verified" && item.obtainedBy === displayName)) {
+        return;
+      }
       window.dispatchEvent(new CustomEvent("arena:elo_update", { detail: event.data }));
       try {
         playSound("/sounds/merchant_success.mp3");
@@ -199,10 +215,12 @@ export function useBotStream(teamId: string): {
       window.dispatchEvent(new CustomEvent("arena:round2_extend", { detail: event.data }));
     } else if (event.event === "assessment_settings_sync") {
       window.dispatchEvent(new CustomEvent("arena:assessment_settings", { detail: event.data }));
+    } else if (event.event === "game_tick") {
+      window.dispatchEvent(new CustomEvent("arena:game_tick", { detail: event.data }));
     } else if (event.event === "game_reset") {
       window.location.href = "/";
     }
-  }, []);
+  }, [displayName]);
 
   // Fetch initial locks so a fresh mount sees who holds which mark
   useEffect(() => {
@@ -277,6 +295,7 @@ export function useBotStream(teamId: string): {
       socketRef.current = socket;
       socket.onopen = () => {
         failures = 0;
+        setKicked(null);
         retryRef.current = 1000;
         source?.close();
         source = undefined;
@@ -303,8 +322,17 @@ export function useBotStream(teamId: string): {
       socket.onerror = () => {
         socket.close();
       };
-      socket.onclose = () => {
+      socket.onclose = (e: CloseEvent) => {
         if (dead) {
+          return;
+        }
+        // Server-killed sockets must NOT reconnect: another tab took over
+        // (4009 duplicate), an admin logged this member out (4008), or the
+        // token was revoked at the door (4403).
+        if (e.code === 4009 || e.code === 4008 || e.code === 4403) {
+          const why = e.code === 4009 ? "duplicate" : "admin";
+          setKicked(why);
+          window.dispatchEvent(new CustomEvent("arena:kicked", { detail: { reason: why } }));
           return;
         }
         failures += 1;
@@ -384,5 +412,5 @@ export function useBotStream(teamId: string): {
     [teamId],
   );
 
-  return { bots, inventory, hasSyncedInventory, credits, flash, locks, setLocks, send, say, rewind };
+  return { bots, inventory, hasSyncedInventory, credits, flash, locks, setLocks, send, say, rewind, kicked };
 }

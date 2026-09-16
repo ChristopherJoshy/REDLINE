@@ -35,31 +35,50 @@ function unb64url(input: string): string {
   return Buffer.from(input, "base64url").toString("utf8");
 }
 
-// Stateless session: teamId.displayName.signature (HMAC over both, keyed by pepper).
-export function makeSessionToken(teamId: string, displayName: string, pepper: string): string {
+// Session token: teamId.displayName.nonce.signature (HMAC over all three, keyed by pepper).
+// The nonce is per-member server state: bumping it (logout / admin force-logout)
+// invalidates every outstanding token while the next login mints a fresh one.
+// Legacy 3-part tokens (no nonce) verify as nonce "".
+export function makeSessionToken(teamId: string, displayName: string, pepper: string, nonce = ""): string {
   const a = b64url(teamId);
   const b = b64url(displayName);
-  const sig = createHmac("sha256", pepper).update(`${a}.${b}`, "utf8").digest("hex");
-  return `${a}.${b}.${sig}`;
+  const c = b64url(nonce);
+  const sig = createHmac("sha256", pepper).update(`${a}.${b}.${c}`, "utf8").digest("hex");
+  return `${a}.${b}.${c}.${sig}`;
 }
 
 export function verifySessionToken(
   token: string,
   pepper: string,
-): { teamId: string; displayName: string } | undefined {
+): { teamId: string; displayName: string; nonce: string } | undefined {
   const parts = token.split(".");
-  if (parts.length !== 3) {
+  if (parts.length !== 3 && parts.length !== 4) {
     return undefined;
   }
-  const [a, b, sig] = parts as [string, string, string];
-  const expected = createHmac("sha256", pepper).update(`${a}.${b}`, "utf8").digest("hex");
-  const sigBuf = Buffer.from(sig, "utf8");
+  if (parts.length === 3) {
+    // Legacy token: HMAC over a.b only, carries no nonce (treated as "").
+    const [a, b, sig] = parts as [string, string, string];
+    const expected = createHmac("sha256", pepper).update(`${a}.${b}`, "utf8").digest("hex");
+    const sigBuf = Buffer.from(sig, "utf8");
+    const expBuf = Buffer.from(expected, "utf8");
+    if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+      return undefined;
+    }
+    try {
+      return { teamId: unb64url(a), displayName: unb64url(b), nonce: "" };
+    } catch {
+      return undefined;
+    }
+  }
+  const [a, b, c, sig] = parts as [string, string, string, string];
+  const expected = createHmac("sha256", pepper).update(`${a}.${b}.${c}`, "utf8").digest("hex");
+  const sigBuf = Buffer.from(sig ?? "", "utf8");
   const expBuf = Buffer.from(expected, "utf8");
   if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
     return undefined;
   }
   try {
-    return { teamId: unb64url(a), displayName: unb64url(b) };
+    return { teamId: unb64url(a ?? ""), displayName: unb64url(b ?? ""), nonce: unb64url(c ?? "") };
   } catch {
     return undefined;
   }

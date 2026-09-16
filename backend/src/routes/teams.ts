@@ -13,6 +13,8 @@ import {
   parseCookies,
   verifySessionToken,
 } from "../auth/codes.js";
+import { memberNonce, mintSessionNonce, revokeSession, setPresence } from "../presence.js";
+import type { Bus } from "../ws/bus.js";
 
 interface TeamRow {
   id: string;
@@ -25,15 +27,31 @@ interface MemberRow {
 
 const SESSION_COOKIE = "redline_session";
 
-export function sessionOf(req: { headers: Record<string, string | string[] | undefined> }): {
+export function sessionOf(
+  req: { headers: Record<string, string | string[] | undefined> },
+  db?: DatabaseAdapter,
+): {
   teamId: string;
   displayName: string;
 } | undefined {
+  function checkNonce(verified: { teamId: string; displayName: string; nonce: string } | undefined): {
+    teamId: string;
+    displayName: string;
+  } | undefined {
+    if (!verified) return undefined;
+    // Force-logout / logout bumps the member nonce: stale tokens die here.
+    // Members without a row (legacy) keep working.
+    if (db) {
+      const current = memberNonce(db, verified.teamId, verified.displayName);
+      if (current !== undefined && current !== verified.nonce) return undefined;
+    }
+    return { teamId: verified.teamId, displayName: verified.displayName };
+  }
   // 1. Check custom header x-session-token
   const xToken = req.headers["x-session-token"];
   const headerToken = Array.isArray(xToken) ? xToken[0] : xToken;
   if (typeof headerToken === "string" && headerToken.trim() !== "") {
-    const verified = verifySessionToken(headerToken.trim(), env.joinCodePepper);
+    const verified = checkNonce(verifySessionToken(headerToken.trim(), env.joinCodePepper));
     if (verified) return verified;
   }
 
@@ -43,7 +61,7 @@ export function sessionOf(req: { headers: Record<string, string | string[] | und
   if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
     const bearerToken = authHeader.slice(7).trim();
     if (bearerToken !== "") {
-      const verified = verifySessionToken(bearerToken, env.joinCodePepper);
+      const verified = checkNonce(verifySessionToken(bearerToken, env.joinCodePepper));
       if (verified) return verified;
     }
   }
@@ -55,7 +73,7 @@ export function sessionOf(req: { headers: Record<string, string | string[] | und
   if (token === undefined) {
     return undefined;
   }
-  return verifySessionToken(token, env.joinCodePepper);
+  return checkNonce(verifySessionToken(token, env.joinCodePepper));
 }
 
 /** In-memory seat lock: teamId → Set of display_names currently in-session */
@@ -66,7 +84,7 @@ function lockSeat(teamId: string, displayName: string): void {
   seatLocks.get(teamId)!.add(displayName);
 }
 
-function releaseSeat(teamId: string, displayName: string): void {
+export function releaseSeat(teamId: string, displayName: string): void {
   seatLocks.get(teamId)?.delete(displayName);
 }
 
@@ -78,7 +96,7 @@ function activeSeats(teamId: string): string[] {
   return Array.from(seatLocks.get(teamId) ?? []);
 }
 
-export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter): void {
+export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter, bus?: Bus): void {
   // Admin: create team + members. Code shown ONCE here, never stored.
   app.post("/api/admin/teams", async (req, reply) => {
     const header = req.headers["x-admin-code"];
@@ -158,12 +176,16 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter): v
       return reply.code(409).send({ error: "That seat is already taken by another player." });
     }
     lockSeat(teamId, displayName);
-    const token = makeSessionToken(teamId, displayName, env.joinCodePepper);
+    // Fresh nonce per login: re-login always works, kicked tokens stay dead.
+    const nonce = mintSessionNonce(db, teamId, displayName);
+    setPresence(db, teamId, displayName, "online");
+    const token = makeSessionToken(teamId, displayName, env.joinCodePepper, nonce);
     const team = db.get<{ name: string; elo: number }>("SELECT name, elo FROM teams WHERE id = ?", teamId);
     void reply.header(
       "Set-Cookie",
       `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=None; Secure`,
     );
+    if (bus) bus.tick("board");
     return {
       teamId,
       displayName,
@@ -217,7 +239,7 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter): v
 
 
   app.get("/api/me", async (req, reply) => {
-    const session = sessionOf(req);
+    const session = sessionOf(req, db);
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
@@ -242,9 +264,13 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter): v
   });
 
   app.post("/api/logout", async (req, reply) => {
-    const session = sessionOf(req);
+    const session = sessionOf(req, db);
     if (session !== undefined) {
       releaseSeat(session.teamId, session.displayName);
+      // Kill the token server-side and mark offline so the roster is truthful.
+      // Re-login mints a fresh nonce and resumes the game via hello sync.
+      revokeSession(db, session.teamId, session.displayName);
+      if (bus) bus.tick("board");
     }
     void reply.header(
       "Set-Cookie",

@@ -27,7 +27,7 @@ function roast(): string {
 export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter, bus: Bus): void {
   // No bot picker: single input, server auto-identifies from the matched answer.
   app.post("/api/submit", async (req, reply) => {
-    const session = sessionOf(req);
+    const session = sessionOf(req, db);
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
@@ -107,6 +107,7 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
       }));
       db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", session.teamId, hit, "merchant/success-thank-you");
       bus.broadcast(session.teamId, bus.frame("sound_play", { botId: "merchant", soundId: "merchant/success-thank-you", src: "/sounds/merchant/success-thank-you.mp3" }));
+      bus.tick("board");
       return {
         result: "verified",
         botId: hit,
@@ -144,7 +145,7 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
 
   // Counter state: spendable credits plus owned clue tiers.
   app.get("/api/merchant/state", async (req, reply) => {
-    const session = sessionOf(req);
+    const session = sessionOf(req, db);
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
@@ -158,7 +159,7 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
   // Buy one sealed clue tier for an unsolved Round-1 mark. Idempotent: owned
   // tiers return free. Unpaid content never leaves this route unpurchased.
   app.post("/api/merchant/clue", async (req, reply) => {
-    const session = sessionOf(req);
+    const session = sessionOf(req, db);
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
@@ -209,3 +210,4 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
     return { botId, tier, clue, credits: creditBalance(session.teamId), owned: false as const };
   });
 }
+

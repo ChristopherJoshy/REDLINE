@@ -1,27 +1,42 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Maximize } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/api/client";
+import { useWakeLock } from "@/shell/useWakeLock";
 
-// Fullscreen enforcement: overlay + Resume + server-side attempt log.
-// Never traps ESC; re-request + overlay penalty is the enforcement.
-export default function FullscreenLock({ onLockChange }: { onLockChange: (locked: boolean) => void }): React.JSX.Element | null {
+// Fullscreen enforcement on every player screen (login included).
+// Browsers only grant fullscreen inside a real user gesture, so there is no
+// true "auto-enter on load": instead EVERY gesture (tap, click, keypress)
+// re-attempts while unlocked, and a blocking overlay CTA supplies the gesture
+// itself. Never traps ESC; re-request + overlay is the enforcement.
+// Also holds a screen wake lock so venue machines never sleep mid-match.
+export default function FullscreenLock({ onLockChange, wakeLock }: { onLockChange: (locked: boolean) => void; wakeLock?: boolean }): React.JSX.Element | null {
   const [locked, setLocked] = useState(() => document.fullscreenElement !== null);
   const lockedRef = useRef(locked);
   lockedRef.current = locked;
+  useWakeLock(wakeLock ?? true);
 
   const logAttempt = useCallback(() => {
     void apiFetch("/api/fullscreen-log", { method: "POST" }).catch(() => {});
   }, []);
 
   const request = useCallback(() => {
-    void document.documentElement.requestFullscreen().then(() => {
-      if ("keyboard" in navigator && "lock" in (navigator as any).keyboard) {
-        (navigator as any).keyboard.lock(["Escape"]).catch(() => {});
+    if (document.fullscreenElement !== null) return;
+    const el = document.documentElement;
+    const attempt = async (): Promise<void> => {
+      try {
+        await el.requestFullscreen({ navigationUI: "hide" } as FullscreenOptions);
+      } catch {
+        await el.requestFullscreen();
       }
-    }).catch(() => {});
+      const kb = (navigator as Navigator & { keyboard?: { lock?: (keys: string[]) => Promise<void> } }).keyboard;
+      if (kb?.lock) await kb.lock(["Escape"]).catch(() => {});
+    };
+    void attempt().catch(() => {});
   }, []);
 
   useEffect(() => {
+    // Mount attempt (rejected without a gesture — the overlay CTA covers it).
     request();
     function sync(): void {
       const isLocked = document.fullscreenElement !== null;
@@ -39,23 +54,28 @@ export default function FullscreenLock({ onLockChange }: { onLockChange: (locked
         logAttempt();
       }
     }
-    function onInteraction(): void {
+    // Every gesture is a fresh chance: browsers grant fullscreen here.
+    function onGesture(): void {
       if (document.fullscreenElement === null) {
         request();
       }
     }
     document.addEventListener("fullscreenchange", sync);
     document.addEventListener("visibilitychange", onHidden);
-    document.addEventListener("click", onInteraction);
-    document.addEventListener("keydown", onInteraction);
     window.addEventListener("blur", onHidden);
+    document.addEventListener("pointerdown", onGesture, true);
+    document.addEventListener("touchstart", onGesture, true);
+    document.addEventListener("click", onGesture, true);
+    document.addEventListener("keydown", onGesture, true);
     sync();
     return () => {
       document.removeEventListener("fullscreenchange", sync);
       document.removeEventListener("visibilitychange", onHidden);
-      document.removeEventListener("click", onInteraction);
-      document.removeEventListener("keydown", onInteraction);
       window.removeEventListener("blur", onHidden);
+      document.removeEventListener("pointerdown", onGesture, true);
+      document.removeEventListener("touchstart", onGesture, true);
+      document.removeEventListener("click", onGesture, true);
+      document.removeEventListener("keydown", onGesture, true);
     };
   }, [request, logAttempt, onLockChange]);
 
@@ -63,14 +83,20 @@ export default function FullscreenLock({ onLockChange }: { onLockChange: (locked
     return null;
   }
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-4 bg-[var(--color-bg-0)] p-[var(--space)]" role="alertdialog" aria-label="Fullscreen required">
-      <h2 className="font-[family-name:var(--font-display)] text-[28px] font-bold text-[var(--color-text-1)]">
-        Return to fullscreen to continue
+    <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-4 bg-black/95 p-6" role="alertdialog" aria-modal="true" aria-label="Fullscreen required">
+      <span className="flex h-14 w-14 items-center justify-center border border-redline/50 bg-[#0d0606]" aria-hidden="true">
+        <Maximize className="h-7 w-7 text-redline" />
+      </span>
+      <h2 className="font-[family-name:var(--font-display)] text-[28px] font-bold uppercase tracking-[0.2em] text-white">
+        Fullscreen required
       </h2>
-      <p className="max-w-[52ch] text-center text-[14px] text-[var(--color-text-3)]">
-        This attempt was logged. Chat stays disabled until you resume.
+      <div className="h-[2px] w-32 bg-gradient-to-r from-transparent via-redline to-transparent" aria-hidden="true" />
+      <p className="max-w-[52ch] text-center text-[14px] text-text-2">
+        Tap below to enter fullscreen and continue. Leaving fullscreen pauses input and the attempt is logged.
       </p>
-      <Button onClick={request}>Resume</Button>
+      <Button onClick={request} className="redline-primary-cta min-h-[48px] px-8 font-mono text-[14px] font-bold uppercase tracking-[0.2em]">
+        Enter fullscreen
+      </Button>
     </div>
   );
 }

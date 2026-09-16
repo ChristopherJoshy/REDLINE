@@ -132,7 +132,8 @@ export default function EnterScreen({ onIdentified }: { onIdentified: (res?: Ide
     };
   }, []);
 
-  // Poll active seats every 3s once we have a teamId
+  // Seats refresh instantly on game_tick (identify/logout/force-logout);
+  // the 15s timer is only a safety net.
   useEffect(() => {
     if (joined === null) return;
     const { teamId } = joined;
@@ -142,8 +143,12 @@ export default function EnterScreen({ onIdentified }: { onIdentified: (res?: Ide
       if (!dead) setActiveMembers(active);
     }
     void poll();
-    const t = window.setInterval(() => { void poll(); }, 3000);
-    return () => { dead = true; window.clearInterval(t); };
+    const t = window.setInterval(() => { void poll(); }, 15_000);
+    function onTick(): void {
+      void poll();
+    }
+    window.addEventListener("arena:game_tick", onTick);
+    return () => { dead = true; window.clearInterval(t); window.removeEventListener("arena:game_tick", onTick); };
   }, [joined]);
 
   async function submitCode(e: React.FormEvent): Promise<void> {

@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS team_members (
   display_name TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'member',
   joined_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  session_nonce TEXT NOT NULL DEFAULT '',
+  presence TEXT NOT NULL DEFAULT 'offline',
+  last_seen_at TEXT,
   PRIMARY KEY (team_id, display_name)
 );
 

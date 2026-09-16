@@ -24,6 +24,7 @@ import { DUR } from "@/lib/motionTokens";
 
 interface RoundTwoScreenProps {
   teamId: string;
+  displayName: string;
   boss: BotId;
   locked: boolean;
   onRoundEnd?: () => void;
@@ -32,8 +33,8 @@ interface RoundTwoScreenProps {
 
 type Reveal = "arrival" | "open";
 
-export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBack }: RoundTwoScreenProps): React.JSX.Element {
-  const { bots, send, flash, inventory, hasSyncedInventory, credits, rewind } = useBotStream(teamId);
+export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRoundEnd, onBack }: RoundTwoScreenProps): React.JSX.Element {
+  const { bots, send, flash, inventory, hasSyncedInventory, credits, rewind } = useBotStream(teamId, displayName);
   const [reveal, setReveal] = useState<Reveal>(() => {
     try { return localStorage.getItem(`redline:r2-intro:${teamId}:${boss}`) === "1" ? "open" : "arrival"; } catch { return "arrival"; }
   });
@@ -88,11 +89,12 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
 
   useEffect(() => {
     if (!hasSyncedInventory) return;
-    const cur = inventory.find((i) => i.botId === boss)?.status ?? "none";
+    const current = inventory.find((i) => i.botId === boss);
+    const cur = current?.status ?? "none";
     const had = prevStatus.current;
     prevStatus.current = cur;
-    if (had !== null && had !== "verified" && cur === "verified") setCelebration(true);
-  }, [inventory, boss, hasSyncedInventory]);
+    if (had !== null && had !== "verified" && cur === "verified" && current?.obtainedBy === displayName) setCelebration(true);
+  }, [inventory, boss, hasSyncedInventory, displayName]);
 
   // Listen for round2 end event
   useEffect(() => {
@@ -104,7 +106,7 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
   }, [onRoundEnd]);
 
   async function offer(): Promise<void> {
-    const item = inventory.find((i) => i.botId === boss && i.status === "obtained");
+    const item = inventory.find((i) => i.botId === boss && i.status === "obtained" && i.obtainedBy === displayName);
     if (item === undefined || offerBusy || !locked) return;
     setOfferBusy(true);
     setOfferError("");
@@ -150,8 +152,8 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
     void requestOpener();
   }, [reveal, locked, hasSyncedInventory]);
 
-  const hasItem = inventory.some((item) => item.botId === boss && item.status === "obtained");
-  const verified = inventory.some((item) => item.botId === boss && item.status === "verified");
+  const hasItem = inventory.some((item) => item.botId === boss && item.status === "obtained" && item.obtainedBy === displayName);
+  const verified = inventory.some((item) => item.botId === boss && item.status === "verified" && item.obtainedBy === displayName);
 
   useEffect(() => {
     if (reveal !== "open" || motionOff) return;
@@ -204,8 +206,14 @@ export default function RoundTwoScreen({ teamId, boss, locked, onRoundEnd, onBac
       }
     }
     void load();
-    const timer = window.setInterval(load, 2_000);
-    return () => { dead = true; window.clearInterval(timer); };
+    // Phase flips are pushed via game_tick (server ticks the exact unlock
+    // turn); the 10s timer is only a safety net.
+    const timer = window.setInterval(load, 10_000);
+    function onTick(): void {
+      void load();
+    }
+    window.addEventListener("arena:game_tick", onTick);
+    return () => { dead = true; window.clearInterval(timer); window.removeEventListener("arena:game_tick", onTick); };
   }, []);
 
   function submit(e: React.FormEvent): void {

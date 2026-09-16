@@ -5,7 +5,8 @@ import type { FastifyInstance } from "fastify";
 import type { DatabaseAdapter } from "../db/database.js";
 import { env } from "../env.js";
 import { adminOk } from "../auth/codes.js";
-import { sessionOf } from "./teams.js";
+import { sessionOf, releaseSeat } from "./teams.js";
+import { revokeSession } from "../presence.js";
 import type { Bus } from "../ws/bus.js";
 import type { BotLocks, LockMap } from "../chat/locks.js";
 import type { BotId, InventoryDelta, AnnouncementData } from "../contracts/events.js";
@@ -67,7 +68,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
 
   // Rewind: −1 ELO immediately, truncate to point-in-time messageId / turns / phase start.
   app.post("/api/rewind", async (req, reply) => {
-    const session = sessionOf(req);
+    const session = sessionOf(req, db);
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
@@ -143,11 +144,11 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       );
       bus.broadcast(session.teamId, bus.frame("inventory_sync", { items }));
     }
+    if (bus) bus.tick("board");
     return { ok: true, elo: after, messages: remainingMsgs };
   });
 
-  app.get("/api/admin/board", async (req, reply) => {
-    if (!guard(req)) {
+  app.get("/api/admin/board", async (req, reply) => {    if (!guard(req)) {
       return reply.code(401).send({ error: "unauthorized" });
     }
     // Round 2 board shows ONLY selected teams (round2_eligible = 1, set at
@@ -183,8 +184,8 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       "SELECT id, name, hint, join_code, elo, is_qualified, is_archived, created_at FROM teams ORDER BY elo DESC"
     );
     const result = teams.map((team) => {
-      const members = db.all<{ display_name: string; role: string; joined_at: string }>(
-        "SELECT display_name, role, joined_at FROM team_members WHERE team_id = ? ORDER BY rowid",
+      const members = db.all<{ display_name: string; role: string; joined_at: string; presence: string; last_seen_at: string | null }>(
+        "SELECT display_name, role, joined_at, presence, last_seen_at FROM team_members WHERE team_id = ? ORDER BY rowid",
         team.id
       );
       const lastMsg = db.get<{ bot_id: string; created_at: string; text_final: string }>(
@@ -206,7 +207,14 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
         members: members.map((m) => ({
           ...m,
           contribution: totalMessages > 0 ? Math.round(totalMessages / Math.max(1, members.length)) : 0,
-          currentActivity: lastMsg ? `Engaged with ${lastMsg.bot_id} (${lastMsg.created_at.slice(11, 19)})` : "Awaiting Deployment",
+          currentActivity:
+            m.presence === "online"
+              ? (lastMsg ? `Online · engaged with ${lastMsg.bot_id} (${lastMsg.created_at.slice(11, 19)})` : "Online · awaiting deployment")
+              : m.presence === "away"
+                ? "Away · tab hidden"
+                : m.last_seen_at
+                  ? `Offline · last seen ${m.last_seen_at.slice(0, 16).replace("T", " ")}`
+                  : "Offline",
         })),
         inventory,
         solved,
@@ -299,8 +307,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     return { file: dest };
   });
 
-  app.post("/api/admin/qualify-team", async (req, reply) => {
-    if (!guard(req)) {
+  app.post("/api/admin/qualify-team", async (req, reply) => {    if (!guard(req)) {
       return reply.code(401).send({ error: "unauthorized" });
     }
     const body = (req.body ?? {}) as { teamId?: unknown; qualified?: unknown };
@@ -314,7 +321,43 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       return reply.code(404).send({ error: "team not found" });
     }
     db.run("UPDATE teams SET is_qualified = ? WHERE id = ?", qualified ? 1 : 0, teamId);
+    if (bus) bus.tick("board");
     return { ok: true, teamId, qualified };
+  });
+
+  // Powerful Admin Tools: Force-logout a specific member of a specific team.
+  // Revokes the token server-side (nonce bump), frees the seat, closes live
+  // sockets (no auto-reconnect on 4008), marks presence offline. The player
+  // re-joins with code + identity and resumes via the normal hello sync.
+  app.post("/api/admin/force-logout", async (req, reply) => {
+    if (!guard(req)) {
+      return reply.code(401).send({ error: "unauthorized" });
+    }
+    if (!bus) {
+      return reply.code(503).send({ error: "live bus unavailable" });
+    }
+    const body = (req.body ?? {}) as { teamId?: unknown; displayName?: unknown; reason?: unknown };
+    const teamId = typeof body.teamId === "string" ? body.teamId.trim() : "";
+    const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
+    if (teamId === "" || displayName === "") {
+      return reply.code(400).send({ error: "teamId and displayName are required" });
+    }
+    const member = db.get<{ display_name: string }>(
+      "SELECT display_name FROM team_members WHERE team_id = ? AND display_name = ?",
+      teamId,
+      displayName,
+    );
+    if (member === undefined) {
+      return reply.code(404).send({ error: "member not found" });
+    }
+    const reason = typeof body.reason === "string" && body.reason.trim() !== "" ? body.reason.trim().slice(0, 240) : "admin force logout";
+    db.transaction(() => {
+      revokeSession(db, teamId, displayName);
+    });
+    releaseSeat(teamId, displayName);
+    const socketsClosed = bus.kickMember(teamId, displayName, 4008, "admin_logout");
+    bus.tick("board");
+    return { ok: true, teamId, displayName, socketsClosed, reason };
   });
 
   // Powerful Admin Tools: ELO Adjuster
@@ -354,6 +397,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
         reason,
       }));
     }
+    if (bus) bus.tick("board");
     return { ok: true, teamId, before, after, delta, reason };
   });
 
@@ -405,6 +449,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       );
       bus.broadcast(teamId, bus.frame("inventory_sync", { items }));
     }
+    if (bus) bus.tick("board");
     return { ok: true, teamId, botId, status };
   });
 
@@ -463,6 +508,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       );
       bus.broadcast(teamId, bus.frame("inventory_sync", { items }));
     }
+    if (bus) bus.tick("board");
     return { ok: true, teamId, botId, elo: after };
   });
 
@@ -792,4 +838,5 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     return { ok: true };
   });
 }
+
 

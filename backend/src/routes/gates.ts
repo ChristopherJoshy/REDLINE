@@ -45,8 +45,12 @@ export function solvedCount(db: DatabaseAdapter, teamId: string): number {
 }
 
 export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bus: Bus): void {
+  // Public safeguard flags (5 booleans, no secrets): lets the login screen
+  // enforce fullscreen + deterrence before any session exists. All admin
+  // mutation routes stay gated.
+  app.get("/api/safeguards", async () => readAssessmentSettings(db));
   app.get("/api/gates", async (req, reply) => {
-    const session = sessionOf(req);
+    const session = sessionOf(req, db);
     const isAdmin = admin(req);
     if (!session && !isAdmin) return reply.code(401).send({ error: "unauthorized" });
     return { ...roundSnapshot(db), round1Open: round1Open(db), vaultOpen: vaultOpen(db),
@@ -126,6 +130,7 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
       }
       db.run("INSERT INTO admin_audit (action, target_id, reason, detail) VALUES (?, ?, ?, ?)", "round2_assignment", body.teamId as string, reason, JSON.stringify({ boss: body.boss, reset: body.reset === true }));
     });
+    bus.tick("gates");
     return { ok: true, teamId: body.teamId, boss: body.boss };
   });
 
@@ -181,6 +186,7 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
           return started;
         });
         if (round === 2 && state.startsAt) bus.broadcastAll(bus.frame("round2_countdown", { endsAt: state.startsAt }));
+        bus.tick(round === 2 ? "all" : "gates");
         return { ok: true, ...roundSnapshot(db), countdownEndsAt: state.startsAt, duration };
       } catch (error) {
         return reply.code(409).send({ error: error instanceof Error ? error.message : "Could not start round." });
@@ -194,6 +200,7 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
       try {
         const state = db.transaction(() => extendRound(db, round, body.addSecs as number));
         if (round === 2 && state.endsAt) bus.broadcastAll(bus.frame("round2_extend", { addedSecs: body.addSecs, newEndsAt: state.endsAt }));
+        bus.tick("gates");
         return { ok: true, ...roundSnapshot(db) };
       } catch (error) {
         return reply.code(400).send({ error: error instanceof Error ? error.message : "Could not extend round." });
@@ -207,6 +214,7 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
       try {
         const state = db.transaction(() => reduceRound(db, round, body.reduceSecs as number));
         // We could emit a round2_extend with negative secs, but clients polling /api/gates will catch up anyway.
+        bus.tick("gates");
         return { ok: true, ...roundSnapshot(db) };
       } catch (error) {
         return reply.code(400).send({ error: error instanceof Error ? error.message : "Could not reduce round." });
@@ -217,6 +225,7 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
       if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
       try {
         db.transaction(() => pauseRound(db, round));
+        bus.tick("gates");
         return { ok: true, ...roundSnapshot(db) };
       } catch (error) {
         return reply.code(400).send({ error: error instanceof Error ? error.message : "Could not pause round." });
@@ -227,6 +236,7 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
       if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
       try {
         db.transaction(() => resumeRound(db, round));
+        bus.tick("gates");
         return { ok: true, ...roundSnapshot(db) };
       } catch (error) {
         return reply.code(400).send({ error: error instanceof Error ? error.message : "Could not resume round." });
@@ -238,6 +248,7 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
       if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
       stopRound(db, round);
       if (round === 2) bus.broadcastAll(bus.frame("round2_end", { reason: "admin_stop" }));
+      bus.tick("gates");
       return { ok: true, ...roundSnapshot(db) };
     });
   }
@@ -247,10 +258,11 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
     if (!admin(req)) return reply.code(401).send({ error: "unauthorized" });
     if (round2Status(db) === "off") return reply.code(409).send({ error: "Start Round 2 to open the vault." });
     db.run("INSERT INTO game_state (key, value) VALUES ('vault_open', '1') ON CONFLICT(key) DO UPDATE SET value = '1'");
+    bus.tick("gates");
     return { ok: true };
   });
   app.post("/api/round2/enter", async (req, reply) => {
-    const session = sessionOf(req);
+    const session = sessionOf(req, db);
     if (!session) return reply.code(401).send({ error: "no session" });
     if (!isRound2Eligible(db, session.teamId) && !isQualified(db, session.teamId)) {
       return reply.code(403).send({ error: "not_selected" });
@@ -268,3 +280,4 @@ export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
     return { boss, newlyAssigned: true };
   });
 }
+

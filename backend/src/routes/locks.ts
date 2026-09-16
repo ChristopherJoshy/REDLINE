@@ -56,3 +56,5 @@ export function registerLockRoutes(app: FastifyInstance, locks: BotLocks, bus: B
     return { ok: true, locks: locks.snapshot(session.teamId) };
   });
 }
+
+

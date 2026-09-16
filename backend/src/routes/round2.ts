@@ -87,6 +87,7 @@ export async function r2Submit(
     }));
     db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", teamId, boss, "merchant/success-thank-you");
     bus.broadcast(teamId, bus.frame("sound_play", { botId: boss, soundId: "merchant/success-thank-you", src: "/sounds/merchant/success-thank-you.mp3" }));
+    bus.tick("board");
     return { result: "verified", botId: boss, eloDelta: elo.delta, score };
   }
 
@@ -99,7 +100,7 @@ export async function r2Submit(
 
 export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, bus: Bus): void {
   app.get("/api/round2/state", async (req, reply) => {
-    const session = sessionOf(req);
+    const session = sessionOf(req, db);
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
@@ -112,7 +113,7 @@ export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, 
 
   // Boss opener on arena entry. Once only; never consumes a player turn.
   app.post("/api/round2/opener", async (req, reply) => {
-    const session = sessionOf(req);
+    const session = sessionOf(req, db);
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
@@ -171,3 +172,4 @@ export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, 
     }
   });
 }
+

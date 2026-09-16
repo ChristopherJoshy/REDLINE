@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import { createTeam, type CreateTeamResult } from "@/api/teams";
 import { getGates, openVault, endRound1, extendRound1, reduceRound1, pauseRound1, resumeRound1, startRound1, startRound2, stopRound2, extendRound2, reduceRound2, pauseRound2, resumeRound2, type Gates } from "@/api/gates";
@@ -6,6 +6,7 @@ import { apiFetch } from "@/api/client";
 import { CHARACTERS } from "@/data/characterLore";
 import AssessmentControls from "@/components/AssessmentControls";
 import CodexPanel from "@/components/CodexPanel";
+import { useArenaSocket } from "@/ws/useArenaSocket";
 import { 
   Users, 
   UserPlus, 
@@ -52,6 +53,8 @@ interface AdminMember {
   joined_at: string;
   contribution: number;
   currentActivity: string;
+  presence?: string;
+  last_seen_at?: string | null;
 }
 
 interface AdminInventoryItem {
@@ -247,6 +250,7 @@ interface AuditMeta {
 function auditMeta(action: string): AuditMeta {
   const lower = action.toLowerCase();
   const has = (...parts: string[]): boolean => parts.every((p) => lower.includes(p));
+  if (has("force-logout")) return { label: "Force logout", category: "Moderation" };
   if (has("elo-adjust")) return { label: "Elo adjustment", category: "Elo" };
   if (has("inventory-override")) return { label: "Inventory override", category: "Inventory" };
   if (has("team-rewind")) return { label: "Team rewind", category: "Moderation" };
@@ -479,27 +483,31 @@ export default function AdminTeams(): React.JSX.Element {
     setTimeout(() => setSuccessToast(""), 3500);
   }
 
-  // WS for live telemetry
-  useEffect(() => {
-    if (!authed || adminCode === "") return;
-    let wsUrl = import.meta.env.VITE_WS_URL;
-    if (!wsUrl) {
-      const p = window.location.protocol === "https:" ? "wss:" : "ws:";
-      wsUrl = `${p}//${window.location.host}/ws`;
-    }
-    wsUrl += `?token=${encodeURIComponent(adminCode)}`;
-    
-    const ws = new WebSocket(wsUrl);
-    ws.onmessage = (e) => {
-      try {
-        const ev = JSON.parse(e.data);
-        if (ev.event === "admin_telemetry") {
-          setSystemHealth(prev => prev ? { ...prev, tokenMetrics: ev.data } : null);
-        }
-      } catch {}
-    };
-    return () => ws.close();
-  }, [authed, adminCode]);
+  // WS for live telemetry + instant refetch on game_tick (every score,
+  // solve, logout, or round change). The 30s timer is only a safety net.
+  const pollRef = useRef<() => void>(() => {});
+  useArenaSocket({
+    token: adminCode === "" ? null : adminCode,
+    enabled: authed && adminCode !== "",
+    onEvent: (event) => {
+      if (event.event === "admin_telemetry") {
+        setSystemHealth((prev) => (prev ? { ...prev, tokenMetrics: event.data } : null));
+        return;
+      }
+      if (
+        event.event === "game_tick" ||
+        event.event === "assessment_settings_sync" ||
+        event.event === "announcement" ||
+        event.event === "round2_start" ||
+        event.event === "round2_end" ||
+        event.event === "round2_countdown" ||
+        event.event === "round2_extend" ||
+        event.event === "game_reset"
+      ) {
+        pollRef.current();
+      }
+    },
+  });
 
   // Periodic polling for overview, stream, health (only active when authenticated)
   useEffect(() => {
@@ -559,7 +567,10 @@ export default function AdminTeams(): React.JSX.Element {
     }
 
     void poll();
-    const timer = setInterval(poll, 3000);
+    pollRef.current = () => {
+      void poll();
+    };
+    const timer = setInterval(poll, 30_000);
     return () => {
       dead = true;
       clearInterval(timer);
@@ -725,6 +736,26 @@ export default function AdminTeams(): React.JSX.Element {
       }
     } catch {
       alert("Failed to toggle key status");
+    }
+  }
+
+  async function handleForceLogout(teamId: string, teamName: string, displayName: string): Promise<void> {
+    if (!confirm(`Force-logout ${displayName} (${teamName})? Their token dies immediately; they can log back in with the team code.`)) return;
+    try {
+      const res = await apiFetch("/api/admin/force-logout", {
+        method: "POST",
+        headers: { "x-admin-code": adminCode, "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId, displayName, reason: "admin force logout from console" }),
+      });
+      const data = (await res.json()) as { ok?: boolean; socketsClosed?: number; error?: string };
+      if (res.ok && data.ok) {
+        notify(`Logged out ${displayName} (${data.socketsClosed ?? 0} live sockets closed)`);
+        pollRef.current();
+      } else {
+        alert(data.error ?? "Force-logout failed");
+      }
+    } catch {
+      alert("Force-logout failed");
     }
   }
 
@@ -1589,17 +1620,42 @@ export default function AdminTeams(): React.JSX.Element {
                         Operator Activity:
                       </span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                        {t.members.map((m) => (
-                          <div key={m.display_name} className="px-3 py-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="w-2 h-2 rounded-full bg-[#10B981] shrink-0 shadow-[0_0_6px_#10B981]" />
-                              <span className="font-bold text-[13px] text-[#F4F4F5] truncate">{m.display_name}</span>
+                        {t.members.map((m) => {
+                          const online = m.presence === "online";
+                          const away = m.presence === "away";
+                          return (
+                            <div key={m.display_name} className="px-3 py-2 rounded-[2px] border border-[#3F3F46] bg-[#18181B] flex items-center justify-between gap-2" title={m.currentActivity}>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                  aria-hidden="true"
+                                  className={`w-2 h-2 rounded-full shrink-0 ${online ? "bg-[#10B981] shadow-[0_0_6px_#10B981]" : away ? "bg-[#FBBF24] shadow-[0_0_6px_#FBBF24]" : "bg-[#52525B]"}`}
+                                />
+                                <span className="min-w-0">
+                                  <span className="block font-bold text-[13px] text-[#F4F4F5] truncate">{m.display_name}</span>
+                                  <span className="block font-mono text-[10px] uppercase tracking-wider text-[#A1A1AA]">
+                                    {online ? "Online" : away ? "Away" : "Offline"}
+                                  </span>
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA]">
+                                  {m.contribution} msgs
+                                </span>
+                                {(online || away) && (
+                                  <button
+                                    type="button"
+                                    title={`Force-logout ${m.display_name}`}
+                                    aria-label={`Force-logout ${m.display_name} from ${t.name}`}
+                                    onClick={() => void handleForceLogout(t.id, t.name, m.display_name)}
+                                    className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[2px] border border-[#EF4444]/50 bg-[#EF4444]/10 text-[#EF4444] hover:bg-[#EF4444]/25"
+                                  >
+                                    <LogOut className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA] shrink-0">
-                              {m.contribution} msgs
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -1662,7 +1718,7 @@ export default function AdminTeams(): React.JSX.Element {
               </div>
               <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-[2px] bg-[#27272A] border border-[#3F3F46] font-mono text-[12px] font-bold text-[#10B981] uppercase">
                 <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" aria-hidden="true" />
-                Live · auto-sync 3s
+                Live · instant updates
               </span>
             </div>
 

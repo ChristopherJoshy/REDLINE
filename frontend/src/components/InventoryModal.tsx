@@ -39,10 +39,10 @@ export default function InventoryModal({ isOpen, onClose, inventory, credits = 0
     const char = CHARACTERS[inv.botId];
     const itemMeta = char?.targetItem;
     return {
-      botId: inv.botId,
       botName: char?.name ?? inv.botId,
       itemKey: inv.itemKey,
       status: inv.status,
+      obtainedBy: inv.obtainedBy,
       name: itemMeta?.name ?? inv.itemKey,
       category: itemMeta?.category ?? "Relic",
       rarity: itemMeta?.rarity ?? "Rare",
@@ -190,6 +190,9 @@ export default function InventoryModal({ isOpen, onClose, inventory, credits = 0
                   </h3>
                   <p className="text-[12px] sm:text-[13px] text-white/40">
                     Acquired from <span className="font-medium text-white/70">{selectedItem.botName}</span>
+                  </p>
+                  <p className="text-[12px] sm:text-[13px] text-white/40">
+                    Obtained by <span className="font-medium text-white/70">{selectedItem.obtainedBy ?? "team"}</span>
                   </p>
                 </div>
 

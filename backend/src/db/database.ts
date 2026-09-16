@@ -90,6 +90,10 @@ export function openDatabase(path: string, schemaPath: string): DatabaseAdapter 
   try { driver.exec("ALTER TABLE team_inventory ADD COLUMN obtained_by TEXT;"); } catch { /* already exists */ }
   // Migrate: add display_name to chat_logs if missing
   try { driver.exec("ALTER TABLE chat_logs ADD COLUMN display_name TEXT NOT NULL DEFAULT '';"); } catch { /* already exists */ }
+  // Migrate: member session nonce + presence for force-logout and logout marking
+  try { driver.exec("ALTER TABLE team_members ADD COLUMN session_nonce TEXT NOT NULL DEFAULT '';"); } catch { /* already exists */ }
+  try { driver.exec("ALTER TABLE team_members ADD COLUMN presence TEXT NOT NULL DEFAULT 'offline';"); } catch { /* already exists */ }
+  try { driver.exec("ALTER TABLE team_members ADD COLUMN last_seen_at TEXT;"); } catch { /* already exists */ }
   return {
     exec: (sql) => driver.exec(sql),
     run: (sql, ...params) => {

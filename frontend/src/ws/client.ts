@@ -10,7 +10,7 @@ export function createFrame<T extends ClientEvent>(event: T["event"], data: T["d
   } as T;
 }
 
-export function wsUrl(): string {
+export function wsUrl(explicitToken?: string | null): string {
   let url = "";
   const envWs = import.meta.env.VITE_WS_URL;
   if (typeof envWs === "string" && envWs.trim() !== "") {
@@ -35,8 +35,14 @@ export function wsUrl(): string {
     const u = new URL(url);
     if (u.protocol === "https:") u.protocol = "wss:";
     if (u.protocol === "http:") u.protocol = "ws:";
-    const token = localStorage.getItem("redline_session_token");
-    if (token) u.searchParams.set("token", token);
+    // explicitToken: string = use exactly this (admin code); null = anonymous
+    // lobby socket; undefined = legacy behavior (session token from storage).
+    if (explicitToken === undefined) {
+      const token = localStorage.getItem("redline_session_token");
+      if (token) u.searchParams.set("token", token);
+    } else if (explicitToken !== null && explicitToken !== "") {
+      u.searchParams.set("token", explicitToken);
+    }
     return u.toString();
   } catch {
     return url;

@@ -20,6 +20,7 @@ import { BotLocks, lockable } from "./chat/locks.js";
 import { registerLockRoutes } from "./routes/locks.js";
 import { handleChatSend } from "./chat/handler.js";
 import { parseCookies, verifySessionToken } from "./auth/codes.js";
+import { memberNonce, reconcilePresence, setPresence } from "./presence.js";
 import { tokenTracker } from "./llm/tokenTracker.js";
 import type { BotId, ClientEvent, InventoryDelta } from "./contracts/events.js";
 
@@ -81,7 +82,7 @@ mkdirSync(join(root, "data"), { recursive: true });
 const db = openDatabase(join(root, "data", "redline.db"), join(__dirname, "db", "schema.sql"));
 const bus = new Bus();
 const locks = new BotLocks();
-registerTeamRoutes(app, db);
+  registerTeamRoutes(app, db, bus);
 registerProfileRoutes(app, db);
 registerLockRoutes(app, locks, bus);
 registerMerchantRoutes(app, db, bus);
@@ -91,7 +92,7 @@ registerCodexRoutes(app);
 registerAdminRoutes(app, db, root, bus, locks);
 
 app.post("/api/fullscreen-log", async (req, reply) => {
-  const session = sessionOf(req);
+  const session = sessionOf(req, db);
   if (session === undefined) {
     return reply.code(401).send({ error: "no session" });
   }
@@ -100,7 +101,7 @@ app.post("/api/fullscreen-log", async (req, reply) => {
 });
 
 app.post("/api/deterrence-log", async (req) => {
-  const session = sessionOf(req);
+  const session = sessionOf(req, db);
   const body = (req.body ?? {}) as { kind?: unknown };
   const kind = typeof body.kind === "string" ? body.kind.slice(0, 32) : "unknown";
   db.run("INSERT INTO deterrence_log (team_id, kind) VALUES (?, ?)", session?.teamId ?? null, kind);
@@ -108,7 +109,7 @@ app.post("/api/deterrence-log", async (req) => {
 });
 
 app.get("/api/chat/history", async (req, reply) => {
-  const session = sessionOf(req);
+  const session = sessionOf(req, db);
   if (session === undefined) {
     return reply.code(401).send({ error: "no session" });
   }
@@ -133,7 +134,7 @@ app.get("/api/chat/history", async (req, reply) => {
 
 // EventSource fallback for venues whose firewall blocks the WS upgrade.
 app.get("/api/stream", async (req, reply) => {
-  const session = sessionOf(req);
+  const session = sessionOf(req, db);
   if (session === undefined) {
     return reply.code(401).send({ error: "no session" });
   }
@@ -159,7 +160,7 @@ async function boot(): Promise<void> {
   void env.zenApiKey;
   void env.joinCodePepper;
 
-  app.addHook("onClose", async () => { clearInterval(roundEvents); clearInterval(telemetryInterval); wss.close(); db.close(); try { sharedAppServer().close(); } catch { /* ignore */ } });
+  app.addHook("onClose", async () => { clearInterval(roundEvents); clearInterval(telemetryInterval); clearInterval(presenceSweep); wss.close(); db.close(); try { sharedAppServer().close(); } catch { /* ignore */ } });
 
   await app.listen({ port: env.port, host: "0.0.0.0" });
   const wss = new WebSocketServer({ server: app.server });
@@ -176,9 +177,30 @@ async function boot(): Promise<void> {
     if (!token) {
       token = parseCookies(req.headers.cookie)["redline_session"];
     }
-    const session = token === undefined ? undefined : verifySessionToken(token, env.joinCodePepper);
+    const rawSession = token === undefined ? undefined : verifySessionToken(token, env.joinCodePepper);
+    // Force-logged-out tokens die at the socket door (logout bumps the nonce).
+    let session = rawSession;
+    if (rawSession && token !== env.adminCode) {
+      const current = memberNonce(db, rawSession.teamId, rawSession.displayName);
+      if (current !== undefined && current !== rawSession.nonce) {
+        socket.close(4403, "session revoked");
+        return;
+      }
+    }
     if (session === undefined && token !== env.adminCode) {
-      socket.close(4401, "no session");
+      // Lobby spectators (login screen, no session yet): read-only. They get
+      // live safeguard flags + round/announcement broadcasts, nothing team-scoped.
+      bus.add(socket, "LOBBY");
+      bus.send(socket, bus.frame("hello_ack", {}));
+      bus.send(socket, bus.frame("assessment_settings_sync", readAssessmentSettings(db)));
+      socket.on("message", (raw) => {
+        try {
+          const event = JSON.parse(String(raw)) as { event?: unknown };
+          if (event.event === "ping") bus.send(socket, bus.frame("pong", {}));
+        } catch {
+          // ignore
+        }
+      });
       return;
     }
     const teamId = session ? session.teamId : "ADMIN";
@@ -199,6 +221,7 @@ async function boot(): Promise<void> {
       if (event.event === "hello") {
         const assessmentSettings = readAssessmentSettings(db);
         bus.setMember(socket, session.displayName, "online", assessmentSettings.singleTabMode);
+        setPresence(db, session.teamId, session.displayName, "online");
         if (typeof event.data.lastEventId === "string") {
           bus.replay(socket, session.teamId, event.data.lastEventId);
         }
@@ -239,6 +262,7 @@ async function boot(): Promise<void> {
         const member = bus.memberOf(socket);
         if (member) {
           bus.setMember(socket, member.displayName, event.data.status, false);
+          setPresence(db, session.teamId, member.displayName, event.data.status === "away" ? "away" : "online");
         }
       } else if (event.event === "security_violation") {
         const member = bus.memberOf(socket);
@@ -293,6 +317,18 @@ async function boot(): Promise<void> {
   }, 500);
   telemetryInterval.unref();
   
+  // Presence truth: anyone marked online/away with no live socket is offline.
+  // Covers closed tabs, dead networks, and crashes the logout path never sees.
+  const presenceSweep = setInterval(() => {
+    try {
+      const live = new Set(bus.liveMembers().map((m) => `${m.teamId}\n${m.displayName}`));
+      reconcilePresence(db, live);
+    } catch {
+      // never take the server down over presence bookkeeping
+    }
+  }, 30_000);
+  presenceSweep.unref();
+
   // Notifications follow the saved clock; gameplay checks the same deadline on every request.
   let previousRound2 = roundState(db, 2).status;
   const roundEvents = setInterval(() => {
@@ -309,3 +345,4 @@ async function boot(): Promise<void> {
 const PING_MS = 25_000;
 
 void boot();
+

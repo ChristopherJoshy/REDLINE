@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/api/client";
+import { useArenaSocket } from "@/ws/useArenaSocket";
 import {
   ShieldAlert,
   Download,
@@ -42,40 +43,53 @@ export default function AdminBoard(): React.JSX.Element {
   const [showTools, setShowTools] = useState(false);
   const [backup, setBackup] = useState("");
 
+  const load = useCallback(async () => {
+    if (adminCode === "") return;
+    try {
+      const res = await apiFetch("/api/admin/board", { headers: { "x-admin-code": adminCode } });
+      if (res.status === 401) {
+        setAuthed(false);
+        setError("Unauthorized PIN code.");
+        return;
+      }
+      const data = (await res.json()) as { rows: BoardRow[]; round2?: boolean };
+      setIsRound2(data.round2 ?? false);
+      setRows(data.rows);
+      setLastUpdated(new Date().toLocaleTimeString());
+      setAuthed(true);
+      setError("");
+    } catch {
+      // Keep prior state
+    }
+  }, [adminCode]);
+
+  // Instant updates over WS (game_tick on every score/inventory/round change);
+  // the 30s timer is only a safety net for dropped frames.
+  useArenaSocket({
+    token: adminCode === "" ? null : adminCode,
+    enabled: authed && adminCode !== "",
+    onEvent: (event) => {
+      if (
+        event.event === "game_tick" ||
+        event.event === "assessment_settings_sync" ||
+        event.event === "announcement" ||
+        event.event === "round2_start" ||
+        event.event === "round2_end" ||
+        event.event === "round2_countdown" ||
+        event.event === "round2_extend" ||
+        event.event === "game_reset"
+      ) {
+        void load();
+      }
+    },
+  });
+
   useEffect(() => {
     if (adminCode === "") return;
-    let dead = false;
-    async function load(): Promise<void> {
-      try {
-        const res = await apiFetch("/api/admin/board", { headers: { "x-admin-code": adminCode } });
-        if (res.status === 401) {
-          if (!dead) {
-            setAuthed(false);
-            setError("Unauthorized PIN code.");
-          }
-          return;
-        }
-        const data = (await res.json()) as { rows: BoardRow[]; round2?: boolean };
-        setIsRound2(data.round2 ?? false);
-        if (!dead) {
-          setRows(data.rows);
-          setLastUpdated(new Date().toLocaleTimeString());
-          setAuthed(true);
-          setError("");
-        }
-      } catch {
-        // Keep prior state
-      }
-    }
     void load();
-    // Auto-refresh: 3s in Round 2 (single 0/1 boss completion flips fast),
-    // 5s in Round 1. Re-created when round changes via isRound2 dep.
-    const t = setInterval(load, isRound2 ? 3000 : 5000);
-    return () => {
-      dead = true;
-      clearInterval(t);
-    };
-  }, [adminCode, isRound2]);
+    const t = setInterval(load, 30_000);
+    return () => clearInterval(t);
+  }, [adminCode, load]);
 
   function submitCode(e: React.FormEvent): void {
     e.preventDefault();
@@ -192,7 +206,7 @@ export default function AdminBoard(): React.JSX.Element {
           <div className="mt-3 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.25em]">
             <span className="inline-flex items-center gap-1.5 border border-[#00D9A6]/40 bg-[#00D9A6]/10 px-2 py-1 text-[#00D9A6]">
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#00D9A6]" aria-hidden="true" />
-              Live · auto-updates every {isRound2 ? "3" : "5"}s
+              Live · instant updates
             </span>
             <span className="border border-[#3F3F46] bg-[#090909] px-2 py-1 text-[#8A8A8A]">
               {isRound2 ? "Round 2 · Selected squads · 0/1 boss" : "Round 1 · 0/8 relics"}

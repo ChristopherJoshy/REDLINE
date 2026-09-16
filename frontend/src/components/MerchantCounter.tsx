@@ -23,10 +23,12 @@ export default function MerchantCounter({
   inventory,
   credits,
   say,
+  displayName,
 }: {
   inventory: InventoryDelta[];
   credits: number;
   say: (botId: BotId, text: string) => void;
+  displayName: string;
 }): React.JSX.Element {
   const [owned, setOwned] = useState<Record<string, Record<number, string>>>({});
   const [receipt, setReceipt] = useState<Receipt | null>(null);
@@ -95,7 +97,7 @@ export default function MerchantCounter({
     }
   }, [receipt]);
 
-  const held = inventory.filter((i) => i.status === "obtained");
+  const held = inventory.filter((i) => i.status === "obtained" && i.obtainedBy === displayName);
 
   function itemName(item: InventoryDelta): string {
     return CHARACTERS[item.botId]?.targetItem.name ?? item.itemKey;
@@ -192,6 +194,9 @@ export default function MerchantCounter({
                           </p>
                           <p className="truncate text-[12px] text-[var(--color-text-3)]">
                             Acquired from {lore?.name ?? item.botId}
+                          </p>
+                          <p className="truncate text-[12px] text-[var(--color-text-3)]">
+                            Obtained by {item.obtainedBy ?? "team"}
                           </p>
                         </div>
                       </div>

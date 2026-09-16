@@ -71,6 +71,35 @@ export class Bus {
     return this.members.get(socket);
   }
 
+  /** Live socket keys (`teamId\ndisplayName`) for presence reconciliation. */
+  liveMembers(): Array<{ teamId: string; displayName: string }> {
+    const out: Array<{ teamId: string; displayName: string }> = [];
+    for (const member of this.members.values()) {
+      if (member.displayName !== "") out.push({ teamId: member.teamId, displayName: member.displayName });
+    }
+    return out;
+  }
+
+  /**
+   * Force-logout: close every socket held by this member. Returns sockets closed.
+   * The client must NOT auto-reconnect on these codes (it shows a kicked notice).
+   */
+  kickMember(teamId: string, displayName: string, code = 4008, reason = "admin_logout"): number {
+    let closed = 0;
+    for (const [socket, member] of this.members.entries()) {
+      if (member.teamId === teamId && member.displayName === displayName) {
+        try {
+          socket.close(code, reason);
+        } catch {
+          // already gone
+        }
+        this.remove(socket);
+        closed += 1;
+      }
+    }
+    return closed;
+  }
+
   remove(socket: WebSocket): void {
     const teamId = this.teams.get(socket);
     const hadMember = this.members.has(socket);
@@ -115,8 +144,7 @@ export class Bus {
     }
   }
 
-  broadcastAll(event: ServerEvent): void {
-    for (const teamId of this.teamSockets.keys()) {
+  broadcastAll(event: ServerEvent): void {    for (const teamId of this.teamSockets.keys()) {
       this.pushRing(teamId, event);
     }
     for (const socket of this.teams.keys()) {
@@ -131,6 +159,11 @@ export class Bus {
 
   connectionCount(): number {
     return this.teams.size;
+  }
+
+  /** Instant-update ping: tells every connected screen to refetch its own REST view. */
+  tick(scope: "board" | "gates" | "all"): void {
+    this.broadcastAll(this.frame("game_tick", { scope }));
   }
 
   activeTeams(): string[] {

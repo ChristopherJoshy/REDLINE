@@ -6,6 +6,7 @@ import AdminBoard from "@/screens/AdminBoard";
 import GatedArena, { GatesPanel } from "@/screens/GatedArena";
 import FullscreenLock from "@/shell/FullscreenLock";
 import AntiTamper from "@/shell/AntiTamper";
+import { useArenaSocket } from "@/ws/useArenaSocket";
 import { me, logout, type IdentifyResult } from "@/api/teams";
 import { apiFetch } from "@/api/client";
 import { Users, User, Trophy, LogOut, Shield, Coins, Sun, Bell, ChevronDown } from "lucide-react";
@@ -27,6 +28,7 @@ export default function App(): React.JSX.Element {
   const [showAbout, setShowAbout] = useState(false);
   const [hideNav, setHideNav] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
+  const [kicked, setKicked] = useState<null | "duplicate" | "admin">(null);
   const [assessmentSettings, setAssessmentSettings] = useState<AssessmentSettingsData>(() => {
     try {
       const saved = localStorage.getItem("redline_assessment_settings");
@@ -72,12 +74,17 @@ export default function App(): React.JSX.Element {
         setHideNav(custom.detail.hidden);
       }
     }
+    function handleKicked(e: Event) {
+      const custom = e as CustomEvent<{ reason?: string }>;
+      setKicked(custom.detail.reason === "admin" ? "admin" : "duplicate");
+    }
     window.addEventListener("arena:announcement", handleAnnouncement);
     window.addEventListener("arena:elo_update", handleEloUpdate);
     window.addEventListener("arena:accent", handleAccent);
     window.addEventListener("arena:credits", handleCredits);
     window.addEventListener("arena:assessment_settings", handleAssessment);
     window.addEventListener("arena:nav_visibility", handleNavVis);
+    window.addEventListener("arena:kicked", handleKicked);
     return () => {
       window.removeEventListener("arena:announcement", handleAnnouncement);
       window.removeEventListener("arena:elo_update", handleEloUpdate);
@@ -85,6 +92,7 @@ export default function App(): React.JSX.Element {
       window.removeEventListener("arena:credits", handleCredits);
       window.removeEventListener("arena:assessment_settings", handleAssessment);
       window.removeEventListener("arena:nav_visibility", handleNavVis);
+      window.removeEventListener("arena:kicked", handleKicked);
     };
   }, []); // No dependencies needed
   // ELO badge pulse on value change
@@ -131,6 +139,38 @@ export default function App(): React.JSX.Element {
       .catch(() => setIdentity(null))
       .finally(() => setChecked(true));
   }, [path]);
+
+  // Pre-login safeguards: the login screen has no session (and /api/gates
+  // needs one), so boot from the public snapshot. The lobby socket below
+  // keeps it live; WS is the update path, this is just the first paint.
+  useEffect(() => {
+    if (path.startsWith("/admin")) return;
+    apiFetch("/api/safeguards")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: AssessmentSettingsData | null) => {
+        if (data && typeof data.requireFullscreen === "boolean") {
+          setAssessmentSettings(data);
+          try {
+            localStorage.setItem("redline_assessment_settings", JSON.stringify(data));
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }, [path]);
+
+  // Lobby socket (no session): instant safeguard + round updates on the
+  // login screen. Once identified, the authed socket takes over.
+  useArenaSocket({
+    enabled: !path.startsWith("/admin") && identity === null,
+    onEvent: (event) => {
+      if (event.event === "assessment_settings_sync") {
+        setAssessmentSettings(event.data);
+        try {
+          localStorage.setItem("redline_assessment_settings", JSON.stringify(event.data));
+        } catch {}
+      }
+    },
+  });
 
   function dismissAnnouncement(): void {
     if (!reducedMotion() && bannerRef.current) {
@@ -349,7 +389,32 @@ export default function App(): React.JSX.Element {
       </div>
     </main>
     )}
-    {assessmentSettings.requireFullscreen && <FullscreenLock onLockChange={onLockChange} />}
+      {assessmentSettings.requireFullscreen && <FullscreenLock onLockChange={onLockChange} wakeLock />}
+      {kicked !== null && (
+        <div className="fixed inset-0 z-[80] flex flex-col items-center justify-center gap-4 bg-black/95 p-6" role="alertdialog" aria-modal="true" aria-label="Session ended">
+          <h2 className="font-[family-name:var(--font-display)] text-[26px] font-bold uppercase tracking-[0.2em] text-white text-center">
+            {kicked === "admin" ? "Logged out by command" : "Session moved to another tab"}
+          </h2>
+          <div className="h-[2px] w-32 bg-gradient-to-r from-transparent via-redline to-transparent" aria-hidden="true" />
+          <p className="max-w-[52ch] text-center text-[14px] text-text-2">
+            {kicked === "admin"
+              ? "An admin ended this session. Log back in with your team code to resume — inventory, Elo, and chat history are intact."
+              : "This identity connected in another tab. This screen is now read-only — continue there, or log back in here to take over."}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                localStorage.removeItem("redline_session_token");
+              } catch {}
+              window.location.href = "/";
+            }}
+            className="redline-primary-cta min-h-[48px] px-8 font-mono text-[14px] font-bold uppercase tracking-[0.2em]"
+          >
+            Return to login
+          </button>
+        </div>
+      )}
     </>
   );
 }

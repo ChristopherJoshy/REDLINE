@@ -34,7 +34,7 @@ function validBot(v: unknown): string | undefined {
 export function registerProfileRoutes(app: FastifyInstance, db: DatabaseAdapter): void {
   // Own cover for a specific bot, or null when none filed yet.
   app.get("/api/profile", async (req, reply) => {
-    const session = sessionOf(req);
+    const session = sessionOf(req, db);
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
@@ -48,7 +48,7 @@ export function registerProfileRoutes(app: FastifyInstance, db: DatabaseAdapter)
 
   // Whole-team covers (sync view for teammates).
   app.get("/api/profiles", async (req, reply) => {
-    const session = sessionOf(req);
+    const session = sessionOf(req, db);
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
@@ -61,7 +61,7 @@ export function registerProfileRoutes(app: FastifyInstance, db: DatabaseAdapter)
 
   // Create ONCE per bot — after that, only PATCH may change it.
   app.post("/api/profile", async (req, reply) => {
-    const session = sessionOf(req);
+    const session = sessionOf(req, db);
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
@@ -99,7 +99,7 @@ export function registerProfileRoutes(app: FastifyInstance, db: DatabaseAdapter)
 
   // Modify only — 404 when nothing was ever created.
   app.patch("/api/profile", async (req, reply) => {
-    const session = sessionOf(req);
+    const session = sessionOf(req, db);
     if (session === undefined) {
       return reply.code(401).send({ error: "no session" });
     }
@@ -132,3 +132,4 @@ export function registerProfileRoutes(app: FastifyInstance, db: DatabaseAdapter)
     return { profile: getCover(db, session.teamId, session.displayName, botId) };
   });
 }
+

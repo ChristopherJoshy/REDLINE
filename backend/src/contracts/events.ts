@@ -182,6 +182,10 @@ export interface AdminTelemetryData {
   tokensOut: number;
 }
 
+export interface GameTickData {
+  scope: "board" | "gates" | "all";
+}
+
 export type ClientEvent =
   | Frame<"hello", HelloData>
   | Frame<"ping", Record<string, never>>
@@ -211,5 +215,6 @@ export type ServerEvent =
   | Frame<"round2_extend", Round2ExtendData>
   | Frame<"presence_sync", PresenceSyncData>
   | Frame<"assessment_settings_sync", AssessmentSettingsData>
+  | Frame<"game_tick", GameTickData>
   | Frame<"admin_telemetry", AdminTelemetryData> | Frame<"game_reset", Record<string, never>>;
 export type AnyEvent = ClientEvent | ServerEvent;

@@ -14,7 +14,7 @@ export function bossSoundIds(boss: BossId): string[] {
   return boss === "itachi" ? ITACHI_META.soundIds : AIZEN_META.soundIds;
 }
 
-const PROMPTS: Record<BossId, { p1: string; p2: string; releaseAt: number; itemKey: string; decoyKey: string }> = {
+export const PROMPTS: Record<BossId, { p1: string; p2: string; releaseAt: number; itemKey: string; decoyKey: string }> = {
   itachi: { p1: ITACHI_P1_PROMPT, p2: ITACHI_P2_PROMPT, releaseAt: ITACHI_META.releaseAt, itemKey: ITACHI_META.itemKey, decoyKey: ITACHI_META.decoyKey },
   aizen: { p1: AIZEN_P1_PROMPT, p2: AIZEN_P2_PROMPT, releaseAt: AIZEN_META.releaseAt, itemKey: AIZEN_META.itemKey, decoyKey: AIZEN_META.decoyKey },
 };

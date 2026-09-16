@@ -8,7 +8,7 @@ import { visibleDialogue } from "./visibleDialogue.js";
 import { awardItem } from "../bots/inventory.js";
 import { round2Status } from "../routes/gates.js";
 import { coverBrief } from "../bots/coverLens.js";
-import { R2_TOOLS, bossKeys, bossSoundIds, escalationUsed, markEscalation, r2Prompt, type BossId } from "../bots/r2.js";
+import { R2_TOOLS, PROMPTS, bossKeys, bossSoundIds, escalationUsed, markEscalation, r2Prompt, userTurns, type BossId } from "../bots/r2.js";
 import { applyAssessmentElo } from "../elo/ratings.js";
 import type { Bus } from "../ws/bus.js";
 
@@ -201,6 +201,7 @@ Call evaluate_challenger exactly once per player turn, even when other tools are
         evaluated = true;
         const result = applyAssessmentElo(db, teamId, args.delta, `r2-assessment:${boss}:${phase};${reason}`);
         bus.broadcast(teamId, bus.frame("elo_update", { teamId, elo: result.after, delta: result.delta, reason: `assessment:${boss}` }));
+        bus.tick("board");
       }
     }
 
@@ -221,6 +222,10 @@ Call evaluate_challenger exactly once per player turn, even when other tools are
       bus.broadcast(teamId, bus.frame("inventory_sync", { items }));
     }
     bus.broadcast(teamId, bus.frame("bot_done", { botId: boss, fullText, typing: false, ...(inventoryDelta === undefined ? {} : { inventoryDelta }) }));
+    // The exact turn phase 2 unlocks: wake clients instantly instead of their poll.
+    if (userTurns(db, teamId, boss) === PROMPTS[boss].releaseAt) {
+      bus.tick("gates");
+    }
   } catch (err) {
     const kind = err instanceof Error ? (err as any).kind ?? "inference" : "inference";
     const msg = err instanceof Error ? err.message : String(err);

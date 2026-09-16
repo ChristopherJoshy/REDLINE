@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { test } from "node:test";
 import { openDatabase } from "../db/database.js";
-import { COUNTDOWN_MS, extendRound, pauseRound, resumeRound, roundState, startRound, stopRound } from "./state.js";
+import { COUNTDOWN_MS, extendRound, pauseRound, resumeRound, roundSnapshot, roundState, startRound, stopRound } from "./state.js";
 
 test("round clock keeps countdown separate from playable duration", () => {
   const db = openDatabase(":memory:", join(__dirname, "../db/schema.sql"));
@@ -36,8 +36,7 @@ test("only active rounds extend and a stop ends immediately", () => {
   }
 });
 
-test("paused rounds hold their clock and cannot be started twice", () => {
-  const db = openDatabase(":memory:", join(__dirname, "../db/schema.sql"));
+test("paused rounds hold their clock and cannot be started twice", () => {  const db = openDatabase(":memory:", join(__dirname, "../db/schema.sql"));
   try {
     const now = Date.parse("2026-09-15T10:00:00.000Z");
     startRound(db, 2, 120, now - COUNTDOWN_MS);
@@ -48,6 +47,30 @@ test("paused rounds hold their clock and cannot be started twice", () => {
     const resumed = resumeRound(db, 2, now + 200_000);
     assert.equal(resumed.status, "active");
     assert.equal(Date.parse(resumed.endsAt ?? ""), now + 120_000 + 180_000);
+  } finally {
+    db.close();
+  }
+});
+
+test("every client sees the identical snapshot for the same server instant", () => {
+  const db = openDatabase(":memory:", join(__dirname, "../db/schema.sql"));
+  try {
+    const now = Date.parse("2026-09-15T10:00:00.000Z");
+    startRound(db, 1, 300, now);
+    startRound(db, 2, 600, now);
+    // Two clients polling at the same server instant get byte-identical clocks.
+    const a = roundSnapshot(db, now + 5_000);
+    const b = roundSnapshot(db, now + 5_000);
+    assert.deepEqual(a, b);
+    assert.equal(a.round1.status, "countdown");
+    assert.equal(a.round2.status, "countdown");
+    // The 30s countdown boundary is exact: 1ms before start is countdown, at start is active.
+    assert.equal(roundState(db, 1, now + COUNTDOWN_MS - 1).status, "countdown");
+    assert.equal(roundState(db, 1, now + COUNTDOWN_MS).status, "active");
+    // Duration is derived from stored server timestamps, never client clocks.
+    assert.equal(a.round1.durationSecs, 300);
+    assert.equal(a.round2.durationSecs, 600);
+    assert.equal(Date.parse(a.round1.endsAt ?? "") - Date.parse(a.round1.startsAt ?? ""), 300_000);
   } finally {
     db.close();
   }

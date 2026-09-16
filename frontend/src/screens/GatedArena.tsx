@@ -178,9 +178,10 @@ export default function GatedArena({ teamId, displayName, locked }: { teamId: st
           if (g.assessmentSettings) {
             window.dispatchEvent(new CustomEvent("arena:assessment_settings", { detail: g.assessmentSettings }));
           }
-          if (g.round2Status === "countdown" && !countdownEndsAt) {
-            // Fetch countdown endsAt from a lightweight endpoint
-            // The server broadcasts it via WS, but we also poll
+          // Server-authoritative countdown: the exact startsAt instant from the
+          // server snapshot — never a locally estimated end time.
+          if (g.round2Status === "countdown" && g.round2.startsAt !== null) {
+            setCountdownEndsAt(g.round2.startsAt);
           }
           if (g.round2Status === "off" && countdownEndsAt) {
             setCountdownEndsAt(null);
@@ -191,12 +192,24 @@ export default function GatedArena({ teamId, displayName, locked }: { teamId: st
       }
     }
     void load();
-    // Gates are the authority for whether the player can act. Keep this tight so
-    // a frozen round never leaves an interactive arena visible for several seconds.
-    const timer = window.setInterval(load, 1_000);
+    // WS game_tick refetches instantly on every round/score change; this 5s
+    // timer is only a safety net so a frozen round never lingers.
+    const timer = window.setInterval(load, 5_000);
+    function onTick(): void {
+      void load();
+    }
+    // Exact server countdown instant pushed over WS on round start.
+    function onCountdown(e: Event): void {
+      const endsAt = (e as CustomEvent<{ endsAt?: string }>).detail.endsAt;
+      if (typeof endsAt === "string" && endsAt !== "") setCountdownEndsAt(endsAt);
+    }
+    window.addEventListener("arena:game_tick", onTick);
+    window.addEventListener("arena:round2_countdown", onCountdown);
     return () => {
       dead = true;
       window.clearInterval(timer);
+      window.removeEventListener("arena:game_tick", onTick);
+      window.removeEventListener("arena:round2_countdown", onCountdown);
     };
   }, []);
 
@@ -209,11 +222,8 @@ export default function GatedArena({ teamId, displayName, locked }: { teamId: st
   // Since the existing WS is in useBotStream, we handle countdown via polling
   useEffect(() => {
     if (!gates) return;
-    if (gates.round2Status === "countdown" && !countdownEndsAt) {
-      // Calculate approximate endsAt from timeLeft
-      const endsAt = new Date(Date.now() + gates.round2TimeLeft * 1000).toISOString();
-      setCountdownEndsAt(endsAt);
-    }
+    // countdownEndsAt always comes from the server (snapshot startsAt or the
+    // round2_countdown broadcast) — never estimated locally.
     if ((gates.round2Status === "off" || gates.round2Status === "paused") && countdownEndsAt) {
       setCountdownEndsAt(null);
     }
@@ -238,7 +248,7 @@ export default function GatedArena({ teamId, displayName, locked }: { teamId: st
     if (roundEnded || !round2Active) {
       return <RoundEndedScreen />;
     }
-    return <RoundTwoScreen teamId={teamId} boss={boss} locked={locked && round2Active} onRoundEnd={() => setRoundEnded(true)} onBack={() => setBoss(null)} />;
+    return <RoundTwoScreen teamId={teamId} displayName={displayName} boss={boss} locked={locked && round2Active} onRoundEnd={() => setRoundEnded(true)} onBack={() => setBoss(null)} />;
   }
   if (gates !== null && gates.round2Status !== "off" && !gates.qualified) {
     return <SealedScreen message="Sorry, you are not selected to move to Round 2." />;

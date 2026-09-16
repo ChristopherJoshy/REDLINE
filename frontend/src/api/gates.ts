@@ -1,4 +1,5 @@
 import { apiFetch } from "./client";
+import type { AssessmentSettingsData } from "@contracts/events";
 
 export interface Gates {
   serverNow: string;
@@ -12,7 +13,7 @@ export interface Gates {
   round2Status: "off" | "countdown" | "active" | "paused";
   round2TimeLeft: number;
   round1TimeLeft: number;
-  assessmentSettings?: any;
+  assessmentSettings?: AssessmentSettingsData;
 }
 
 export interface RoundState {

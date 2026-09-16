@@ -78,7 +78,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
     return () => el.removeEventListener("wheel", handleWheel);
   }, []);
 
-  const { bots, inventory, hasSyncedInventory, credits, locks, setLocks, send, say, rewind } = useBotStream(teamId);
+  const { bots, inventory, hasSyncedInventory, credits, locks, setLocks, send, say, rewind } = useBotStream(teamId, displayName);
   const [selectedBotId, setSelectedBotId] = useState<BotId>("wick");
   const [chattingBotId, setChattingBotId] = useState<BotId | null>(null);
   const [merchantTab, setMerchantTab] = useState<"counter" | "talk">("counter");
@@ -330,24 +330,37 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
     window.setTimeout(() => setLockNotice((cur) => (cur === msg ? null : cur)), 4000);
   }
 
-  // Take the mark and enter comms. 409 means a teammate beat us to it.
-  async function takeAndEnter(botId: BotId): Promise<void> {
+  function lockHolderFromError(err: unknown): string | undefined {
+    if (typeof err !== "object" || err === null || !("holder" in err)) return undefined;
+    const holder = err.holder;
+    if (typeof holder !== "object" || holder === null || !("displayName" in holder)) return undefined;
+    return typeof holder.displayName === "string" ? holder.displayName : undefined;
+  }
+
+  // Acquire the mark as soon as the operator starts an attempt. 409 means a
+  // teammate beat us to it; the server broadcasts the winning holder to the room.
+  async function acquireAttempt(botId: BotId): Promise<boolean> {
     try {
       const next = await acquireLock(botId);
       setLocks(next);
     } catch (err) {
-      const holder = (err as { holder?: { displayName?: string } }).holder?.displayName;
+      const holder = lockHolderFromError(err);
       try {
         setLocks(await getLocks());
       } catch { /* keep last known locks */ }
       flashLockNotice(holder ? `${holder} is already talking to this mark` : "Mark already in use");
-      return;
+      return false;
     }
     if (heldRef.current !== null && heldRef.current !== botId) {
       void releaseLock(heldRef.current);
     }
     setHeldBot(botId);
     setLockNotice(null);
+    return true;
+  }
+
+  async function takeAndEnter(botId: BotId): Promise<void> {
+    if (!(await acquireAttempt(botId))) return;
     setChattingBotId(botId);
   }
 
@@ -364,38 +377,52 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
   }
 
   function engage(botId: BotId): void {
-    if (getBotItemStatus(botId) === "verified") { setCelebration(botId); return; }
+    if (getBotItemStatus(botId) === "verified") {
+      const item = inventory.find((entry) => entry.botId === botId);
+      if (item?.obtainedBy === displayName) setCelebration(botId);
+      return;
+    }
     if (botId === "merchant") { setMerchantTab("counter"); setChattingBotId(botId); return; }
     // Single-operator rule: a mark held by a teammate stays selectable but not enterable.
     const holder = holderOf(botId);
     if (holder !== null) { flashLockNotice(`${holder} is already talking to this mark`); return; }
     if (coverChecking === botId) return;
-    const coverState = covers[botId];
-    // No cover on file for this mark — file one before talking.
-    if (coverState === null) { openCoverFor(botId, true, botId); return; }
-    if (coverState === undefined) {
-      setCoverChecking(botId);
-      getCover(botId)
-        .then((c) => {
+    void (async () => {
+      // Lock before checking or creating a cover so the whole attempt is visible
+      // to teammates, including the required dossier step.
+      if (!(await acquireAttempt(botId))) return;
+      const coverState = covers[botId];
+      // No cover on file for this mark — file one before talking.
+      if (coverState === null) { openCoverFor(botId, true, null); return; }
+      if (coverState === undefined) {
+        setCoverChecking(botId);
+        try {
+          const c = await getCover(botId);
           setCovers((prev) => ({ ...prev, [botId]: c }));
-          setCoverChecking(null);
-          if (c === null) { openCoverFor(botId, true, botId); return; }
-          void takeAndEnter(botId);
-        })
-        .catch(() => {
+          if (c === null) {
+            openCoverFor(botId, true, null);
+          } else {
+            setChattingBotId(botId);
+          }
+        } catch {
           setCovers((prev) => ({ ...prev, [botId]: null }));
+          openCoverFor(botId, true, null);
+        } finally {
           setCoverChecking(null);
-          openCoverFor(botId, true, botId);
-        });
-      return;
-    }
-    void takeAndEnter(botId);
+        }
+        return;
+      }
+      setChattingBotId(botId);
+    })();
   }
 
   const activeBot = chattingBotId === null ? undefined : bots[chattingBotId];
   const commsName = chattingBotId === null ? null : (CHARACTERS[chattingBotId]?.name ?? chattingBotId);
   useDocumentTitle(commsName === null ? "Round 1 · Marks — REDLINE Arena" : `${commsName} — REDLINE Arena`);
   const selectedLore = CHARACTERS[selectedBotId];
+  const selectedAttempt = selectedLore && getBotItemStatus(selectedLore.id) !== "verified"
+    ? locks[selectedLore.id]
+    : undefined;
   const selectedHolder = selectedLore ? holderOf(selectedLore.id) : null;
   const verifiedCount = inventory.filter((i) => i.status === "verified").length;
   const isMerchant = chattingBotId === "merchant";
@@ -488,9 +515,15 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                 </div>
               </div>
 
-              {/* Character Title, Badges & Tagline */}
+              {/* Character Title, Attempt Status & Tagline */}
               {selectedLore && (
                 <div className="flex flex-col gap-3">
+                  {selectedAttempt !== undefined && (
+                    <div role="status" className="flex min-h-[30px] items-center gap-2 border border-[var(--color-redline-dim)] bg-[var(--color-bg-0)] px-3 py-1.5 font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.12em] text-[var(--color-redline)] uppercase">
+                      <Radio className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span className="truncate">CURRENTLY ATTEMPTING BY {selectedAttempt.displayName.toUpperCase()}</span>
+                    </div>
+                  )}
                   <h2 className="font-[family-name:var(--font-display)] text-[34px] font-bold tracking-[0.04em] text-white leading-none uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
                     {selectedLore.name}
                   </h2>
@@ -562,6 +595,14 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                       );
                     }
                     if (item?.status === "verified") {
+                      if (item.obtainedBy !== displayName) {
+                        return (
+                          <div className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[8px] border border-[rgba(157,184,122,0.3)] bg-[rgba(157,184,122,0.08)] px-6 py-2.5 font-bold text-[13px] tracking-wide text-[#c4d8a8]/80 backdrop-blur-md">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>FILED BY {item.obtainedBy?.toUpperCase() ?? "TEAM"}</span>
+                          </div>
+                        );
+                      }
                       return (
                         <button
                           type="button"
@@ -598,9 +639,15 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                     }
                     if (selectedHolder !== null) {
                       return (
-                        <div className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[8px] border border-white/15 bg-white/5 px-6 py-2.5 font-bold text-[13px] tracking-wide text-white/60 backdrop-blur-sm">
-                          <span>IN USE BY {selectedHolder.toUpperCase()}</span>
-                        </div>
+                        <button
+                          type="button"
+                          disabled
+                          aria-label={`Currently attempting by ${selectedHolder}`}
+                          className="flex min-h-[48px] w-full cursor-not-allowed items-center justify-center gap-2 rounded-[8px] border border-[var(--color-redline-dim)] bg-[var(--color-bg-0)] px-6 py-2.5 font-[family-name:var(--font-code)] text-[11px] font-bold tracking-[0.1em] text-[var(--color-redline)] uppercase"
+                        >
+                          <Radio className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          <span className="truncate">CURRENTLY ATTEMPTING BY {selectedHolder.toUpperCase()}</span>
+                        </button>
                       );
                     }
                     return (
@@ -643,63 +690,72 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                 const isMerchantCard = item.id === "merchant";
                 const itemStatus = getBotItemStatus(item.id);
                 const filed = itemStatus === "verified";
-
-                // Color theme logic
+                const attempt = !isMerchantCard && !filed ? locks[item.id] : undefined;
                 const activeBorder = isMerchantCard ? "border-[#f2b632] shadow-[0_0_15px_rgba(242,182,50,0.6)]" : "border-[#ff1e2d] shadow-[0_0_15px_rgba(255,30,45,0.6)]";
 
                 return (
-                  <button
+                  <div
                     key={item.id}
-                    type="button"
-                    onClick={() => setSelectedBotId(item.id)}
-                    onDoubleClick={() => engage(item.id)}
-                    className={`group relative flex-1 shrink-0 min-w-[80px] sm:min-w-[95px] lg:min-w-[110px] max-w-[130px] xl:max-w-[145px] h-[130px] sm:h-[150px] lg:h-[175px] -skew-x-[12deg] overflow-hidden cursor-pointer select-none transition-all duration-300 transform outline-none focus-visible:ring-2 focus-visible:ring-white ${
-                      isSelected
-                        ? `border-2 z-10 scale-[1.08] -translate-y-2 ${activeBorder}`
-                        : "border border-white/15 hover:border-white/40 hover:scale-[1.03] hover:-translate-y-1 bg-black/60"
-                    }`}
+                    className="relative flex-1 shrink-0 min-w-[80px] sm:min-w-[95px] lg:min-w-[110px] max-w-[130px] xl:max-w-[145px] pt-5"
                   >
-                    {/* Un-skew wrapper for contents */}
-                    <div
-                      className="absolute top-0 bottom-0 skew-x-[12deg] flex flex-col justify-end"
-                      style={{ left: "-20px", right: "-20px", width: "calc(100% + 40px)" }}
-                    >
-                      {/* Full Background Image */}
-                      <img
-                        src={lore?.heroImage ?? lore?.avatar ?? "/characters/wick.jpg"}
-                        alt={item.label}
-                        className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.08] ${
-                          filed && !isSelected ? "grayscale brightness-50" : (isSelected ? "brightness-110" : "brightness-75 group-hover:brightness-100")
-                        } ${lore ? AVATAR_FOCUS[lore.id] : "object-center"}`}
-                      />
-
-                      {/* Filed/Completed Overlay */}
-                      {filed && (
-                        <div className="absolute inset-0 bg-[#9db87a]/20 mix-blend-overlay z-10 flex items-center justify-center">
-                          <div className="bg-black/60 p-2 rounded-full border border-[#9db87a]/50 shadow-[0_0_15px_rgba(157,184,122,0.4)]">
-                            <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-[#9db87a]" />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Bottom Gradient for Text */}
-                      <div className="absolute inset-x-0 bottom-0 h-[80%] bg-gradient-to-t from-[rgba(5,7,10,0.95)] via-[rgba(5,7,10,0.7)] to-transparent z-10" />
-
-                      {/* Content (Text & Tags) */}
-                      <div className="relative z-20 flex flex-col items-center justify-end pb-2 sm:pb-3 px-1 h-full gap-1 sm:gap-1.5">
-                        {/* Index */}
-                        <span className={`absolute top-2 left-3 sm:left-4 font-[family-name:var(--font-code)] text-[9px] font-bold tracking-[0.1em] ${isSelected ? (isMerchantCard ? "text-[#f2b632]" : "text-[#ff1e2d]") : "text-white/40"}`}>
-                          {item.num}
-                        </span>
-
-                        <span className={`font-[family-name:var(--font-display)] text-[10px] sm:text-[11px] font-bold tracking-[0.05em] truncate w-full text-center ${
-                          isSelected ? "text-white" : "text-[var(--color-text-2)]"
-                        }`}>
-                          {item.label.toUpperCase()}
-                        </span>
+                    {attempt !== undefined && (
+                      <div role="status" className="absolute inset-x-0 top-0 z-30 flex min-h-[18px] items-center justify-center gap-1 overflow-hidden border border-[var(--color-redline-dim)] bg-[var(--color-bg-0)] px-1.5 py-0.5 font-[family-name:var(--font-code)] text-[8px] font-bold tracking-[0.08em] text-[var(--color-redline)] uppercase">
+                        <Radio className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                        <span className="truncate">CURRENTLY ATTEMPTING BY {attempt.displayName.toUpperCase()}</span>
                       </div>
-                    </div>
-                  </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedBotId(item.id)}
+                      onDoubleClick={() => engage(item.id)}
+                      className={`group relative block h-[130px] w-full -skew-x-[12deg] overflow-hidden cursor-pointer select-none transition-all duration-300 transform outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                        isSelected
+                          ? `border-2 z-10 scale-[1.08] -translate-y-2 ${activeBorder}`
+                          : "border border-white/15 hover:border-white/40 hover:scale-[1.03] hover:-translate-y-1 bg-black/60"
+                      }`}
+                    >
+                      {/* Un-skew wrapper for contents */}
+                      <div
+                        className="absolute top-0 bottom-0 skew-x-[12deg] flex flex-col justify-end"
+                        style={{ left: "-20px", right: "-20px", width: "calc(100% + 40px)" }}
+                      >
+                        {/* Full Background Image */}
+                        <img
+                          src={lore?.heroImage ?? lore?.avatar ?? "/characters/wick.jpg"}
+                          alt={item.label}
+                          className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.08] ${
+                            filed && !isSelected ? "grayscale brightness-50" : (isSelected ? "brightness-110" : "brightness-75 group-hover:brightness-100")
+                          } ${lore ? AVATAR_FOCUS[lore.id] : "object-center"}`}
+                        />
+
+                        {/* Filed/Completed Overlay */}
+                        {filed && (
+                          <div className="absolute inset-0 bg-[#9db87a]/20 mix-blend-overlay z-10 flex items-center justify-center">
+                            <div className="bg-black/60 p-2 rounded-full border border-[#9db87a]/50 shadow-[0_0_15px_rgba(157,184,122,0.4)]">
+                              <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-[#9db87a]" />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Bottom Gradient for Text */}
+                        <div className="absolute inset-x-0 bottom-0 h-[80%] bg-gradient-to-t from-[rgba(5,7,10,0.95)] via-[rgba(5,7,10,0.7)] to-transparent z-10" />
+
+                        {/* Content (Text & Tags) */}
+                        <div className="relative z-20 flex flex-col items-center justify-end pb-2 sm:pb-3 px-1 h-full gap-1 sm:gap-1.5">
+                          {/* Index */}
+                          <span className={`absolute top-2 left-3 sm:left-4 font-[family-name:var(--font-code)] text-[9px] font-bold tracking-[0.1em] ${isSelected ? (isMerchantCard ? "text-[#f2b632]" : "text-[#ff1e2d]") : "text-white/40"}`}>
+                            {item.num}
+                          </span>
+
+                          <span className={`font-[family-name:var(--font-display)] text-[10px] sm:text-[11px] font-bold tracking-[0.05em] truncate w-full text-center ${
+                            isSelected ? "text-white" : "text-[var(--color-text-2)]"
+                          }`}>
+                            {item.label.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -827,7 +883,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
 
             {isMerchant && merchantTab === "counter" ? (
               <div className="flex-1 overflow-y-auto min-h-0">
-                <MerchantCounter inventory={inventory} credits={credits} say={say} />
+                <MerchantCounter inventory={inventory} credits={credits} say={say} displayName={displayName} />
               </div>
             ) : (
               <>
@@ -959,8 +1015,8 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                 </div>
 
                 {/* In-page Claim Banner if relic is yielded & held */}
-                {chattingBotId && inventory.some((i) => i.botId === chattingBotId && i.status === "obtained") && (() => {
-                  const item = inventory.find((i) => i.botId === chattingBotId && i.status === "obtained");
+                {chattingBotId && inventory.some((i) => i.botId === chattingBotId && i.status === "obtained" && i.obtainedBy === displayName) && (() => {
+                  const item = inventory.find((i) => i.botId === chattingBotId && i.status === "obtained" && i.obtainedBy === displayName);
                   const lore = CHARACTERS[chattingBotId];
                   return (
                     <div className="border-y border-[rgba(216,155,36,0.55)] bg-[rgba(9,13,18,0.95)] p-3 shadow-[0_0_24px_rgba(216,155,36,0.15)] sm:px-6 z-20">
@@ -1017,7 +1073,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                 })()}
 
                 {/* In-page Verified Banner if relic is already filed */}
-                {chattingBotId && inventory.some((i) => i.botId === chattingBotId && i.status === "verified") && (
+                {chattingBotId && inventory.some((i) => i.botId === chattingBotId && i.status === "verified" && i.obtainedBy === displayName) && (
                   <div className="border-t border-[#9db87a]/40 bg-[#090d12]/95 px-4 py-2.5 text-center text-[12px] text-white/80 flex items-center justify-center gap-2 z-20">
                     <CheckCircle2 className="w-4 h-4 text-[#9db87a]" />
                     <span className="font-mono">RELIC FILED & LOCKED AT THE MERCHANT COUNTER.</span>

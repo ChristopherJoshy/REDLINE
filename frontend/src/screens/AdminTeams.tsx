@@ -374,7 +374,7 @@ export default function AdminTeams(): React.JSX.Element {
         const headers = { "x-admin-code": adminCode };
         const [resOverview, resGates, resStream, resHealth, resAnnounce, resAudit] = await Promise.all([
           apiFetch("/api/admin/overview", { headers }).catch(() => null),
-          getGates().catch(() => null),
+          getGates(adminCode).catch(() => null),
           apiFetch("/api/admin/activity-stream", { headers }).catch(() => null),
           apiFetch("/api/admin/system-health", { headers }).catch(() => null),
           apiFetch("/api/admin/announcements", { headers }).catch(() => null),
@@ -1918,7 +1918,7 @@ export default function AdminTeams(): React.JSX.Element {
                         onClick={async () => {
                           try {
                             await startRound1(adminCode, roundDurationMins * 60);
-                            setGates(await getGates());
+                            setGates(await getGates(adminCode));
                             notify(`Round 1 scheduled: 30s countdown, then ${roundDurationMins} minutes.`);
                           } catch (err) {
                             setError(err instanceof Error ? err.message : "Could not start Round 1.");
@@ -1938,14 +1938,14 @@ export default function AdminTeams(): React.JSX.Element {
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
-                          onClick={async () => { await pauseRound1(adminCode); setGates(await getGates()); notify("Round 1 Paused"); }}
+                          onClick={async () => { await pauseRound1(adminCode); setGates(await getGates(adminCode)); notify("Round 1 Paused"); }}
                           className="py-2.5 px-3 rounded-[2px] border border-[#F59E0B] bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] font-mono font-bold text-[12px] uppercase tracking-wider transition cursor-pointer"
                         >
                           Pause
                         </button>
                         <button
                           type="button"
-                          onClick={async () => { await endRound1(adminCode); setGates(await getGates()); notify("Round 1 frozen!"); }}
+                          onClick={async () => { await endRound1(adminCode); setGates(await getGates(adminCode)); notify("Round 1 frozen!"); }}
                           className="py-2.5 px-3 rounded-[2px] border border-[#3F3F46] bg-[#18181B] hover:bg-[#3F3F46] text-[#A1A1AA] font-mono font-bold text-[12px] uppercase tracking-wider transition cursor-pointer"
                         >
                           Freeze
@@ -1956,7 +1956,7 @@ export default function AdminTeams(): React.JSX.Element {
                       <div className="grid grid-cols-3 gap-2">
                         {[1, 5, 10].map(m => (
                           <button key={m} type="button"
-                            onClick={async () => { await extendRound1(adminCode, m * 60); setGates(await getGates()); notify(`+${m} min to Round 1`); }}
+                            onClick={async () => { await extendRound1(adminCode, m * 60); setGates(await getGates(adminCode)); notify(`+${m} min to Round 1`); }}
                             className="py-2 px-2 rounded-[2px] border border-[#10B981] bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] font-mono font-bold text-[12px] uppercase transition cursor-pointer"
                           >
                             +{m}m
@@ -1967,7 +1967,7 @@ export default function AdminTeams(): React.JSX.Element {
                       <div className="grid grid-cols-3 gap-2">
                         {[1, 5, 10].map(m => (
                           <button key={m} type="button"
-                            onClick={async () => { await reduceRound1(adminCode, m * 60); setGates(await getGates()); notify(`-${m} min from Round 1`); }}
+                            onClick={async () => { await reduceRound1(adminCode, m * 60); setGates(await getGates(adminCode)); notify(`-${m} min from Round 1`); }}
                             className="py-2 px-2 rounded-[2px] border border-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-[#EF4444] font-mono font-bold text-[12px] uppercase transition cursor-pointer"
                           >
                             -{m}m
@@ -1981,7 +1981,7 @@ export default function AdminTeams(): React.JSX.Element {
                   {gates.round1.status === "paused" && (
                     <button
                       type="button"
-                      onClick={async () => { await resumeRound1(adminCode); setGates(await getGates()); notify("Round 1 Resumed"); }}
+                      onClick={async () => { await resumeRound1(adminCode); setGates(await getGates(adminCode)); notify("Round 1 Resumed"); }}
                       className="py-3 px-4 rounded-[2px] border border-[#10B981] bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] font-mono font-bold text-[13px] uppercase tracking-wider transition cursor-pointer w-full"
                     >
                       Resume Round 1
@@ -2007,14 +2007,14 @@ export default function AdminTeams(): React.JSX.Element {
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
-                          onClick={async () => { await pauseRound2(adminCode); setGates(await getGates()); notify("Round 2 Paused"); }}
+                          onClick={async () => { await pauseRound2(adminCode); setGates(await getGates(adminCode)); notify("Round 2 Paused"); }}
                           className="py-2.5 px-3 rounded-[2px] border border-[#F59E0B] bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] font-mono font-bold text-[12px] uppercase tracking-wider transition cursor-pointer"
                         >
                           Pause
                         </button>
                         <button
                           type="button"
-                          onClick={async () => { await stopRound2(adminCode); setRound2({ status: "off", timeLeft: 0, duration: 1800 }); setGates(await getGates()); notify("Round 2 stopped!"); }}
+                          onClick={async () => { await stopRound2(adminCode); setRound2({ status: "off", timeLeft: 0, duration: 1800 }); setGates(await getGates(adminCode)); notify("Round 2 stopped!"); }}
                           className="py-2.5 px-3 rounded-[2px] border border-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-[#EF4444] font-mono font-bold text-[12px] uppercase tracking-wider transition cursor-pointer"
                         >
                           Stop
@@ -2024,7 +2024,7 @@ export default function AdminTeams(): React.JSX.Element {
                       <div className="grid grid-cols-3 gap-2">
                         {[1, 5, 10].map(m => (
                           <button key={m} type="button"
-                            onClick={async () => { await extendRound2(adminCode, m * 60); setGates(await getGates()); notify(`+${m} min to Round 2`); }}
+                            onClick={async () => { await extendRound2(adminCode, m * 60); setGates(await getGates(adminCode)); notify(`+${m} min to Round 2`); }}
                             className="py-2 px-2 rounded-[2px] border border-[#10B981] bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] font-mono font-bold text-[12px] uppercase transition cursor-pointer"
                           >
                             +{m}m
@@ -2035,7 +2035,7 @@ export default function AdminTeams(): React.JSX.Element {
                       <div className="grid grid-cols-3 gap-2">
                         {[1, 5, 10].map(m => (
                           <button key={m} type="button"
-                            onClick={async () => { await reduceRound2(adminCode, m * 60); setGates(await getGates()); notify(`-${m} min from Round 2`); }}
+                            onClick={async () => { await reduceRound2(adminCode, m * 60); setGates(await getGates(adminCode)); notify(`-${m} min from Round 2`); }}
                             className="py-2 px-2 rounded-[2px] border border-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-[#EF4444] font-mono font-bold text-[12px] uppercase transition cursor-pointer"
                           >
                             -{m}m
@@ -2049,7 +2049,7 @@ export default function AdminTeams(): React.JSX.Element {
                   {round2.status === "paused" && (
                     <button
                       type="button"
-                      onClick={async () => { await resumeRound2(adminCode); setGates(await getGates()); notify("Round 2 Resumed"); }}
+                      onClick={async () => { await resumeRound2(adminCode); setGates(await getGates(adminCode)); notify("Round 2 Resumed"); }}
                       className="py-3 px-4 mt-2 rounded-[2px] border border-[#10B981] bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] font-mono font-bold text-[13px] uppercase tracking-wider transition cursor-pointer w-full"
                     >
                       Resume Round 2
@@ -2060,7 +2060,7 @@ export default function AdminTeams(): React.JSX.Element {
                   {round2.status === "countdown" && (
                     <button
                       type="button"
-                      onClick={async () => { await stopRound2(adminCode); setRound2({ status: "off", timeLeft: 0, duration: 1800 }); setGates(await getGates()); notify("Round 2 cancelled!"); }}
+                      onClick={async () => { await stopRound2(adminCode); setRound2({ status: "off", timeLeft: 0, duration: 1800 }); setGates(await getGates(adminCode)); notify("Round 2 cancelled!"); }}
                       className="py-3.5 px-4 mt-2 rounded-[2px] border border-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-[#EF4444] font-mono font-bold text-[13px] uppercase tracking-wider transition cursor-pointer"
                     >
                       Cancel Round 2 Countdown
@@ -2077,7 +2077,7 @@ export default function AdminTeams(): React.JSX.Element {
                         body: "{}"
                       });
                       setRound2({ status: "off", timeLeft: 0, duration: 1800 });
-                      const g = await getGates();
+                      const g = await getGates(adminCode);
                       setGates(g);
                       notify("GAME RESET. All players sent back to wait screen.");
                     }}
@@ -3231,7 +3231,7 @@ export default function AdminTeams(): React.JSX.Element {
                 onClick={async () => {
                   try {
                     await startRound2(adminCode, r2DurationMins * 60, Array.from(selectedTeamIds));
-                    const g = await getGates();
+                    const g = await getGates(adminCode);
                     setGates(g);
                     notify(`Round 2 scheduled for ${selectedTeamIds.size} teams.`);
                     setShowR2Select(false);

@@ -47,10 +47,11 @@ export function solvedCount(db: DatabaseAdapter, teamId: string): number {
 export function registerGateRoutes(app: FastifyInstance, db: DatabaseAdapter, bus: Bus): void {
   app.get("/api/gates", async (req, reply) => {
     const session = sessionOf(req);
-    if (!session) return reply.code(401).send({ error: "no session" });
+    const isAdmin = admin(req);
+    if (!session && !isAdmin) return reply.code(401).send({ error: "unauthorized" });
     return { ...roundSnapshot(db), round1Open: round1Open(db), vaultOpen: vaultOpen(db),
-      qualified: vaultOpen(db) && isQualified(db, session.teamId),
-      solved: solvedCount(db, session.teamId), round1Size: ROUND1_SIZE,
+      qualified: session ? (vaultOpen(db) && isQualified(db, session.teamId)) : false,
+      solved: session ? solvedCount(db, session.teamId) : 0, round1Size: ROUND1_SIZE,
       round2Status: round2Status(db), round2TimeLeft: round2TimeLeft(db),
       round1TimeLeft: round1TimeLeft(db) };
   });

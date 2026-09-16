@@ -21,8 +21,12 @@ export interface RoundState {
   durationSecs: number;
 }
 
-export async function getGates(): Promise<Gates> {
-  const res = await apiFetch("/api/gates");
+export async function getGates(adminCode?: string): Promise<Gates> {
+  const headers: Record<string, string> = {};
+  if (adminCode) {
+    headers["x-admin-code"] = adminCode;
+  }
+  const res = await apiFetch("/api/gates", { headers });
   if (!res.ok) {
     throw new Error("no gates");
   }

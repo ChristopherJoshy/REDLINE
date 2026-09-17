@@ -9,7 +9,7 @@ import { awardItem } from "../bots/inventory.js";
 import { coverBrief } from "../bots/coverLens.js";
 import { BOTS, ROUND1_BOTS } from "../bots/registry.js";
 import { clueFor, CLUE_LABEL } from "../bots/merchantClues.js";
-import { bossOf, isBoss } from "../bots/r2.js";
+import { bossOf, isBoss, r2Completed } from "../bots/r2.js";
 import { handleR2Chat } from "./r2handler.js";
 import { round1Open, round2Status } from "../routes/gates.js";
 import type { Bus } from "../ws/bus.js";
@@ -66,6 +66,10 @@ export async function handleChatSend(
   if (isBoss(botId)) {
     if (bossOf(teamId, db) !== botId) {
       bus.sendMember(teamId, displayName, bus.frame("bot_error", { botId, message: "not your vault", retryable: false }));
+      return;
+    }
+    if (r2Completed(teamId, db)) {
+      bus.sendMember(teamId, displayName, bus.frame("bot_error", { botId, message: "round 2 complete", retryable: false }));
       return;
     }
     if (round2Status(db) !== "active") {

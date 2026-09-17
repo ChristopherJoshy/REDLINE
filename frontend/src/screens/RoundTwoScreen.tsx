@@ -21,7 +21,7 @@ import { useCinematicMotion } from "@/portal/useCinematicMotion";
 import { getCover } from "@/api/profiles";
 import { submitItem } from "@/api/merchant";
 import { apiFetch } from "@/api/client";
-import { ShoppingBag, ArrowDown, CheckCircle2, Shield, ArrowLeft, VenetianMask, RotateCcw } from "lucide-react";
+import { ArrowDown, CheckCircle2, Shield, ArrowLeft, VenetianMask, RotateCcw } from "lucide-react";
 import { DUR } from "@/lib/motionTokens";
 
 interface RoundTwoScreenProps {
@@ -232,8 +232,13 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
     async function load(): Promise<void> {
       try {
         const res = await apiFetch("/api/round2/state");
-        const data = (await res.json()) as { phase: "p1" | "p2" };
-        if (!dead && (data.phase === "p1" || data.phase === "p2")) {
+        const data = (await res.json()) as { phase: "p1" | "p2"; completed?: boolean };
+        if (dead) return;
+        if (data.completed === true) {
+          onRoundEnd?.();
+          return;
+        }
+        if (data.phase === "p1" || data.phase === "p2") {
           if (previousPhase.current === "p1" && data.phase === "p2") setPhaseReveal(true);
           previousPhase.current = data.phase;
         }
@@ -250,7 +255,7 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
     }
     window.addEventListener("arena:game_tick", onTick);
     return () => { dead = true; window.clearInterval(timer); window.removeEventListener("arena:game_tick", onTick); };
-  }, []);
+  }, [onRoundEnd]);
 
   function submit(e: React.FormEvent): void {
     e.preventDefault();
@@ -373,7 +378,7 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
                         <img
                           src={itemLore?.heroImage ?? itemLore?.avatar ?? "/characters/wick.jpg"}
                           alt={item.label}
-                          className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.08] ${isSelected ? "brightness-110" : "brightness-75 group-hover:brightness-100"} ${itemLore ? AVATAR_FOCUS[itemLore.id] : "object-center"}`}
+                          className={`absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-[1.08] ${item.id === "merchant" ? "object-cover" : "object-contain bg-black/35 p-1"} ${isSelected ? "brightness-110" : "brightness-75 group-hover:brightness-100"} ${itemLore ? AVATAR_FOCUS[itemLore.id] : "object-center"}`}
                         />
                         <div className="absolute inset-x-0 bottom-0 h-[80%] bg-gradient-to-t from-[rgba(5,7,10,0.95)] via-[rgba(5,7,10,0.7)] to-transparent z-10" />
                         <div className="relative z-20 flex flex-col items-center justify-end pb-2 sm:pb-3 px-1 h-full gap-1 sm:gap-1.5">
@@ -424,7 +429,7 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
       {merchantView ? (
         <section data-r2-panel className="flex min-h-0 flex-1 overflow-y-auto items-start justify-center p-4 sm:p-8" aria-label="Vault merchant altar">
           <div className="w-full max-w-[860px]">
-            <MerchantCounter inventory={inventory} credits={credits} say={send} displayName={displayName} allowedBotIds={[boss]} />
+            <MerchantCounter inventory={inventory} credits={credits} say={send} displayName={displayName} allowedBotIds={[boss]} onVerified={() => { setCelebration(false); onRoundEnd?.(); }} />
           </div>
         </section>
       ) : (

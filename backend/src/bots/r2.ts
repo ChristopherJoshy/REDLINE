@@ -90,6 +90,13 @@ export function bossOf(teamId: string, db: DatabaseAdapter): BossId | undefined 
   return row?.boss === "itachi" || row?.boss === "aizen" ? row.boss : undefined;
 }
 
+export function r2Completed(teamId: string, db: DatabaseAdapter): boolean {
+  return db.get<{ status: string }>(
+    "SELECT i.status FROM r2_assignments a JOIN team_inventory i ON i.team_id = a.team_id AND i.bot_id = a.boss WHERE a.team_id = ?",
+    teamId,
+  )?.status === "verified";
+}
+
 export function escalationUsed(db: DatabaseAdapter, teamId: string, boss: BossId, kind: string, displayName?: string): number {
   if (displayName !== undefined) {
     return db.get<{ n: number }>(

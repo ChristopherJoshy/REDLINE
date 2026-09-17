@@ -6,7 +6,7 @@ import type { Bus } from "../ws/bus.js";
 import type { ChatMessage } from "../llm/groq.js";
 import { streamPrimaryR2 } from "../llm/primary.js";
 import { sessionOf } from "./teams.js";
-import { R2_TOOLS, bossKeys, bossSoundIds, bossOf, escalationUsed, isBoss, r2Phase, userTurns, type BossId } from "../bots/r2.js";
+import { R2_TOOLS, bossKeys, bossSoundIds, bossOf, r2Completed, escalationUsed, isBoss, r2Phase, userTurns, type BossId } from "../bots/r2.js";
 import { ITACHI_P1_PROMPT, ITACHI_META } from "../bots/itachi.prompt.js";
 import { AIZEN_P1_PROMPT, AIZEN_META } from "../bots/aizen.prompt.js";
 import { foldAnswer, matchesAny, variants } from "../portal/normalize.js";
@@ -30,6 +30,9 @@ export async function r2Submit(
   text: string,
   displayName: string,
 ): Promise<{ result: "verified"; botId: BossId; eloDelta: number; score: number } | { result: "dissolve"; botId: BossId; line: string } | { result: "troll"; line: string }> {
+  if (r2Completed(teamId, db)) {
+    return { result: "troll", line: "The vault is sealed." };
+  }
   if (round2Status(db) !== "active" || bossOf(teamId, db) !== boss) {
     return { result: "troll", line: "The vault is sealed." };
   }
@@ -89,6 +92,7 @@ export async function r2Submit(
     db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES (?, ?, ?)", teamId, boss, "merchant/success-thank-you");
     bus.broadcast(teamId, bus.frame("sound_play", { botId: boss, soundId: "merchant/success-thank-you", src: "/sounds/merchant/success-thank-you.mp3" }));
     bus.tick("board");
+    bus.broadcast(teamId, bus.frame("round2_end", { reason: "team_completed" }));
     return { result: "verified", botId: boss, eloDelta: elo.delta, score };
   }
 
@@ -107,9 +111,9 @@ export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, 
     }
     const boss = bossOf(session.teamId, db);
     if (boss === undefined) {
-      return { boss: null, phase: null };
+      return { boss: null, phase: null, completed: false };
     }
-    return { boss, phase: r2Phase(db, session.teamId, boss, session.displayName) };
+    return { boss, phase: r2Phase(db, session.teamId, boss, session.displayName), completed: r2Completed(session.teamId, db) };
   });
 
   // Boss opener on arena entry. Once only; never consumes a player turn.
@@ -119,12 +123,10 @@ export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, 
       return reply.code(401).send({ error: "no session" });
     }
     const body = (req.body ?? {}) as { boss?: unknown };
-    if (body.boss !== "itachi" && body.boss !== "aizen") {
-      return reply.code(400).send({ error: "boss required" });
-    }
     if (!isBoss(body.boss as BotId) || bossOf(session.teamId, db) !== body.boss) {
       return reply.code(403).send({ error: "not your vault" });
     }
+    if (r2Completed(session.teamId, db)) return reply.code(403).send({ error: "round 2 complete" });
     if (round2Status(db) !== "active") return reply.code(403).send({ error: "round 2 not active" });
     const boss = body.boss as BossId;
     const spoken = db.get<{ n: number }>(

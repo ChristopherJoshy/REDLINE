@@ -24,12 +24,14 @@ export default function MerchantCounter({
   say,
   displayName,
   allowedBotIds,
+  onVerified,
 }: {
   inventory: InventoryDelta[];
   credits: number;
   say: (botId: BotId, text: string) => void;
   displayName: string;
   allowedBotIds?: BotId[];
+  onVerified?: () => void;
 }): React.JSX.Element {
   const marks = allowedBotIds ?? R1_MARKS;
   const [action, setAction] = useState<Action>("start");
@@ -83,6 +85,7 @@ export default function MerchantCounter({
         if (typeof result.credits === "number") setBalance(result.credits);
         setReceipt({ ok: true, title: "Article accepted", line: `${itemName(item)} is filed. The mark is closed.` });
         say("merchant", `${itemName(item)} is genuine. Filed, paid, and entered in the ledger.`);
+        onVerified?.();
       } else {
         setReceipt({ ok: false, title: "Article rejected", line: result.line });
         say("merchant", result.line);

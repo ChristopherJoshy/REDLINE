@@ -150,7 +150,7 @@ export interface Round2StartData {
 }
 
 export interface Round2EndData {
-  reason: "expired" | "admin_stop";
+  reason: "expired" | "admin_stop" | "team_completed";
 }
 
 export interface Round2ExtendData {

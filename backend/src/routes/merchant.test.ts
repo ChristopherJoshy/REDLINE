@@ -56,6 +56,8 @@ test("Round 2 correct words and phase alone cannot create an unearned prize", as
   process.env["JOIN_CODE_PEPPER"] = "test-pepper";
   const db = openDatabase(":memory:", join(__dirname, "../db/schema.sql"));
   const bus = new Bus();
+  const completionEvents: ServerEvent[] = [];
+  bus.subscribe("team", (event) => completionEvents.push(event));
   try {
     db.run("INSERT INTO teams (id, name, join_code_hash, hint) VALUES ('team', 'Test', 'hash', 'TEST')");
     db.run("INSERT INTO r2_assignments (team_id, boss) VALUES ('team', 'itachi')");
@@ -65,8 +67,8 @@ test("Round 2 correct words and phase alone cannot create an unearned prize", as
     assert.equal((await r2Submit(db, bus, "team", "itachi", text, "Tester")).result, "troll");
     awardItem(db, "team", "itachi", text, true);
     assert.equal((await r2Submit(db, bus, "team", "itachi", text, "Tester")).result, "verified");
-    assert.equal((await r2Submit(db, bus, "team", "itachi", text, "Tester")).result, "verified");
-    assert.equal(db.get<{ n: number }>("SELECT COUNT(*) AS n FROM elo_log")?.n, 1);
+    assert.ok(completionEvents.some((event) => event.event === "round2_end" && event.data.reason === "team_completed"));
+    assert.equal((await r2Submit(db, bus, "team", "itachi", text, "Tester")).result, "troll");
   } finally {
     db.close();
     if (oldPepper === undefined) delete process.env["JOIN_CODE_PEPPER"]; else process.env["JOIN_CODE_PEPPER"] = oldPepper;

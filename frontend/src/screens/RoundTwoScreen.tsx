@@ -378,7 +378,7 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
                         <img
                           src={itemLore?.heroImage ?? itemLore?.avatar ?? "/characters/wick.jpg"}
                           alt={item.label}
-                          className={`absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-[1.08] ${item.id === "merchant" ? "object-cover" : "object-contain bg-black/35 p-1"} ${isSelected ? "brightness-110" : "brightness-75 group-hover:brightness-100"} ${itemLore ? AVATAR_FOCUS[itemLore.id] : "object-center"}`}
+                          className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.08] ${isSelected ? "brightness-110" : "brightness-75 group-hover:brightness-100"} ${itemLore ? AVATAR_FOCUS[itemLore.id] : "object-center"}`}
                         />
                         <div className="absolute inset-x-0 bottom-0 h-[80%] bg-gradient-to-t from-[rgba(5,7,10,0.95)] via-[rgba(5,7,10,0.7)] to-transparent z-10" />
                         <div className="relative z-20 flex flex-col items-center justify-end pb-2 sm:pb-3 px-1 h-full gap-1 sm:gap-1.5">

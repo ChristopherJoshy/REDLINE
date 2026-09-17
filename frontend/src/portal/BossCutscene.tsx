@@ -104,7 +104,7 @@ export default function BossCutscene({ boss, scene, onDone, motionOff = false }:
 
   return (
     <section ref={root} role="dialog" aria-modal="true" aria-label={`${scene} cutscene`} className="fixed inset-0 z-50 flex flex-col justify-center overflow-hidden bg-bg-0 px-6 py-20 sm:px-[10vw]">
-      <img data-scene-image src={CHAT_BACKGROUND[boss]} alt="" className={`absolute inset-0 h-full w-full object-cover opacity-35 ${itachi ? "object-left" : "object-right"}`} />
+      <img data-scene-image src={CHAT_BACKGROUND[boss]} alt="" className="absolute inset-0 h-full w-full object-cover object-right opacity-35" />
       <div className="absolute inset-0 bg-gradient-to-r from-bg-0 via-bg-0/70 to-bg-0/20" />
       <div className="absolute inset-x-0 top-0 h-[7vh] border-b border-white/10 bg-bg-0" aria-hidden="true" />
       <div className="absolute inset-x-0 bottom-0 h-[7vh] border-t border-white/10 bg-bg-0" aria-hidden="true" />

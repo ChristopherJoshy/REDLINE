@@ -306,8 +306,8 @@ export const CHARACTERS: Record<BotId, CharacterLore> = {
 };
 
 // Per-bot chat backdrops, served from frontend/public/backgrounds/.
-// Bots without an entry (deadpool, merchant, itachi, aizen) fall back to the
-// plain theme background — add a file + entry here to opt them in.
+// Every playable bot has a dedicated background entry so the chat and cutscene
+// surfaces share the same visual world.
 export const CHAT_BACKGROUND: Record<BotId, string> = {
   wick: "/backgrounds/john-wick.png",
   spidey: "/backgrounds/spiderman.png",
@@ -318,8 +318,8 @@ export const CHAT_BACKGROUND: Record<BotId, string> = {
   levi: "/backgrounds/leavy-ackerman.png",
   deadpool: "/backgrounds/deadpool.png",
   merchant: "/backgrounds/merchant_bg.png",
-  itachi: "/backgrounds/itachi-vault.png",
-  aizen: "/backgrounds/aizen-vault.png",
+  itachi: "/backgrounds/itachi-vault-v3.png",
+  aizen: "/backgrounds/aizen-vault-v3.png",
 };
 
 // Photo presentation: full-body cosplay shots keep the mask in frame via

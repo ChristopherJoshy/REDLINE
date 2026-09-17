@@ -30,6 +30,20 @@ test("admin force-logout kills the token; the member can log back in and resume"
     assert.ok(typeof token1 === "string" && token1 !== "");
     assert.equal((await me(token1)).statusCode, 200);
 
+    // A reconciled-away session must not leave its seat permanently occupied.
+    db.run("UPDATE team_members SET presence = 'offline' WHERE team_id = 't1' AND display_name = 'Kai'");
+    const recovered = await identify();
+    assert.equal(recovered.statusCode, 200);
+    const recoveredToken = recovered.json().token as string;
+    const heartbeat = await app.inject({
+      method: "POST",
+      url: "/api/presence",
+      headers: { "x-session-token": recoveredToken },
+      payload: { status: "away" },
+    });
+    assert.equal(heartbeat.statusCode, 200);
+    assert.equal(db.get<{ presence: string }>("SELECT presence FROM team_members WHERE team_id = 't1' AND display_name = 'Kai'")?.presence, "away");
+
     const kicked = await app.inject({ method: "POST", url: "/api/admin/force-logout", headers: adminHeaders, payload: { teamId: "t1", displayName: "Kai", reason: "test" } });
     assert.equal(kicked.statusCode, 200);
     assert.equal(kicked.json().ok, true);

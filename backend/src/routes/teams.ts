@@ -13,7 +13,7 @@ import {
   parseCookies,
   verifySessionToken,
 } from "../auth/codes.js";
-import { memberNonce, mintSessionNonce, revokeSession, setPresence } from "../presence.js";
+import { heartbeatPresence, memberNonce, mintSessionNonce, revokeSession } from "../presence.js";
 import type { Bus } from "../ws/bus.js";
 
 interface TeamRow {
@@ -88,11 +88,26 @@ export function releaseSeat(teamId: string, displayName: string): void {
   seatLocks.get(teamId)?.delete(displayName);
 }
 
-function isSeatTaken(teamId: string, displayName: string): boolean {
-  return seatLocks.get(teamId)?.has(displayName) ?? false;
+function isSeatTaken(teamId: string, displayName: string, db: DatabaseAdapter): boolean {
+  const locked = seatLocks.get(teamId)?.has(displayName) ?? false;
+  if (!locked) return false;
+  const member = db.get<{ presence: string }>(
+    "SELECT presence FROM team_members WHERE team_id = ? AND display_name = ?",
+    teamId,
+    displayName,
+  );
+  if (member === undefined || member.presence === "offline") {
+    releaseSeat(teamId, displayName);
+    return false;
+  }
+  return true;
 }
 
-function activeSeats(teamId: string): string[] {
+function activeSeats(teamId: string, db: DatabaseAdapter): string[] {
+  const seats = Array.from(seatLocks.get(teamId) ?? []);
+  for (const displayName of seats) {
+    isSeatTaken(teamId, displayName, db);
+  }
   return Array.from(seatLocks.get(teamId) ?? []);
 }
 
@@ -172,13 +187,13 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
       return reply.code(404).send({ error: "unknown identity" });
     }
     // Check if this seat is already locked by another session
-    if (isSeatTaken(teamId, displayName)) {
+    if (isSeatTaken(teamId, displayName, db)) {
       return reply.code(409).send({ error: "That seat is already taken by another player." });
     }
     lockSeat(teamId, displayName);
     // Fresh nonce per login: re-login always works, kicked tokens stay dead.
     const nonce = mintSessionNonce(db, teamId, displayName);
-    setPresence(db, teamId, displayName, "online");
+    heartbeatPresence(db, teamId, displayName, "online");
     const token = makeSessionToken(teamId, displayName, env.joinCodePepper, nonce);
     const team = db.get<{ name: string; elo: number }>("SELECT name, elo FROM teams WHERE id = ?", teamId);
     void reply.header(
@@ -195,13 +210,27 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
     };
   });
 
+  // Presence heartbeat: keeps logged-in players visible while waiting screens
+  // are rendered without the gameplay WebSocket.
+  app.post("/api/presence", async (req, reply) => {
+    const session = sessionOf(req, db);
+    if (session === undefined) {
+      return reply.code(401).send({ error: "no session" });
+    }
+    const body = (req.body ?? {}) as { status?: unknown };
+    const status = body.status === "away" ? "away" : "online";
+    lockSeat(session.teamId, session.displayName);
+    heartbeatPresence(db, session.teamId, session.displayName, status);
+    return { ok: true, status };
+  });
+
   // Get active (locked) members for a team — used by the Enter screen.
   app.get("/api/team/active", async (req, reply) => {
     const { teamId } = (req.query as Record<string, unknown>);
     if (typeof teamId !== "string" || teamId.trim() === "") {
       return reply.code(400).send({ error: "teamId required" });
     }
-    return { active: activeSeats(teamId.trim()) };
+    return { active: activeSeats(teamId.trim(), db) };
   });
 
   // Admin: reset team by id -> removes team, members, and related game data.
@@ -238,9 +267,7 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
       db.run("DELETE FROM team_members WHERE team_id = ?", teamId);
       db.run("DELETE FROM teams WHERE id = ?", teamId);
     });
-    for (const displayName of activeSeats(teamId)) {
-      releaseSeat(teamId, displayName);
-    }
+    seatLocks.delete(teamId);
     return { ok: true, teamId };
   });
 

@@ -162,6 +162,38 @@ export default function App(): React.JSX.Element {
       .finally(() => setChecked(true));
   }, [path]);
 
+  // Keep authenticated presence alive on sealed/countdown screens, where the
+  // gameplay socket is not mounted. The server expires this lease after 45s.
+  useEffect(() => {
+    if (path.startsWith("/admin") || identity === null) return;
+    let dead = false;
+    async function heartbeat(): Promise<void> {
+      try {
+        const res = await apiFetch("/api/presence", {
+          method: "POST",
+          body: JSON.stringify({ status: document.hidden ? "away" : "online" }),
+        });
+        if (!dead && res.status === 401) {
+          try {
+            localStorage.removeItem("redline_session_token");
+          } catch {}
+          setIdentity(null);
+        }
+      } catch {
+        // Presence is best-effort; the server lease expires if this page dies.
+      }
+    }
+    void heartbeat();
+    const timer = window.setInterval(() => { void heartbeat(); }, 10_000);
+    const onVisibility = (): void => { void heartbeat(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      dead = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [path, identity?.teamId, identity?.displayName]);
+
   // Pre-login safeguards: the login screen has no session (and /api/gates
   // needs one), so boot from the public snapshot. The lobby socket below
   // keeps it live; WS is the update path, this is just the first paint.

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { test } from "node:test";
 import { openDatabase } from "./db/database.js";
-import { memberNonce, mintSessionNonce, reconcilePresence, revokeSession, setPresence } from "./presence.js";
+import { heartbeatPresence, memberNonce, mintSessionNonce, reconcilePresence, revokeSession, setPresence } from "./presence.js";
 
 function seed(db: ReturnType<typeof openDatabase>): void {
   db.run("INSERT INTO teams (id, name, join_code_hash, hint) VALUES ('t1', 'Team', 'h', 'H')");
@@ -39,6 +39,19 @@ test("reconciler flips only members with no live socket", () => {
     assert.equal(db.get<{ presence: string }>("SELECT presence FROM team_members WHERE display_name = 'Kai'")?.presence, "online");
     assert.equal(db.get<{ presence: string }>("SELECT presence FROM team_members WHERE display_name = 'Rey'")?.presence, "offline");
     assert.equal(reconcilePresence(db, live), 0);
+  } finally {
+    db.close();
+  }
+});
+
+test("heartbeat lease keeps a player online without a gameplay socket", () => {
+  const db = openDatabase(":memory:", join(__dirname, "db/schema.sql"));
+  try {
+    seed(db);
+    heartbeatPresence(db, "t1", "Kai", "online");
+    assert.equal(reconcilePresence(db, new Set()), 0);
+    assert.equal(db.get<{ presence: string }>("SELECT presence FROM team_members WHERE display_name = 'Kai'")?.presence, "online");
+    revokeSession(db, "t1", "Kai");
   } finally {
     db.close();
   }

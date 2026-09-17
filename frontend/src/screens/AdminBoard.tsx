@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/api/client";
+import { playSound, unlockAudio } from "@/chat/sound";
 import { useArenaSocket } from "@/ws/useArenaSocket";
 import type { LeaderboardShowcaseData } from "@contracts/events";
 import { CHARACTERS } from "@/data/characterLore";
@@ -113,10 +114,15 @@ export default function AdminBoard(): React.JSX.Element {
 
   useEffect(() => {
     if (showcase === null) return;
+    unlockAudio();
+    const sound = playSound("/sounds/merchant/success-thank-you.mp3");
     const timeout = window.setTimeout(() => {
       setShowcaseQueue((current) => current.slice(1));
     }, 10_000);
-    return () => window.clearTimeout(timeout);
+    return () => {
+      window.clearTimeout(timeout);
+      sound.stop();
+    };
   }, [showcase]);
 
   useEffect(() => {

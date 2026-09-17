@@ -220,6 +220,7 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
       return reply.code(404).send({ error: "team not found" });
     }
     db.transaction(() => {
+      db.run("DELETE FROM bot_completions WHERE team_id = ?", teamId);
       db.run("DELETE FROM cover_profiles WHERE team_id = ?", teamId);
       db.run("DELETE FROM team_inventory WHERE team_id = ?", teamId);
       db.run("DELETE FROM merchant_clues WHERE team_id = ?", teamId);
@@ -231,9 +232,15 @@ export function registerTeamRoutes(app: FastifyInstance, db: DatabaseAdapter, bu
       db.run("DELETE FROM r2_assignments WHERE team_id = ?", teamId);
       db.run("DELETE FROM r2_scores WHERE team_id = ?", teamId);
       db.run("DELETE FROM deterrence_log WHERE team_id = ?", teamId);
+      db.run("DELETE FROM security_logs WHERE team_id = ?", teamId);
+      db.run("DELETE FROM r2_memories WHERE team_id = ?", teamId);
+      db.run("DELETE FROM r2_assessments WHERE team_id = ?", teamId);
       db.run("DELETE FROM team_members WHERE team_id = ?", teamId);
       db.run("DELETE FROM teams WHERE id = ?", teamId);
     });
+    for (const displayName of activeSeats(teamId)) {
+      releaseSeat(teamId, displayName);
+    }
     return { ok: true, teamId };
   });
 

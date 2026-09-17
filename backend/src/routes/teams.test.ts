@@ -58,3 +58,66 @@ test("admin force-logout kills the token; the member can log back in and resume"
     if (oldAdmin === undefined) delete process.env["ADMIN_CODE"]; else process.env["ADMIN_CODE"] = oldAdmin;
   }
 });
+
+test("admin delete removes a team and every related record", async () => {
+  const oldAdmin = process.env["ADMIN_CODE"];
+  process.env["ADMIN_CODE"] = "test-admin-delete";
+  const db = openDatabase(":memory:", join(__dirname, "../db/schema.sql"));
+  const app = Fastify();
+  try {
+    db.exec("PRAGMA foreign_keys = ON");
+    db.run("INSERT INTO teams (id, name, join_code_hash, hint) VALUES ('delete-me', 'Delete Me', 'delete-hash', 'DELE')");
+    db.run("INSERT INTO team_members (team_id, display_name) VALUES ('delete-me', 'Kai')");
+    db.run("INSERT INTO merchant_clues (team_id, bot_id, tier) VALUES ('delete-me', 'wick', 1)");
+    db.run("INSERT INTO team_inventory (team_id, bot_id, item_key) VALUES ('delete-me', 'wick', 'item')");
+    db.run("INSERT INTO elo_log (team_id, delta, before_rating, after_rating, reason) VALUES ('delete-me', 1, 600, 601, 'test')");
+    db.run(
+      "INSERT INTO bot_completions (bot_id, round, team_id, completed_by, verified_at, completion_rank) VALUES ('wick', 1, 'delete-me', 'Kai', '2026-01-01T00:00:00.000Z', 1)",
+    );
+    db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final) VALUES ('delete-me', 'wick', 'user', 'hello')");
+    db.run("INSERT INTO reasoning_traces (team_id, bot_id, phase, trace_json, guard_json) VALUES ('delete-me', 'wick', 'test', '{}', '{}')");
+    db.run("INSERT INTO sound_events (team_id, bot_id, sound_id) VALUES ('delete-me', 'wick', 'test')");
+    db.run("INSERT INTO fullscreen_attempts (team_id, display_name) VALUES ('delete-me', 'Kai')");
+    db.run("INSERT INTO r2_assignments (team_id, boss) VALUES ('delete-me', 'itachi')");
+    db.run("INSERT INTO r2_scores (team_id, boss, phase, score, detail) VALUES ('delete-me', 'itachi', 'p1', 1, '{}')");
+    db.run("INSERT INTO deterrence_log (team_id, kind) VALUES ('delete-me', 'test')");
+    db.run("INSERT INTO cover_profiles (team_id, display_name, bot_id, alias) VALUES ('delete-me', 'Kai', 'wick', 'K')");
+    db.run("INSERT INTO security_logs (team_id, display_name, violation_type) VALUES ('delete-me', 'Kai', 'test')");
+    db.run("INSERT INTO r2_memories (team_id, boss, display_name, scope, memory) VALUES ('delete-me', 'itachi', 'Kai', 'private', 'test')");
+    db.run("INSERT INTO r2_assessments (team_id, boss, display_name, turn_no, delta, fingerprint, reason) VALUES ('delete-me', 'itachi', 'Kai', 1, 1, 'fp', 'test')");
+    registerTeamRoutes(app, db, new Bus());
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/api/admin/teams/delete-me",
+      headers: { "x-admin-code": "test-admin-delete" },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(db.get<{ id: string }>("SELECT id FROM teams WHERE id = 'delete-me'"), undefined);
+    for (const table of [
+      "team_members",
+      "merchant_clues",
+      "team_inventory",
+      "elo_log",
+      "bot_completions",
+      "chat_logs",
+      "reasoning_traces",
+      "sound_events",
+      "fullscreen_attempts",
+      "r2_assignments",
+      "r2_scores",
+      "deterrence_log",
+      "cover_profiles",
+      "security_logs",
+      "r2_memories",
+      "r2_assessments",
+    ]) {
+      assert.equal(db.get<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table} WHERE team_id = 'delete-me'`)?.n, 0, table);
+    }
+  } finally {
+    await app.close();
+    db.close();
+    if (oldAdmin === undefined) delete process.env["ADMIN_CODE"]; else process.env["ADMIN_CODE"] = oldAdmin;
+  }
+});

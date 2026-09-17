@@ -61,6 +61,10 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
   const state = bots[boss];
   const lore = CHARACTERS[boss];
   const chatBg = CHAT_BACKGROUND[boss];
+  const roster: Array<{ id: BotId; label: string; num: string }> = [
+    { id: boss, label: lore?.name ?? boss, num: "01" },
+    { id: "merchant", label: "The Merchant", num: "02" },
+  ];
   useDocumentTitle(`Round 2 · ${lore?.name ?? boss} — REDLINE Arena`);
   const prevStatus = useRef<string | null>(null);
 
@@ -246,16 +250,18 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
           : { backgroundImage: `url("${chatBg}")`, backgroundSize: "cover", backgroundPosition: "center top", "--accent": lore?.accent ?? "var(--color-redline)", "--accent-ink": lore?.accentInk ?? "var(--color-text-1)" }) as unknown as React.CSSProperties
       }
     >
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[rgba(5,7,10,0.72)]" />
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[rgba(5,7,10,0.42)]" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[rgba(5,7,10,0.35)] via-transparent to-[rgba(5,7,10,0.6)]" />
+      <div className="relative z-10 flex flex-col flex-1 min-h-0">
       {!chatting ? (
-        <div className="relative flex-1 flex flex-col justify-center items-center min-h-0 overflow-hidden p-4 sm:p-6 pb-2">
+        <div className="relative flex-1 flex flex-col justify-between min-h-0 overflow-hidden p-4 sm:p-6 pb-2">
+          <div className="relative z-10 flex flex-1 items-start justify-between gap-6 min-h-0">
             <aside
-              className="relative max-w-[480px] w-full rounded-[12px] border border-white/10 bg-[rgba(10,14,20,0.55)] backdrop-blur-xl p-5 sm:p-7 flex flex-col gap-6 shadow-[0_16px_40px_rgba(0,0,0,0.4)]"
+              className="relative max-w-[430px] w-full rounded-[12px] border border-white/10 bg-[rgba(10,14,20,0.55)] backdrop-blur-xl p-5 sm:p-7 flex flex-col gap-6 shadow-[0_16px_40px_rgba(0,0,0,0.4)]"
             >
               <div className="flex items-center justify-between">
-                <span className="font-mono text-[12px] font-bold tracking-[0.2em] text-white/60">
-                  ROUND 2 BOSS
+                <span className="font-[family-name:var(--font-code)] text-[12px] font-bold tracking-[0.2em] text-white/60">
+                  ROUND 02 / VAULT
                 </span>
                 {onBack && (
                   <button type="button" onClick={onBack} className="text-[12px] font-bold text-white/50 hover:text-white uppercase tracking-widest font-mono">
@@ -263,69 +269,105 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3" aria-label="Round 2 player selector">
-                <button type="button" onClick={() => { setMerchantView(false); }} className="group relative min-h-[108px] overflow-hidden border-2 border-[var(--accent)] bg-black/60 text-left shadow-[0_0_18px_var(--accent-wash)]">
-                  <img src={lore?.heroImage ?? lore?.avatar} alt="" className="absolute inset-0 h-full w-full object-cover opacity-55 transition-transform duration-500 group-hover:scale-105" />
-                  <span className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent" />
-                  <span className="relative flex h-full flex-col justify-end p-3"><span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[var(--accent)]">Assigned boss</span><span className="mt-1 text-sm font-bold uppercase text-white">{lore?.name ?? boss}</span></span>
-                </button>
-                <button type="button" onClick={() => { setMerchantView(true); setChatting(true); }} className="group relative min-h-[108px] overflow-hidden border border-white/20 bg-black/60 text-left transition hover:border-[var(--accent)]">
-                  <img src={CHARACTERS.merchant?.heroImage ?? CHARACTERS.merchant?.avatar} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45 transition-transform duration-500 group-hover:scale-105" />
-                  <span className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent" />
-                  <span className="relative flex h-full flex-col justify-end p-3"><span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[var(--color-gold-bright)]">Vault utility</span><span className="mt-1 text-sm font-bold uppercase text-white">Merchant</span></span>
-                </button>
-              </div>
+
               {lore && (
                 <div className="flex flex-col gap-3">
                   <h2 className="font-[family-name:var(--font-display)] text-[34px] font-bold tracking-[0.04em] text-white leading-none uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
                     {lore.name}
                   </h2>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-[4px] border border-[var(--color-redline-dim)] bg-[var(--color-bg-0)] px-2.5 py-1 font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.1em] text-[var(--color-redline)] uppercase">
+                      ASSIGNED BOSS
+                    </span>
+                    {verified && <span className="rounded-[4px] border border-[rgba(157,184,122,0.4)] bg-[rgba(157,184,122,0.15)] px-2.5 py-1 font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.1em] text-[#b8d097] uppercase">FILED</span>}
+                  </div>
                   <p className="text-[14px] font-medium text-[var(--color-text-2)] italic">
                     {lore.tagline}
                   </p>
                 </div>
               )}
+
               {lore && (
                 <div className="text-[13px] leading-[1.65] text-white/85 whitespace-pre-wrap">
                   {lore.backstory}
                 </div>
               )}
+
               {lore && (
                 <div className="pt-2 border-t border-white/10">
-                  <p className="font-mono text-[10.5px] font-bold tracking-[0.15em] text-[var(--accent)] mb-4 uppercase">
+                  <p className="font-[family-name:var(--font-code)] text-[10.5px] font-bold tracking-[0.15em] text-[var(--accent)] mb-4 uppercase">
                     Extraction Target
                   </p>
                   <div className="flex items-start gap-4">
-                    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(216,155,36,0.4)] bg-black/40 p-2 shadow-[inset_0_0_12px_rgba(216,155,36,0.15)]">
-                      <img
-                        src={lore.targetItem.asset}
-                        alt={lore.targetItem.name}
-                        className="h-full w-full object-contain drop-shadow-[0_0_8px_rgba(216,155,36,0.3)]"
-                      />
+                    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[8px] border border-[#ff1e2d]/40 bg-black/40 p-2 shadow-[inset_0_0_12px_rgba(255,30,45,0.15)]">
+                      <img src={lore.targetItem.asset} alt={lore.targetItem.name} className="h-full w-full object-contain drop-shadow-[0_0_8px_rgba(255,30,45,0.3)]" />
                     </span>
                     <div className="min-w-0 flex-1 flex flex-col gap-1.5">
-                      <span className="font-semibold text-[14px] text-white leading-tight">
-                        {lore.targetItem.name}
-                      </span>
-                      <p className="text-[12px] leading-relaxed text-white/70">
-                        {lore.targetItem.description}
-                      </p>
+                      <span className="font-semibold text-[14px] text-white leading-tight">{lore.targetItem.name}</span>
+                      <p className="text-[12px] leading-relaxed text-white/70">{lore.targetItem.description}</p>
                     </div>
                   </div>
                 </div>
               )}
+
               {lore && (
-                <div className="pt-2 border-t border-white/10">
+                <div className="pt-2">
                   <button
                     type="button"
                     onClick={() => setChatting(true)}
-                    className="flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-[8px] border border-[var(--accent)]/50 bg-[var(--accent)]/15 hover:bg-[var(--accent)]/25 text-white font-bold text-[13.5px] tracking-[0.12em] backdrop-blur-md transition-all cursor-pointer shadow-[0_0_20px_var(--accent-wash)] hover:shadow-[0_0_30px_var(--accent-glow)]"
+                    disabled={verified}
+                    className="flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-[8px] border border-[var(--accent)]/50 bg-[var(--accent)]/15 hover:bg-[var(--accent)]/25 text-white font-bold text-[13.5px] tracking-[0.12em] backdrop-blur-md transition-all cursor-pointer disabled:cursor-default disabled:opacity-50"
                   >
-                    <span>ENGAGE BOSS</span>
+                    <span>{verified ? "RELIC FILED" : "ENGAGE BOSS"}</span>
                   </button>
                 </div>
               )}
             </aside>
+
+            <div className="hidden flex-col items-end justify-between self-stretch text-right max-w-[340px] select-none py-1 lg:flex">
+              <div className="flex flex-col items-end gap-5">
+                <p className="font-[family-name:var(--font-code)] text-[11px] font-bold tracking-[0.28em] text-[var(--accent)]">
+                  ROUND <span className="text-white">02</span> /
+                </p>
+                <p className="font-[family-name:var(--font-code)] text-[10px] tracking-[0.18em] text-white/45">ASSIGNED VAULT</p>
+              </div>
+              <div className="flex flex-col items-end gap-2 font-[family-name:var(--font-code)] text-[10px] uppercase tracking-[0.14em] text-white/50">
+                <span><strong className="text-white/80">Boss</strong> {lore?.name}</span>
+                <span><strong className="text-white/80">Credits</strong> {credits}</span>
+                <span><strong className="text-white/80">Memory</strong> Private / Team</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative z-10 w-full pt-4 mt-auto">
+            <div className="flex w-full justify-center gap-3 px-4 pb-2 lg:gap-4 lg:px-8 lg:pb-4">
+              {roster.map((item) => {
+                const itemLore = CHARACTERS[item.id];
+                const isSelected = item.id === boss;
+                const isMerchant = item.id === "merchant";
+                return (
+                  <div key={item.id} className="relative w-[min(42vw,190px)] shrink-0 pt-5">
+                    <button
+                      type="button"
+                      onClick={() => { if (isMerchant) { setMerchantView(true); setChatting(true); } }}
+                      onDoubleClick={() => { if (!isMerchant) setChatting(true); }}
+                      aria-current={isSelected ? "true" : undefined}
+                      className={`mark-card group relative block h-[130px] w-full -skew-x-[12deg] overflow-hidden cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-white ${isSelected ? "z-10 scale-[1.08] -translate-y-2 border-2 border-[#ff1e2d] shadow-[0_0_15px_rgba(255,30,45,0.6)]" : "border border-white/15 bg-black/60 hover:border-white/40 hover:scale-[1.03] hover:-translate-y-1"}`}
+                    >
+                      <div className="absolute top-0 bottom-0 skew-x-[12deg] flex flex-col justify-end" style={{ left: "-20px", right: "-20px", width: "calc(100% + 40px)" }}>
+                        <img src={itemLore?.heroImage ?? itemLore?.avatar} alt={item.label} className={`absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.08] ${isSelected ? "brightness-110" : "brightness-75 group-hover:brightness-100"} ${itemLore ? AVATAR_FOCUS[itemLore.id] : "object-center"}`} />
+                        <div className="absolute inset-x-0 bottom-0 z-10 h-[80%] bg-gradient-to-t from-[rgba(5,7,10,0.95)] via-[rgba(5,7,10,0.7)] to-transparent" />
+                        <div className="relative z-20 flex h-full flex-col items-center justify-end gap-1 px-1 pb-2 sm:pb-3">
+                          <span className={`absolute top-2 left-3 font-[family-name:var(--font-code)] text-[9px] font-bold tracking-[0.1em] ${isSelected ? "text-[#ff1e2d]" : "text-white/40"}`}>{item.num}</span>
+                          <span className={`w-full truncate text-center font-[family-name:var(--font-display)] text-[10px] font-bold tracking-[0.05em] sm:text-[11px] ${isSelected ? "text-white" : "text-[var(--color-text-2)]"}`}>{item.label.toUpperCase()}</span>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       ) : (
         <>

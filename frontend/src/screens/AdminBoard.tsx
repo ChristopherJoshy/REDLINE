@@ -321,7 +321,7 @@ export default function AdminBoard(): React.JSX.Element {
               <div className="mb-4 grid grid-cols-12 items-center border-b border-[#E10600]/25 px-10 py-6 font-mono text-[16px] font-bold uppercase tracking-[0.2em] text-[#8A8A8A]">
                 <div className="col-span-2 text-center sm:col-span-1">Rank</div>
                 <div className="col-span-4 pl-2 sm:col-span-4">Squad</div>
-                <div className="col-span-2 text-center sm:col-span-2">Player</div>
+                <div className="col-span-2 text-center sm:col-span-2">Top Player</div>
                 <div className="col-span-2 text-right sm:col-span-2">Elo</div>
                 <div className="col-span-2 text-center sm:col-span-2">Solves</div>
                 <div className="hidden text-right sm:col-span-1 sm:block">Rewind</div>

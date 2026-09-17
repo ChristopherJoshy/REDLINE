@@ -37,7 +37,8 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
       return reply.code(400).send({ error: "empty" });
     }
     const forms = variants(text);
-    const boss = bossOf(session.teamId, db);
+    const round1IsOpen = round1Open(db);
+    const boss = round1IsOpen ? undefined : bossOf(session.teamId, db);
     if (boss !== undefined) {
       if (round2Status(db) !== "active") {
         return reply.code(403).send({ error: "round 2 not active" });
@@ -45,7 +46,7 @@ export function registerMerchantRoutes(app: FastifyInstance, db: DatabaseAdapter
       return r2Submit(db, bus, session.teamId, boss, text, session.displayName);
     }
 
-    if (!round1Open(db)) {
+    if (!round1IsOpen) {
       return reply.code(403).send({ error: "round sealed" });
     }
 

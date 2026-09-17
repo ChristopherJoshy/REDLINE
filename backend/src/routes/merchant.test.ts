@@ -51,6 +51,34 @@ test("merchant requires real possession and rewards each item only once", async 
   }
 });
 
+test("Round 1 merchant accepts held relics before an assigned Round 2 starts", async () => {
+  const oldPepper = process.env["JOIN_CODE_PEPPER"];
+  process.env["JOIN_CODE_PEPPER"] = "test-pepper";
+  const db = openDatabase(":memory:", join(__dirname, "../db/schema.sql"));
+  const app = Fastify();
+  try {
+    db.run("INSERT INTO teams (id, name, join_code_hash, hint) VALUES ('team', 'Test', 'hash', 'TEST')");
+    db.run("INSERT INTO r2_assignments (team_id, boss) VALUES ('team', 'itachi')");
+    startRound(db, 1, 3600, Date.now() - 31_000);
+    awardItem(db, "team", "wick", BOTS.wick!.meta.itemKey, true);
+    registerMerchantRoutes(app, db, new Bus());
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/submit",
+      headers: { "x-session-token": makeSessionToken("team", "Tester", "test-pepper") },
+      payload: { text: BOTS.wick!.meta.itemKey },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.json().result, "verified");
+  } finally {
+    await app.close();
+    db.close();
+    if (oldPepper === undefined) delete process.env["JOIN_CODE_PEPPER"]; else process.env["JOIN_CODE_PEPPER"] = oldPepper;
+  }
+});
+
 test("Round 2 correct words and phase alone cannot create an unearned prize", async () => {
   const oldPepper = process.env["JOIN_CODE_PEPPER"];
   process.env["JOIN_CODE_PEPPER"] = "test-pepper";

@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS reasoning_traces (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   team_id TEXT REFERENCES teams(id),
   bot_id TEXT,
+  display_name TEXT NOT NULL DEFAULT '',
   phase TEXT NOT NULL,
   trace_json TEXT NOT NULL,
   guard_json TEXT NOT NULL,

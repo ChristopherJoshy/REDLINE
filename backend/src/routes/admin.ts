@@ -66,7 +66,7 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
   });
 
 
-  // Rewind: −1 ELO immediately, truncate to point-in-time messageId / turns / phase start.
+  // Rewind: −1 ELO immediately, truncate context to a point in time.
   app.post("/api/rewind", async (req, reply) => {
     const session = sessionOf(req, db);
     if (session === undefined) {
@@ -76,42 +76,111 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     if (typeof body.botId !== "string") {
       return reply.code(400).send({ error: "bot required" });
     }
+    const botId = body.botId as BotId;
+    const isR2Bot = botId === "itachi" || botId === "aizen";
     const team = db.get<{ elo: number }>("SELECT elo FROM teams WHERE id = ?", session.teamId);
     if (team === undefined) {
       return reply.code(404).send({ error: "unknown team" });
     }
     const after = Math.max(0, team.elo - 1);
-    const botId = body.botId as BotId;
-    const targetMsgId = typeof body.messageId === "number" ? body.messageId : undefined;
-    const turns = typeof body.turns === "number" ? body.turns : undefined;
+    const targetMsgId = typeof body.messageId === "number" && Number.isInteger(body.messageId) ? body.messageId : undefined;
+    const turns = typeof body.turns === "number" && Number.isInteger(body.turns) ? body.turns : undefined;
 
     let cutoffId: number | undefined = targetMsgId;
-    if (cutoffId === undefined && typeof turns === "number" && turns > 0) {
-      // Find the ID of the Nth latest user turn
-      const userRows = db.all<{ id: number }>(
-        "SELECT id FROM chat_logs WHERE team_id = ? AND bot_id = ? AND role = 'user' ORDER BY id DESC LIMIT ?",
-        session.teamId,
-        botId,
-        turns,
-      );
+    if (cutoffId !== undefined) {
+      const target = isR2Bot
+        ? db.get<{ created_at: string }>(
+          "SELECT created_at FROM chat_logs WHERE id = ? AND team_id = ? AND bot_id = ? AND display_name = ?",
+          cutoffId,
+          session.teamId,
+          botId,
+          session.displayName,
+        )
+        : db.get<{ created_at: string }>(
+          "SELECT created_at FROM chat_logs WHERE id = ? AND team_id = ? AND bot_id = ?",
+          cutoffId,
+          session.teamId,
+          botId,
+        );
+      if (target === undefined) {
+        return reply.code(404).send({ error: "message not found" });
+      }
+    }
+    if (cutoffId === undefined && turns !== undefined && turns > 0) {
+      const userRows = isR2Bot
+        ? db.all<{ id: number }>(
+          "SELECT id FROM chat_logs WHERE team_id = ? AND bot_id = ? AND display_name = ? AND role = 'user' ORDER BY id DESC LIMIT ?",
+          session.teamId,
+          botId,
+          session.displayName,
+          turns,
+        )
+        : db.all<{ id: number }>(
+          "SELECT id FROM chat_logs WHERE team_id = ? AND bot_id = ? AND role = 'user' ORDER BY id DESC LIMIT ?",
+          session.teamId,
+          botId,
+          turns,
+        );
       if (userRows.length > 0) {
         cutoffId = userRows[userRows.length - 1]?.id;
       }
     }
 
     db.transaction(() => {
-      if (cutoffId !== undefined) {
-        const msg = db.get<{ created_at: string }>("SELECT created_at FROM chat_logs WHERE id = ?", cutoffId);
-        db.run("DELETE FROM chat_logs WHERE team_id = ? AND bot_id = ? AND id >= ?", session.teamId, botId, cutoffId);
-        if (msg) {
-          db.run("DELETE FROM reasoning_traces WHERE team_id = ? AND bot_id = ? AND created_at >= ?", session.teamId, botId, msg.created_at);
+      if (isR2Bot) {
+        if (cutoffId !== undefined) {
+          const msg = db.get<{ created_at: string }>(
+            "SELECT created_at FROM chat_logs WHERE id = ? AND team_id = ? AND bot_id = ? AND display_name = ?",
+            cutoffId,
+            session.teamId,
+            botId,
+            session.displayName,
+          );
+          db.run(
+            "DELETE FROM chat_logs WHERE team_id = ? AND bot_id = ? AND display_name = ? AND id >= ?",
+            session.teamId,
+            botId,
+            session.displayName,
+            cutoffId,
+          );
+          if (msg !== undefined) {
+            db.run(
+              "DELETE FROM reasoning_traces WHERE team_id = ? AND bot_id = ? AND display_name = ? AND created_at >= ?",
+              session.teamId,
+              botId,
+              session.displayName,
+              msg.created_at,
+            );
+          }
+        } else {
+          db.run("DELETE FROM chat_logs WHERE team_id = ? AND bot_id = ? AND display_name = ?", session.teamId, botId, session.displayName);
+          db.run("DELETE FROM reasoning_traces WHERE team_id = ? AND bot_id = ? AND display_name = ?", session.teamId, botId, session.displayName);
         }
+        db.run("DELETE FROM r2_memories WHERE team_id = ? AND boss = ? AND display_name = ? AND scope = 'private'", session.teamId, botId, session.displayName);
+        db.run(
+          "UPDATE team_inventory SET status = 'locked' WHERE team_id = ? AND bot_id = ? AND obtained_by = ? AND status = 'obtained'",
+          session.teamId,
+          botId,
+          session.displayName,
+        );
       } else {
-        db.run("DELETE FROM chat_logs WHERE team_id = ? AND bot_id = ?", session.teamId, botId);
-        db.run("DELETE FROM reasoning_traces WHERE team_id = ? AND bot_id = ?", session.teamId, botId);
+        if (cutoffId !== undefined) {
+          const msg = db.get<{ created_at: string }>(
+            "SELECT created_at FROM chat_logs WHERE id = ? AND team_id = ? AND bot_id = ?",
+            cutoffId,
+            session.teamId,
+            botId,
+          );
+          db.run("DELETE FROM chat_logs WHERE team_id = ? AND bot_id = ? AND id >= ?", session.teamId, botId, cutoffId);
+          if (msg !== undefined) {
+            db.run("DELETE FROM reasoning_traces WHERE team_id = ? AND bot_id = ? AND created_at >= ?", session.teamId, botId, msg.created_at);
+          }
+        } else {
+          db.run("DELETE FROM chat_logs WHERE team_id = ? AND bot_id = ?", session.teamId, botId);
+          db.run("DELETE FROM reasoning_traces WHERE team_id = ? AND bot_id = ?", session.teamId, botId);
+        }
+        db.run("UPDATE team_inventory SET status = 'locked' WHERE team_id = ? AND bot_id = ? AND status = 'obtained'", session.teamId, botId);
       }
-      // Revert unverified relic if team was holding it without filing at merchant
-      db.run("UPDATE team_inventory SET status = 'locked' WHERE team_id = ? AND bot_id = ? AND status = 'obtained'", session.teamId, botId);
 
       db.run("UPDATE teams SET elo = ? WHERE id = ?", after, session.teamId);
       db.run(
@@ -123,11 +192,18 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
       );
     });
 
-    const remainingLogs = db.all<{ id: number; role: "user" | "assistant"; text_final: string; created_at: string }>(
-      "SELECT id, role, text_final, created_at FROM chat_logs WHERE team_id = ? AND bot_id = ? ORDER BY id ASC",
-      session.teamId,
-      botId,
-    );
+    const remainingLogs = isR2Bot
+      ? db.all<{ id: number; role: "user" | "assistant"; text_final: string; created_at: string }>(
+        "SELECT id, role, text_final, created_at FROM chat_logs WHERE team_id = ? AND bot_id = ? AND display_name = ? ORDER BY id ASC",
+        session.teamId,
+        botId,
+        session.displayName,
+      )
+      : db.all<{ id: number; role: "user" | "assistant"; text_final: string; created_at: string }>(
+        "SELECT id, role, text_final, created_at FROM chat_logs WHERE team_id = ? AND bot_id = ? ORDER BY id ASC",
+        session.teamId,
+        botId,
+      );
     const remainingMsgs = remainingLogs.map((row) => ({
       id: row.id,
       role: (row.role === "assistant" ? "bot" : "user") as "user" | "bot",
@@ -136,7 +212,9 @@ export function registerAdminRoutes(app: FastifyInstance, db: DatabaseAdapter, r
     }));
 
     if (bus !== undefined) {
-      bus.broadcast(session.teamId, bus.frame("chat_sync", { history: { [botId]: remainingMsgs } }));
+      const chatSync = bus.frame("chat_sync", { history: { [botId]: remainingMsgs } });
+      if (isR2Bot) bus.sendMember(session.teamId, session.displayName, chatSync);
+      else bus.broadcast(session.teamId, chatSync);
       bus.broadcast(session.teamId, bus.frame("elo_update", { teamId: session.teamId, elo: after, delta: -1, reason: `rewind:${botId}` }));
       const items = db.all<InventoryDelta>(
         "SELECT bot_id AS botId, item_key AS itemKey, status, obtained_by AS obtainedBy, claimed_at IS NOT NULL AS claimed FROM team_inventory WHERE team_id = ?",

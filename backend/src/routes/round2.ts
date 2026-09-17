@@ -164,8 +164,8 @@ export function registerRound2Routes(app: FastifyInstance, db: DatabaseAdapter, 
           }
         }
       }
-      db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES (?, ?, ?, ?, ?)", session.teamId, boss, "assistant", fullText, session.displayName);
-      bus.sendMember(session.teamId, session.displayName, bus.frame("bot_done", { botId: boss, fullText, typing: false }));
+      const insertReply = db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES (?, ?, ?, ?, ?)", session.teamId, boss, "assistant", fullText, session.displayName);
+      bus.sendMember(session.teamId, session.displayName, bus.frame("bot_done", { botId: boss, fullText, typing: false, messageId: Number(insertReply.lastInsertRowid) }));
       return { ok: true as const };
     } catch {
       bus.sendMember(session.teamId, session.displayName, bus.frame("bot_error", { botId: boss, message: "inference failed, retry", retryable: true }));

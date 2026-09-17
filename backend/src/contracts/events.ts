@@ -58,6 +58,8 @@ export interface BotDoneData {
   botId: BotId;
   fullText: string;
   typing: false;
+  userMessageId?: number;
+  messageId?: number;
   inventoryDelta?: InventoryDelta;
 }
 

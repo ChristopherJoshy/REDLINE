@@ -55,11 +55,6 @@ function wsUrl(): string {
       }
     }
   }
-  if (!url) {
-    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    url = `${proto}//${window.location.host}/ws`;
-  }
-
   try {
     const token = localStorage.getItem("redline_session_token");
     if (token) {
@@ -113,11 +108,29 @@ export function useBotStream(teamId: string, displayName: string): {
       const { botId, delta } = event.data;
       setBots((prev) => ({ ...prev, [botId]: { ...prev[botId], streaming: prev[botId].streaming + delta } }));
     } else if (event.event === "bot_done") {
-      const { botId, fullText, inventoryDelta } = event.data;
-      setBots((prev) => ({
-        ...prev,
-        [botId]: { messages: [...prev[botId].messages, { role: "bot", text: fullText }], typing: false, streaming: "" },
-      }));
+      const { botId, fullText, userMessageId, messageId, inventoryDelta } = event.data;
+      setBots((prev) => {
+        const current = prev[botId].messages;
+        let messages = current;
+        if (userMessageId !== undefined) {
+          let assigned = false;
+          messages = current.map((message) => {
+            if (!assigned && message.role === "user" && message.id === undefined) {
+              assigned = true;
+              return { ...message, id: userMessageId };
+            }
+            return message;
+          });
+        }
+        return {
+          ...prev,
+          [botId]: {
+            messages: [...messages, { id: messageId, role: "bot", text: fullText }],
+            typing: false,
+            streaming: "",
+          },
+        };
+      });
       // The team-wide bot_done frame is not an ownership signal. Only accept
       // a delta when the server explicitly identifies this player as owner.
       if (inventoryDelta?.obtainedBy === displayName) {

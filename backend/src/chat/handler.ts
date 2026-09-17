@@ -176,11 +176,13 @@ Available sound ids: ${entry.meta.soundIds.join(", ")}. Sound is optional, at mo
       }
     }
 
-    db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES (?, ?, ?, ?, ?)", teamId, botId, "assistant", fullText, displayName);
+    const insertReply = db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES (?, ?, ?, ?, ?)", teamId, botId, "assistant", fullText, displayName);
+    const replyId = Number(insertReply.lastInsertRowid);
     db.run(
-      "INSERT INTO reasoning_traces (team_id, bot_id, phase, trace_json, guard_json) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO reasoning_traces (team_id, bot_id, display_name, phase, trace_json, guard_json) VALUES (?, ?, ?, ?, ?, ?)",
       teamId,
       botId,
+      displayName,
       "r1",
       JSON.stringify({ toolCalls, ms: Date.now() - started }),
       JSON.stringify({ risk: guardFlags.length > 0 ? "flagged" : "clean", flags: guardFlags, reason: "r1-chat", confidence: 1 }),
@@ -194,7 +196,14 @@ Available sound ids: ${entry.meta.soundIds.join(", ")}. Sound is optional, at mo
     }
     bus.broadcast(
       teamId,
-      bus.frame("bot_done", { botId, fullText, typing: false, ...(inventoryDelta === undefined ? {} : { inventoryDelta }) }),
+      bus.frame("bot_done", {
+        botId,
+        fullText,
+        typing: false,
+        userMessageId: promptId,
+        messageId: replyId,
+        ...(inventoryDelta === undefined ? {} : { inventoryDelta }),
+      }),
     );
   } catch (err) {
     const kind = err instanceof Error ? (err as any).kind ?? "inference" : "inference";

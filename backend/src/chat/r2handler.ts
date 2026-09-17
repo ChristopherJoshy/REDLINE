@@ -254,11 +254,13 @@ Call evaluate_challenger exactly once per player turn. This is a bounded interac
 
     db.run("INSERT INTO r2_memories (team_id, boss, display_name, scope, memory) VALUES (?, ?, ?, 'private', ?)", teamId, boss, displayName, `Player said: "${bounded(text)}" Boss replied: "${bounded(fullText)}"`);
     db.run("INSERT INTO r2_memories (team_id, boss, display_name, scope, memory) VALUES (?, ?, '', 'team', ?)", teamId, boss, `Team member ${displayName} attempted: "${bounded(text)}"`);
-    db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES (?, ?, ?, ?, ?)", teamId, boss, "assistant", fullText, displayName);
+    const insertReply = db.run("INSERT INTO chat_logs (team_id, bot_id, role, text_final, display_name) VALUES (?, ?, ?, ?, ?)", teamId, boss, "assistant", fullText, displayName);
+    const replyId = Number(insertReply.lastInsertRowid);
     db.run(
-      "INSERT INTO reasoning_traces (team_id, bot_id, phase, trace_json, guard_json) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO reasoning_traces (team_id, bot_id, display_name, phase, trace_json, guard_json) VALUES (?, ?, ?, ?, ?, ?)",
       teamId,
       boss,
+      displayName,
       phase === "p1" ? "r2-p1" : "r2-p2",
       JSON.stringify({ toolCalls, ms: Date.now() - started, reasoning, player: displayName }),
       JSON.stringify({ risk: guardFlags.length > 0 ? "flagged" : "clean", flags: guardFlags, reason: "r2-chat", confidence: 1 }),
@@ -270,7 +272,7 @@ Call evaluate_challenger exactly once per player turn. This is a bounded interac
       );
       bus.broadcast(teamId, bus.frame("inventory_sync", { items }));
     }
-    bus.sendMember(teamId, displayName, bus.frame("bot_done", { botId: boss, fullText, typing: false, ...(inventoryDelta === undefined ? {} : { inventoryDelta }) }));
+    bus.sendMember(teamId, displayName, bus.frame("bot_done", { botId: boss, fullText, typing: false, userMessageId: Number(promptId), messageId: replyId, ...(inventoryDelta === undefined ? {} : { inventoryDelta }) }));
     // The exact turn phase 2 unlocks: wake clients instantly instead of their poll.
     if (userTurns(db, teamId, boss, displayName) === PROMPTS[boss].releaseAt) {
       bus.tick("gates");

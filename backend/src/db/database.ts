@@ -102,6 +102,8 @@ export function openDatabase(path: string, schemaPath: string): DatabaseAdapter 
   try { driver.exec("ALTER TABLE team_inventory ADD COLUMN claimed_at TEXT;"); } catch { /* already exists */ }
   // Migrate: add display_name to chat_logs if missing
   try { driver.exec("ALTER TABLE chat_logs ADD COLUMN display_name TEXT NOT NULL DEFAULT '';"); } catch { /* already exists */ }
+  // Migrate: add player scope to reasoning traces for private round-2 rewinds
+  try { driver.exec("ALTER TABLE reasoning_traces ADD COLUMN display_name TEXT NOT NULL DEFAULT '';"); } catch { /* already exists */ }
   // Round-2 private/team memory and per-player assessment history.
   driver.exec(`CREATE TABLE IF NOT EXISTS r2_memories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

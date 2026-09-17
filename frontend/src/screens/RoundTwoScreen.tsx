@@ -5,6 +5,7 @@ import ChatComposer from "@/chat/ChatComposer";
 import type { BotId } from "@contracts/events";
 import TypingBubble from "@/chat/TypingBubble";
 import ChatMarkdown from "@/chat/ChatMarkdown";
+import MatrixText from "@/chat/MatrixText";
 import { useBotStream } from "@/chat/useBotStream";
 import { unlockAudio } from "@/chat/sound";
 import { AVATAR_FOCUS, CHARACTERS, CHAT_BACKGROUND } from "@/data/characterLore";
@@ -43,6 +44,7 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
   const [coverMissing, setCoverMissing] = useState(false);
   const [coverOpen, setCoverOpen] = useState(false);
   const [chatting, setChatting] = useState(false);
+  const [selectedBotId, setSelectedBotId] = useState<BotId>(boss);
   const [celebration, setCelebration] = useState(false);
   const [offerBusy, setOfferBusy] = useState(false);
   const [offerError, setOfferError] = useState("");
@@ -60,11 +62,35 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
   const previousPhase = useRef<"p1" | "p2" | null>(null);
   const state = bots[boss];
   const lore = CHARACTERS[boss];
-  const chatBg = CHAT_BACKGROUND[boss];
+  const selectedLore = CHARACTERS[selectedBotId];
+  const visualLore = chatting ? (merchantView ? CHARACTERS.merchant : lore) : selectedLore;
+  const chatBg = CHAT_BACKGROUND[chatting && merchantView ? "merchant" : chatting ? boss : selectedBotId];
   const roster: Array<{ id: BotId; label: string; num: string }> = [
     { id: boss, label: lore?.name ?? boss, num: "01" },
     { id: "merchant", label: "The Merchant", num: "02" },
   ];
+
+  useEffect(() => {
+    setSelectedBotId(boss);
+  }, [boss]);
+
+  function openBossChat(): void {
+    setSelectedBotId(boss);
+    setMerchantView(false);
+    setChatting(true);
+  }
+
+  function openMerchant(): void {
+    setSelectedBotId("merchant");
+    setMerchantView(true);
+    setChatting(true);
+  }
+
+  function returnToSelector(): void {
+    setMerchantView(false);
+    setChatting(false);
+  }
+
   useDocumentTitle(`Round 2 · ${lore?.name ?? boss} — REDLINE Arena`);
   const prevStatus = useRef<string | null>(null);
 
@@ -235,9 +261,6 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
     setDraft("");
   }
 
-  if (reveal !== "open") {
-    return <BossCutscene boss={boss} scene="arrival" motionOff={motionOff} onDone={() => setReveal("open")} />;
-  }
 
   return (
     <div
@@ -246,8 +269,8 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
       className="bot-theme relative flex flex-col flex-1 min-h-0 overflow-hidden"
       style={
         (chatBg === undefined
-          ? { "--accent": lore?.accent ?? "var(--color-redline)", "--accent-ink": lore?.accentInk ?? "var(--color-text-1)" }
-          : { backgroundImage: `url("${chatBg}")`, backgroundSize: "cover", backgroundPosition: "center top", "--accent": lore?.accent ?? "var(--color-redline)", "--accent-ink": lore?.accentInk ?? "var(--color-text-1)" }) as unknown as React.CSSProperties
+          ? { "--accent": visualLore?.accent ?? "var(--color-redline)", "--accent-ink": visualLore?.accentInk ?? "var(--color-text-1)" }
+          : { backgroundImage: `url("${chatBg}")`, backgroundSize: "cover", backgroundPosition: "center top", "--accent": visualLore?.accent ?? "var(--color-redline)", "--accent-ink": visualLore?.accentInk ?? "var(--color-text-1)" }) as unknown as React.CSSProperties
       }
     >
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[rgba(5,7,10,0.42)]" />
@@ -255,7 +278,7 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
       <div className="relative z-10 flex flex-col flex-1 min-h-0">
       {!chatting ? (
         <div className="relative flex-1 flex flex-col justify-between min-h-0 overflow-hidden p-4 sm:p-6 pb-2">
-          <div className="relative z-10 flex flex-1 items-start justify-between gap-6 min-h-0">
+          <div className="relative z-10 flex flex-1 items-start justify-start gap-6 min-h-0">
             <aside
               className="relative max-w-[430px] w-full rounded-[12px] border border-white/10 bg-[rgba(10,14,20,0.55)] backdrop-blur-xl p-5 sm:p-7 flex flex-col gap-6 shadow-[0_16px_40px_rgba(0,0,0,0.4)]"
             >
@@ -264,102 +287,102 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
                   ROUND 02 / VAULT
                 </span>
                 {onBack && (
-                  <button type="button" onClick={onBack} className="text-[12px] font-bold text-white/50 hover:text-white uppercase tracking-widest font-mono">
+                  <button type="button" onClick={onBack} className="min-h-[44px] px-2 text-[12px] font-bold text-white/50 hover:text-white uppercase tracking-widest font-mono">
                     Close
                   </button>
                 )}
               </div>
 
-              {lore && (
-                <div className="flex flex-col gap-3">
-                  <h2 className="font-[family-name:var(--font-display)] text-[34px] font-bold tracking-[0.04em] text-white leading-none uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
-                    {lore.name}
-                  </h2>
-                  <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-col gap-3">
+                <h2 className="font-[family-name:var(--font-display)] text-[34px] font-bold tracking-[0.04em] text-white leading-none uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+                  {selectedLore.name}
+                </h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  {selectedBotId === "merchant" ? (
                     <span className="rounded-[4px] border border-[var(--color-redline-dim)] bg-[var(--color-bg-0)] px-2.5 py-1 font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.1em] text-[var(--color-redline)] uppercase">
-                      ASSIGNED BOSS
+                      MERCHANT DESK
                     </span>
-                    {verified && <span className="rounded-[4px] border border-[rgba(157,184,122,0.4)] bg-[rgba(157,184,122,0.15)] px-2.5 py-1 font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.1em] text-[#b8d097] uppercase">FILED</span>}
-                  </div>
-                  <p className="text-[14px] font-medium text-[var(--color-text-2)] italic">
-                    {lore.tagline}
-                  </p>
+                  ) : (
+                    <>
+                      <span className="rounded-[4px] border border-[var(--color-redline-dim)] bg-[var(--color-bg-0)] px-2.5 py-1 font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.1em] text-[var(--color-redline)] uppercase">
+                        ASSIGNED BOSS
+                      </span>
+                      {verified && <span className="rounded-[4px] border border-[rgba(157,184,122,0.4)] bg-[rgba(157,184,122,0.15)] px-2.5 py-1 font-[family-name:var(--font-code)] text-[10px] font-bold tracking-[0.1em] text-[#b8d097] uppercase">FILED</span>}
+                    </>
+                  )}
                 </div>
-              )}
-
-              {lore && (
-                <div className="text-[13px] leading-[1.65] text-white/85 whitespace-pre-wrap">
-                  {lore.backstory}
-                </div>
-              )}
-
-              {lore && (
-                <div className="pt-2 border-t border-white/10">
-                  <p className="font-[family-name:var(--font-code)] text-[10.5px] font-bold tracking-[0.15em] text-[var(--accent)] mb-4 uppercase">
-                    Extraction Target
-                  </p>
-                  <div className="flex items-start gap-4">
-                    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[8px] border border-[#ff1e2d]/40 bg-black/40 p-2 shadow-[inset_0_0_12px_rgba(255,30,45,0.15)]">
-                      <img src={lore.targetItem.asset} alt={lore.targetItem.name} className="h-full w-full object-contain drop-shadow-[0_0_8px_rgba(255,30,45,0.3)]" />
-                    </span>
-                    <div className="min-w-0 flex-1 flex flex-col gap-1.5">
-                      <span className="font-semibold text-[14px] text-white leading-tight">{lore.targetItem.name}</span>
-                      <p className="text-[12px] leading-relaxed text-white/70">{lore.targetItem.description}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {lore && (
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setChatting(true)}
-                    disabled={verified}
-                    className="flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-[8px] border border-[var(--accent)]/50 bg-[var(--accent)]/15 hover:bg-[var(--accent)]/25 text-white font-bold text-[13.5px] tracking-[0.12em] backdrop-blur-md transition-all cursor-pointer disabled:cursor-default disabled:opacity-50"
-                  >
-                    <span>{verified ? "RELIC FILED" : "ENGAGE BOSS"}</span>
-                  </button>
-                </div>
-              )}
-            </aside>
-
-            <div className="hidden flex-col items-end justify-between self-stretch text-right max-w-[340px] select-none py-1 lg:flex">
-              <div className="flex flex-col items-end gap-5">
-                <p className="font-[family-name:var(--font-code)] text-[11px] font-bold tracking-[0.28em] text-[var(--accent)]">
-                  ROUND <span className="text-white">02</span> /
+                <p className="text-[14px] font-medium text-[var(--color-text-2)] italic">
+                  {selectedLore.tagline}
                 </p>
-                <p className="font-[family-name:var(--font-code)] text-[10px] tracking-[0.18em] text-white/45">ASSIGNED VAULT</p>
               </div>
-              <div className="flex flex-col items-end gap-2 font-[family-name:var(--font-code)] text-[10px] uppercase tracking-[0.14em] text-white/50">
-                <span><strong className="text-white/80">Boss</strong> {lore?.name}</span>
-                <span><strong className="text-white/80">Credits</strong> {credits}</span>
-                <span><strong className="text-white/80">Memory</strong> Private / Team</span>
+
+              <div className="text-[13px] leading-[1.65] text-white/85 whitespace-pre-wrap">
+                {selectedLore.backstory}
               </div>
-            </div>
+
+              <div className="pt-2 border-t border-white/10">
+                <p className="font-[family-name:var(--font-code)] text-[10.5px] font-bold tracking-[0.15em] text-[var(--accent)] mb-4 uppercase">
+                  {selectedBotId === "merchant" ? "Counter Function" : "Extraction Target"}
+                </p>
+                <div className="flex items-start gap-4">
+                  <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[8px] border border-[#ff1e2d]/40 bg-black/40 p-2 shadow-[inset_0_0_12px_rgba(255,30,45,0.15)]">
+                    <img src={selectedLore.targetItem.asset} alt={selectedLore.targetItem.name} className="h-full w-full object-contain drop-shadow-[0_0_8px_rgba(255,30,45,0.3)]" />
+                  </span>
+                  <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+                    <span className="font-semibold text-[14px] text-white leading-tight">{selectedLore.targetItem.name}</span>
+                    <p className="text-[12px] leading-relaxed text-white/70">{selectedLore.targetItem.description}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={selectedBotId === "merchant" ? openMerchant : openBossChat}
+                  disabled={selectedBotId !== "merchant" && verified}
+                  className="flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-[8px] border border-[var(--accent)]/50 bg-[var(--accent)]/15 hover:bg-[var(--accent)]/25 text-white font-bold text-[13.5px] tracking-[0.12em] backdrop-blur-md transition-all cursor-pointer disabled:cursor-default disabled:opacity-50"
+                >
+                  <span>{selectedBotId === "merchant" ? "OPEN MERCHANT COUNTER" : verified ? "RELIC FILED" : "ENGAGE BOSS"}</span>
+                </button>
+              </div>
+            </aside>
           </div>
 
           <div className="relative z-10 w-full pt-4 mt-auto">
-            <div className="flex w-full justify-center gap-3 px-4 pb-2 lg:gap-4 lg:px-8 lg:pb-4">
+            <div
+              className="flex w-full overflow-x-auto gap-2 sm:gap-3 lg:gap-4 px-4 lg:px-8 pb-2 lg:pb-4 items-center xl:justify-center [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              style={{ maskImage: "linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)" }}
+            >
               {roster.map((item) => {
                 const itemLore = CHARACTERS[item.id];
-                const isSelected = item.id === boss;
-                const isMerchant = item.id === "merchant";
+                const isSelected = item.id === selectedBotId;
                 return (
-                  <div key={item.id} className="relative w-[min(42vw,190px)] shrink-0 pt-5">
+                  <div key={item.id} className="relative flex-1 shrink-0 min-w-[80px] sm:min-w-[95px] lg:min-w-[110px] max-w-[130px] xl:max-w-[145px] pt-5">
                     <button
                       type="button"
-                      onClick={() => { if (isMerchant) { setMerchantView(true); setChatting(true); } }}
-                      onDoubleClick={() => { if (!isMerchant) setChatting(true); }}
+                      onClick={() => setSelectedBotId(item.id)}
+                      onDoubleClick={() => item.id === "merchant" ? openMerchant() : openBossChat()}
                       aria-current={isSelected ? "true" : undefined}
-                      className={`mark-card group relative block h-[130px] w-full -skew-x-[12deg] overflow-hidden cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-white ${isSelected ? "z-10 scale-[1.08] -translate-y-2 border-2 border-[#ff1e2d] shadow-[0_0_15px_rgba(255,30,45,0.6)]" : "border border-white/15 bg-black/60 hover:border-white/40 hover:scale-[1.03] hover:-translate-y-1"}`}
+                      className={`mark-card group relative block h-[130px] w-full -skew-x-[12deg] overflow-hidden cursor-pointer select-none transition-all duration-300 transform outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                        isSelected
+                          ? "z-10 scale-[1.08] -translate-y-2 border-2 border-[#ff1e2d] shadow-[0_0_15px_rgba(255,30,45,0.6)]"
+                          : "border border-white/15 hover:border-white/40 hover:scale-[1.03] hover:-translate-y-1 bg-black/60"
+                      }`}
                     >
                       <div className="absolute top-0 bottom-0 skew-x-[12deg] flex flex-col justify-end" style={{ left: "-20px", right: "-20px", width: "calc(100% + 40px)" }}>
-                        <img src={itemLore?.heroImage ?? itemLore?.avatar} alt={item.label} className={`absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.08] ${isSelected ? "brightness-110" : "brightness-75 group-hover:brightness-100"} ${itemLore ? AVATAR_FOCUS[itemLore.id] : "object-center"}`} />
-                        <div className="absolute inset-x-0 bottom-0 z-10 h-[80%] bg-gradient-to-t from-[rgba(5,7,10,0.95)] via-[rgba(5,7,10,0.7)] to-transparent" />
-                        <div className="relative z-20 flex h-full flex-col items-center justify-end gap-1 px-1 pb-2 sm:pb-3">
-                          <span className={`absolute top-2 left-3 font-[family-name:var(--font-code)] text-[9px] font-bold tracking-[0.1em] ${isSelected ? "text-[#ff1e2d]" : "text-white/40"}`}>{item.num}</span>
-                          <span className={`w-full truncate text-center font-[family-name:var(--font-display)] text-[10px] font-bold tracking-[0.05em] sm:text-[11px] ${isSelected ? "text-white" : "text-[var(--color-text-2)]"}`}>{item.label.toUpperCase()}</span>
+                        <img
+                          src={itemLore?.heroImage ?? itemLore?.avatar ?? "/characters/wick.jpg"}
+                          alt={item.label}
+                          className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.08] ${isSelected ? "brightness-110" : "brightness-75 group-hover:brightness-100"} ${itemLore ? AVATAR_FOCUS[itemLore.id] : "object-center"}`}
+                        />
+                        <div className="absolute inset-x-0 bottom-0 h-[80%] bg-gradient-to-t from-[rgba(5,7,10,0.95)] via-[rgba(5,7,10,0.7)] to-transparent z-10" />
+                        <div className="relative z-20 flex flex-col items-center justify-end pb-2 sm:pb-3 px-1 h-full gap-1 sm:gap-1.5">
+                          <span className={`absolute top-2 left-3 sm:left-4 font-[family-name:var(--font-code)] text-[9px] font-bold tracking-[0.1em] ${isSelected ? "text-[#ff1e2d]" : "text-white/40"}`}>
+                            {item.num}
+                          </span>
+                          <span className={`font-[family-name:var(--font-display)] text-[10px] sm:text-[11px] font-bold tracking-[0.05em] truncate w-full text-center ${isSelected ? "text-white" : "text-[var(--color-text-2)]"}`}>
+                            {item.label.toUpperCase()}
+                          </span>
                         </div>
                       </div>
                     </button>
@@ -373,14 +396,16 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
         <>
       <header className="relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-3 border-y border-white/10 border-t-redline bg-bg-0/95 px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
-          {(merchantView || onBack) && <button type="button" onClick={() => merchantView ? setMerchantView(false) : setChatting(false)} className="flex min-h-[44px] items-center gap-2 border border-white/15 px-3 font-mono text-xs font-bold uppercase tracking-wider text-text-2 hover:border-redline focus-visible:outline-2 focus-visible:outline-redline"><ArrowLeft className="h-4 w-4 text-redline" />{merchantView ? "Chat" : "Details"}</button>}
+          <button type="button" onClick={returnToSelector} className="flex min-h-[44px] items-center gap-2 border border-white/15 px-3 font-mono text-xs font-bold uppercase tracking-wider text-text-2 hover:border-redline focus-visible:outline-2 focus-visible:outline-redline">
+            <ArrowLeft className="h-4 w-4 text-redline" />
+            Selector
+          </button>
           <img src={merchantView ? CHARACTERS.merchant?.avatar : lore?.avatar} alt="" className={`h-11 w-11 shrink-0 border border-redline/40 object-cover ${AVATAR_FOCUS[boss]}`} />
           <h2 className="truncate font-mono text-base font-bold uppercase tracking-[0.16em] text-white sm:text-lg">{merchantView ? "Vault merchant" : lore?.name}</h2>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setMerchantView((value) => !value)} aria-pressed={merchantView} className="flex min-h-[44px] items-center gap-2 border border-white/15 bg-bg-0 px-3 font-mono text-xs font-bold uppercase tracking-wider text-text-2 hover:border-redline focus-visible:outline-2 focus-visible:outline-redline"><ShoppingBag className="h-4 w-4 text-redline" />{merchantView ? "Conversation" : `Merchant${hasItem ? " (1)" : ""}`}</button>
-          <RewindButton botId={boss} onRewind={rewind} />
-          <button type="button" onClick={() => setCoverOpen(true)} className="flex min-h-[44px] items-center gap-2 border border-white/15 px-3 font-mono text-xs font-bold uppercase tracking-wider text-text-2 hover:border-redline focus-visible:outline-2 focus-visible:outline-redline"><VenetianMask className="h-4 w-4 text-redline" />Cover</button>
+          {!merchantView && <RewindButton botId={boss} onRewind={rewind} />}
+          {!merchantView && <button type="button" onClick={() => setCoverOpen(true)} className="flex min-h-[44px] items-center gap-2 border border-white/15 px-3 font-mono text-xs font-bold uppercase tracking-wider text-text-2 hover:border-redline focus-visible:outline-2 focus-visible:outline-redline"><VenetianMask className="h-4 w-4 text-redline" />Cover</button>}
         </div>
       </header>
 
@@ -461,7 +486,7 @@ export default function RoundTwoScreen({ teamId, displayName, boss, locked, onRo
         {state.typing && state.streaming === "" && <div className="self-start flex gap-3"><img src={lore?.avatar} alt="" className={`h-9 w-9 shrink-0 border border-white/15 object-cover ${AVATAR_FOCUS[boss]}`} /><TypingBubble accentColor={lore?.accent} motionOff={motionOff} /></div>}
         {state.streaming !== "" && (
           <ChatMessageFrame botId={boss} className="r2-reply-signal">
-            <ChatMarkdown text={state.streaming} isStreaming />
+            <MatrixText text={state.streaming} isStreaming accentColor={lore?.accent} />
           </ChatMessageFrame>
         )}
 

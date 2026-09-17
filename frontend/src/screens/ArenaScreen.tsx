@@ -962,10 +962,7 @@ export default function ArenaScreen({ teamId, displayName, locked }: { teamId: s
                         </span>
                         <div className="px-4 py-3 border border-white/12 bg-[#080b0f]/85 backdrop-blur-md text-white text-[14.5px] leading-relaxed shadow-[0_8px_32px_rgba(0,0,0,0.7)]">
                           <div className="whitespace-pre-wrap">
-                            <ChatMarkdown
-                              text={activeBot?.streaming}
-                              isStreaming={true}
-                            />
+                            <MatrixText text={activeBot?.streaming ?? ""} isStreaming accentColor={botAccent} />
                           </div>
                         </div>
                       </div>
